@@ -1,0 +1,112 @@
+[
+  {
+    "id": "1",
+    "name": "T-shirt Basique Blanc",
+    "price": 19.99,
+    "category": "clothing"
+  },
+  {
+    "id": "2", 
+    "name": "Jean Slim Bleu",
+    "price": 59.99,
+    "category": "clothing"
+  },
+  {
+    "id": "3",
+    "name": "Robe d'Été Fleurie",
+    "price": 45.99,
+    "category": "clothing"
+  },
+  {
+    "id": "4",
+    "name": "Chemise Blanche",
+    "price": 39.99,
+    "category": "clothing"
+  },
+  {
+    "id": "5",
+    "name": "Pull Col Rond",
+    "price": 34.99,
+    "category": "clothing"
+  },
+  {
+    "id": "6",
+    "name": "Sac à Main Cuir",
+    "price": 89.99,
+    "category": "accessories"
+  },
+  {
+    "id": "7",
+    "name": "Écharpe Laine",
+    "price": 24.99,
+    "category": "accessories"
+  },
+  {
+    "id": "8",
+    "name": "Ceinture Cuir",
+    "price": 29.99,
+    "category": "accessories"
+  },
+  {
+    "id": "9",
+    "name": "Collier Fantaisie",
+    "price": 14.99,
+    "category": "accessories"
+  },
+  {
+    "id": "10",
+    "name": "Baskets Sport",
+    "price": 79.99,
+    "category": "shoes"
+  },
+  {
+    "id": "11",
+    "name": "Escarpins Noirs",
+    "price": 69.99,
+    "category": "shoes"
+  },
+  {
+    "id": "12",
+    "name": "Bottes Cuir",
+    "price": 99.99,
+    "category": "shoes"
+  },
+  {
+    "id": "13",
+    "name": "Sandales Été",
+    "price": 34.99,
+    "category": "shoes"
+  },
+  {
+    "id": "14",
+    "name": "Rouge à Lèvres",
+    "price": 24.99,
+    "category": "beauty"
+  },
+  {
+    "id": "15",
+    "name": "Fond de Teint",
+    "price": 32.99,
+    "category": "beauty"
+  },
+  {
+    "id": "16",
+    "name": "Parfum Femme 50ml",
+    "price": 54.99,
+    "category": "beauty"
+  },
+  {
+    "id": "17",
+    "name": "Crème Hydratante",
+    "price": 18.99,
+    "category": "beauty"
+  },
+  {
+    "id": "18",
+    "name": "Vernis à Ongles",
+    "price": 9.99,
+    "category": "beauty"
+  }
+]
+    }
+]
