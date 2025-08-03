@@ -809,7 +809,7 @@ function CaisseMyConfortApp() {
                     textShadow: '0 0 20px rgba(255,255,255,0.5)',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                   }}>
-                  {selectedVendor?.name?.toUpperCase() || 'VENDEUSE'}
+                  {(selectedVendor?.name && typeof selectedVendor.name === 'string') ? selectedVendor.name.toUpperCase() : 'VENDEUSE'}
                 </h2>
               </div>
             </>
