@@ -307,6 +307,11 @@ function CaisseMyConfortApp() {
   // Gestion du panier optimisée avec useCallback
   const addToCart = useCallback((product: CatalogProduct) => {
     if (product.priceTTC === 0) return; // Produits non vendus seuls
+    if (!selectedVendor) {
+      // Alerte si aucune vendeuse n'est sélectionnée
+      alert('Veuillez d\'abord sélectionner une vendeuse pour ajouter des produits au panier.');
+      return;
+    }
     
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.name === product.name);
@@ -326,7 +331,7 @@ function CaisseMyConfortApp() {
         addedAt: new Date()
       }];
     });
-  }, [setCart]);
+  }, [setCart, selectedVendor]);
 
   const updateQuantity = useCallback((itemId: string, delta: number) => {
     setCart(prevCart => {
@@ -859,22 +864,18 @@ function CaisseMyConfortApp() {
       <nav className="border-b" style={{ backgroundColor: '#ffffff' }}>
         <div className="flex overflow-x-auto">
           {tabs.map(tab => {
-            const isDisabled = !selectedVendor && tab.id !== 'vendeuse';
             return (
               <button
                 key={tab.id}
-                onClick={() => !isDisabled && setActiveTab(tab.id)}
-                disabled={isDisabled}
+                onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap relative touch-feedback ${
                   activeTab === tab.id 
                     ? 'text-white' 
-                    : isDisabled 
-                      ? 'opacity-40 cursor-not-allowed' 
-                      : 'hover:bg-gray-50'
+                    : 'hover:bg-gray-50'
                 }`}
                 style={{
                   backgroundColor: activeTab === tab.id ? '#477A0C' : 'transparent',
-                  color: activeTab === tab.id ? 'white' : isDisabled ? '#9CA3AF' : '#14281D',
+                  color: activeTab === tab.id ? 'white' : '#14281D',
                   minWidth: '120px'
                 }}
               >                <tab.icon size={20} />
@@ -931,26 +932,7 @@ function CaisseMyConfortApp() {
             ? `main-content-with-cart ${isCartMinimized ? 'cart-minimized' : ''}`
             : ''
         }`}>
-          {/* Message d'avertissement si aucune vendeuse sélectionnée */}
-          {!selectedVendor && activeTab !== 'vendeuse' && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="card max-w-md mx-auto text-center animate-fadeIn">
-                <AlertCircle size={48} className="mx-auto mb-4" style={{ color: '#F55D3E' }} />
-                <h2 className="text-2xl font-bold mb-4" style={{ color: '#14281D' }}>
-                  Vendeuse requise
-                </h2>
-                <p className="mb-6" style={{ color: '#6B7280' }}>
-                  Vous devez sélectionner une vendeuse avant d'utiliser la caisse.
-                </p>
-                <button
-                  onClick={() => setActiveTab('vendeuse')}
-                  className="btn-primary w-full"
-                >
-                  Sélectionner une vendeuse
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Contenu principal de l'application */}
 
           {/* Vendeuse Tab */}
           {activeTab === 'vendeuse' && (
@@ -1020,7 +1002,8 @@ function CaisseMyConfortApp() {
                   Vendeuse non sélectionnée
                 </h2>
                 <p className="mb-6" style={{ color: '#6B7280' }}>
-                  Veuillez d'abord sélectionner une vendeuse pour accéder au catalogue produits.
+                  Vous pouvez naviguer librement dans tous les onglets, mais pour ajouter des produits au panier, 
+                  veuillez d'abord sélectionner une vendeuse.
                 </p>
                 <button
                   onClick={() => setActiveTab('vendeuse')}
