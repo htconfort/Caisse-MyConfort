@@ -771,7 +771,7 @@ function CaisseMyConfortApp() {
                 <h2 className="text-6xl font-black text-white tracking-wider animate-pulse" 
                   style={{ 
                     textShadow: '0 0 20px rgba(255,255,255,0.5)',
-                    fontFamily: 'Impact, Arial Black, sans-serif'
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                   }}>
                   BABETTE
                 </h2>
