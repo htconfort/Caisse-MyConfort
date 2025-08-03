@@ -271,10 +271,20 @@ function CaisseMyConfortApp() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCartMinimized, setIsCartMinimized] = useState(false);
+  const [currentDateTime, setCurrentDateTime] = useState(new Date());
   
   // Hooks personnalisés
   const isOnline = useNetworkStatus();
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Mise à jour de l'heure toutes les secondes
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentDateTime(new Date());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, []);
 
   // Calculs dérivés optimisés avec useMemo
   const cartTotal = useMemo(() => 
@@ -766,6 +776,27 @@ function CaisseMyConfortApp() {
                 </h1>
               </div>
               
+              {/* Date et heure à droite */}
+              <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
+                <div className="text-white header-white-text text-right">
+                  <div className="text-lg font-bold">
+                    {currentDateTime.toLocaleDateString('fr-FR', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </div>
+                  <div className="text-xl font-mono">
+                    {currentDateTime.toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    })}
+                  </div>
+                </div>
+              </div>
+              
               {/* Nom de Babette centré */}
               <div className="flex justify-center items-center w-full">
                 <h2 className="text-6xl font-black text-white tracking-wider animate-pulse" 
@@ -798,6 +829,25 @@ function CaisseMyConfortApp() {
                     <span className="ml-2 font-semibold">{selectedVendor.name}</span>
                   </div>
                 )}
+                
+                {/* Date et heure */}
+                <div className="text-white header-white-text text-right">
+                  <div className="text-sm font-semibold">
+                    {currentDateTime.toLocaleDateString('fr-FR', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric'
+                    })}
+                  </div>
+                  <div className="text-lg font-mono">
+                    {currentDateTime.toLocaleTimeString('fr-FR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    })}
+                  </div>
+                </div>
               </div>
             </div>
           )}
