@@ -975,7 +975,11 @@ function CaisseMyConfortApp() {
                 {vendorStats.map(vendor => (
                   <div
                     key={vendor.id}
-                    onClick={() => setSelectedVendor(vendor)}
+                    onClick={() => {
+                      setSelectedVendor(vendor);
+                      // Redirection automatique vers l'onglet Produits après sélection vendeuse
+                      setActiveTab('produits');
+                    }}
                     className={`card cursor-pointer touch-feedback ${
                       selectedVendor?.id === vendor.id ? 'ring-4 ring-white' : ''
                     }`}
