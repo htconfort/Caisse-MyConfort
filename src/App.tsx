@@ -1,66 +1,1298 @@
-import React, { useState } from "react";
-import CashierTabs from "./components/common/TabNavigation";
-import VendorSelector from "./components/vendor/VendorSelector";
-import ProductMenu from "./components/products/ProductGrid";
-import Cart from "./components/cart/CartSummary";
-import PaymentModal from "./components/payment/PaymentModal";
-import MiscLine from "./components/common/MiscLine";
-import SalesHistory from "./components/sales/SalesHistory";
-import ResetModal from "./components/common/ResetModal";
-import ExportButtons from "./components/sales/SalesExport";
-import CAInstantane from "./components/sales/SalesReport";
-import { useCart } from "./hooks/useCart";
-import { CatalogProduct } from "./data/productCatalog";
-import './App.css';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { ShoppingCart, User, Package, CreditCard, BarChart, FileText, RotateCcw, Plus, Minus, X, Save, Download, RefreshCw, AlertCircle, Check, Wifi, WifiOff } from 'lucide-react';
 
-const App: React.FC = () => {
-  const [tab, setTab] = useState<"vendeuse"|"produits"|"reglements"|"diverses"|"annulation"|"ca"|"raz">("vendeuse");
-  const { addToCart } = useCart();
+// Types complets selon le blueprint
+interface CatalogProduct {
+  name: string;
+  category: ProductCategory;
+  priceTTC: number; // 0 = non vendu seul
+  description?: string;
+}
 
-  const handleAddProduct = (product: CatalogProduct) => {
-    // Convertir le produit du catalogue vers le format attendu par le panier
-    const cartProduct = {
-      id: product.name.replace(/\s+/g, '-').toLowerCase(), // ID unique basé sur le nom
-      name: product.name,
-      price: product.priceTTC,
-      category: product.category.toLowerCase()
-    };
-    addToCart(cartProduct);
-  };
-  
-  return (
-    <div className="bg-gradient-to-br from-[#F2EFE2] to-white min-h-screen w-full max-w-6xl mx-auto p-4">
-      <h1 className="text-3xl font-bold mb-6 text-center text-[#14281D] drop-shadow-sm">
-        🛒 Caisse MyConfort - iPad
-      </h1>
-      
-      <CashierTabs currentTab={tab} onChange={setTab} />
-      
-      <div className="mt-6">
-        {tab === "vendeuse" && <VendorSelector />}
-        {tab === "produits" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <ProductMenu onAdd={handleAddProduct} />
-            </div>
-            <div>
-              <Cart onNavigateToPayment={() => setTab("reglements")} />
-            </div>
-          </div>
-        )}
-        {tab === "reglements" && <PaymentModal />}
-        {tab === "diverses" && <MiscLine />}
-        {tab === "annulation" && <Cart annulation />}
-        {tab === "ca" && <CAInstantane />}
-        {tab === "raz" && <ResetModal />}
-      </div>
-      
-      <div className="mt-6 flex flex-col sm:flex-row justify-between gap-4">
-        <ExportButtons />
-        <SalesHistory />
-      </div>
-    </div>
-  );
+type ProductCategory = 'Matelas' | 'Sur-matelas' | 'Couettes' | 'Oreillers' | 'Plateau' | 'Accessoires';
+
+interface ExtendedCartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  category: string;
+  addedAt: Date;
+}
+
+interface Vendor {
+  id: string;
+  name: string;
+  dailySales: number;
+  totalSales: number;
+  color: string;
+}
+
+interface Sale {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  items: ExtendedCartItem[];
+  totalAmount: number;
+  paymentMethod: PaymentMethod;
+  date: Date;
+  canceled: boolean;
+}
+
+type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
+type TabType = 'vendeuse' | 'produits' | 'reglements' | 'diverses' | 'annulation' | 'ca' | 'raz';
+
+// Clés localStorage standardisées
+const STORAGE_KEYS = {
+  CART: 'myconfort-cart',
+  SALES: 'myconfort-sales',
+  VENDOR: 'myconfort-current-vendor',
+  VENDORS_STATS: 'myconfort-vendors'
 };
 
-export default App;
+// Données complètes du catalogue
+const productCatalog: CatalogProduct[] = [
+  // Matelas
+  { name: 'MATELAS BAMBOU 70 x 190', category: 'Matelas', priceTTC: 900 },
+  { name: 'MATELAS BAMBOU 80 x 200', category: 'Matelas', priceTTC: 1050 },
+  { name: 'MATELAS BAMBOU 90 x 190', category: 'Matelas', priceTTC: 1110 },
+  { name: 'MATELAS BAMBOU 90 x 200', category: 'Matelas', priceTTC: 1150 },
+  { name: 'MATELAS BAMBOU 120 x 190', category: 'Matelas', priceTTC: 1600 },
+  { name: 'MATELAS BAMBOU 140 x 190', category: 'Matelas', priceTTC: 1800 },
+  { name: 'MATELAS BAMBOU 140 x 200', category: 'Matelas', priceTTC: 1880 },
+  { name: 'MATELAS BAMBOU 160 x 200', category: 'Matelas', priceTTC: 2100 },
+  { name: 'MATELAS BAMBOU 180 x 200', category: 'Matelas', priceTTC: 2200 },
+  { name: 'MATELAS BAMBOU 200 x 200', category: 'Matelas', priceTTC: 2300 },
+
+  // Sur-matelas
+  { name: 'SURMATELAS BAMBOU 70 x 190', category: 'Sur-matelas', priceTTC: 220 },
+  { name: 'SURMATELAS BAMBOU 80 x 200', category: 'Sur-matelas', priceTTC: 280 },
+  { name: 'SURMATELAS BAMBOU 90 x 190', category: 'Sur-matelas', priceTTC: 310 },
+  { name: 'SURMATELAS BAMBOU 90 x 200', category: 'Sur-matelas', priceTTC: 320 },
+  { name: 'SURMATELAS BAMBOU 120 x 190', category: 'Sur-matelas', priceTTC: 420 },
+  { name: 'SURMATELAS BAMBOU 140 x 190', category: 'Sur-matelas', priceTTC: 440 },
+  { name: 'SURMATELAS BAMBOU 160 x 200', category: 'Sur-matelas', priceTTC: 490 },
+  { name: 'SURMATELAS BAMBOU 180 x 200', category: 'Sur-matelas', priceTTC: 590 },
+  { name: 'SURMATELAS BAMBOU 200 x 200', category: 'Sur-matelas', priceTTC: 630 },
+  
+  // Couettes
+  { name: 'Couette 220x240', category: 'Couettes', priceTTC: 300 },
+  { name: 'Couette 240 x 260', category: 'Couettes', priceTTC: 350 },
+  
+  // Oreillers
+  { name: 'Oreiller Douceur', category: 'Oreillers', priceTTC: 80 },
+  { name: 'Oreiller Thalasso', category: 'Oreillers', priceTTC: 60 },
+  { name: 'Oreiller Dual', category: 'Oreillers', priceTTC: 60 },
+  { name: 'Oreiller Panama', category: 'Oreillers', priceTTC: 70 },
+  { name: 'Oreiller Papillon', category: 'Oreillers', priceTTC: 80 },
+  { name: 'Oreiller Flocon', category: 'Oreillers', priceTTC: 50 },
+  { name: 'Pack de 2 oreillers (thal et dual)', category: 'Oreillers', priceTTC: 100 },
+  { name: 'Pack oreiller 2 douceur', category: 'Oreillers', priceTTC: 150 },
+  { name: 'Pack deux oreillers papillon', category: 'Oreillers', priceTTC: 150 },
+  { name: 'Pack de deux oreillers Panama', category: 'Oreillers', priceTTC: 130 },
+  { name: 'Pack deux oreillers flocons', category: 'Oreillers', priceTTC: 90 },
+  { name: 'Traversin 140', category: 'Oreillers', priceTTC: 140 },
+  { name: 'Traversin 160', category: 'Oreillers', priceTTC: 160 },
+  { name: 'Pack divers', category: 'Oreillers', priceTTC: 0 }, // Non vendu seul
+  
+  // Plateau
+  { name: 'PLATEAU PRESTIGE 70 x 190', category: 'Plateau', priceTTC: 70 },
+  { name: 'PLATEAU PRESTIGE 80 x 200', category: 'Plateau', priceTTC: 80 },
+  { name: 'PLATEAU PRESTIGE 90 x 190', category: 'Plateau', priceTTC: 100 },
+  { name: 'PLATEAU PRESTIGE 90 x 200', category: 'Plateau', priceTTC: 110 },
+  { name: 'PLATEAU PRESTIGE 120 x 190', category: 'Plateau', priceTTC: 160 },
+  { name: 'PLATEAU PRESTIGE 140 x 190', category: 'Plateau', priceTTC: 180 },
+  { name: 'PLATEAU PRESTIGE 140 x 200', category: 'Plateau', priceTTC: 190 },
+  { name: 'PLATEAU PRESTIGE 160 x 200', category: 'Plateau', priceTTC: 210 },
+  { name: 'PLATEAU PRESTIGE 180 x 200', category: 'Plateau', priceTTC: 220 },
+  { name: 'PLATEAU PRESTIGE 200 x 200', category: 'Plateau', priceTTC: 230 },
+  
+  // Accessoires
+  { name: 'Le régule jambes', category: 'Accessoires', priceTTC: 70 },
+  { name: 'Protège-matelas', category: 'Accessoires', priceTTC: 0 }, // Non vendu seul
+  { name: 'Housse de couette', category: 'Accessoires', priceTTC: 0 }, // Non vendu seul
+  { name: 'Taie d\'oreiller', category: 'Accessoires', priceTTC: 0 }, // Non vendu seul
+];
+
+// Vendeuses disponibles
+const vendors: Vendor[] = [
+  { id: '1', name: 'Marie Dupont', dailySales: 0, totalSales: 0, color: '#477A0C' },
+  { id: '2', name: 'Sophie Martin', dailySales: 0, totalSales: 0, color: '#C4D144' },
+  { id: '3', name: 'Claire Bernard', dailySales: 0, totalSales: 0, color: '#89BBFE' },
+  { id: '4', name: 'Julie Moreau', dailySales: 0, totalSales: 0, color: '#D68FD6' },
+];
+
+// Hook localStorage optimisé avec gestion d'erreurs et compression
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((prevState: T) => T)) => void] {
+  const [storedValue, setStoredValue] = useState<T>(() => {
+    try {
+      const item = window.localStorage.getItem(key);
+      if (item) {
+        const parsed = JSON.parse(item);
+        // Support versioning
+        return parsed.data || parsed;
+      }
+      return initialValue;
+    } catch (error) {
+      console.error(`Error loading ${key} from localStorage:`, error);
+      return initialValue;
+    }
+  });
+
+  const setValue = useCallback((value: T | ((prevState: T) => T)) => {
+    try {
+      const valueToStore = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(valueToStore);
+      const compressed = JSON.stringify({
+        version: '1.0',
+        timestamp: Date.now(),
+        data: valueToStore
+      });
+      window.localStorage.setItem(key, compressed);
+    } catch (error) {
+      console.error(`Error saving ${key} to localStorage:`, error);
+      // Gestion quota dépassé - simplifiée pour éviter les erreurs ESLint
+      try {
+        localStorage.clear();
+        window.localStorage.setItem(key, JSON.stringify({ data: value instanceof Function ? value(storedValue) : value }));
+      } catch (clearError) {
+        console.error('Failed to clear localStorage:', clearError);
+      }
+    }
+  }, [key, storedValue]);
+
+  return [storedValue, setValue];
+}
+
+// Hook pour détecter l'état du réseau
+const useNetworkStatus = () => {
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  useEffect(() => {
+    const setOnline = () => setIsOnline(true);
+    const setOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', setOnline);
+    window.addEventListener('offline', setOffline);
+    
+    return () => {
+      window.removeEventListener('online', setOnline);
+      window.removeEventListener('offline', setOffline);
+    };
+  }, []);
+  
+  return isOnline;
+};
+
+// Hook debounce pour optimisation
+const useDebounce = (value: string, delay: number) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  
+  return debouncedValue;
+};
+
+// Error Boundary Component
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('App Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-screen flex items-center justify-center" style={{ backgroundColor: '#F2EFE2' }}>
+          <div className="text-center p-8 card">
+            <AlertCircle size={48} className="mx-auto mb-4" style={{ color: '#F55D3E' }} />
+            <h2 className="text-2xl font-bold mb-4" style={{ color: '#14281D' }}>
+              Erreur de l'application
+            </h2>
+            <p className="mb-4" style={{ color: '#6B7280' }}>
+              Une erreur inattendue s'est produite.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-primary"
+              style={{
+                background: 'linear-gradient(135deg, #C4D144, #B0C639)',
+                color: '#14281D',
+                padding: '12px 24px',
+                borderRadius: '8px',
+                fontWeight: 600
+              }}
+            >
+              Redémarrer l'application
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Composant principal
+function CaisseMyConfortApp() {
+  // États principaux avec persistence
+  const [activeTab, setActiveTab] = useState<TabType>('vendeuse');
+  const [selectedVendor, setSelectedVendor] = useLocalStorage<Vendor | null>(STORAGE_KEYS.VENDOR, null);
+  const [cart, setCart] = useLocalStorage<ExtendedCartItem[]>(STORAGE_KEYS.CART, []);
+  const [sales, setSales] = useLocalStorage<Sale[]>(STORAGE_KEYS.SALES, []);
+  const [vendorStats, setVendorStats] = useLocalStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
+  
+  // États UI
+  const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Tous'>('Tous');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('card');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetStep, setResetStep] = useState(1);
+  const [miscDescription, setMiscDescription] = useState('');
+  const [miscAmount, setMiscAmount] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Hooks personnalisés
+  const isOnline = useNetworkStatus();
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Calculs dérivés optimisés avec useMemo
+  const cartTotal = useMemo(() => 
+    cart.reduce((sum, item) => sum + (item.price * item.quantity), 0), 
+    [cart]
+  );
+  
+  const cartItemsCount = useMemo(() => 
+    cart.reduce((sum, item) => sum + item.quantity, 0), 
+    [cart]
+  );
+
+  const todaySales = useMemo(() => {
+    const today = new Date().toDateString();
+    return sales
+      .filter(sale => new Date(sale.date).toDateString() === today && !sale.canceled)
+      .reduce((sum, sale) => sum + sale.totalAmount, 0);
+  }, [sales]);
+
+  // Gestion du panier optimisée avec useCallback
+  const addToCart = useCallback((product: CatalogProduct) => {
+    if (product.priceTTC === 0) return; // Produits non vendus seuls
+    
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.name === product.name);
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.name === product.name 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prevCart, {
+        id: `${product.name}-${Date.now()}`,
+        name: product.name,
+        price: product.priceTTC,
+        quantity: 1,
+        category: product.category,
+        addedAt: new Date()
+      }];
+    });
+  }, [setCart]);
+
+  const updateQuantity = useCallback((itemId: string, delta: number) => {
+    setCart(prevCart => {
+      const newCart: ExtendedCartItem[] = [];
+      prevCart.forEach(item => {
+        if (item.id === itemId) {
+          const newQuantity = Math.max(0, item.quantity + delta);
+          if (newQuantity > 0) {
+            newCart.push({ ...item, quantity: newQuantity });
+          }
+        } else {
+          newCart.push(item);
+        }
+      });
+      return newCart;
+    });
+  }, [setCart]);
+
+  const removeFromCart = useCallback((itemId: string) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== itemId));
+  }, [setCart]);
+
+  const clearCart = useCallback(() => {
+    setCart([]);
+  }, [setCart]);
+
+  // Gestion des ventes avec validation
+  const completeSale = useCallback(() => {
+    if (!selectedVendor || cart.length === 0) return;
+
+    const newSale: Sale = {
+      id: `sale-${Date.now()}`,
+      vendorId: selectedVendor.id,
+      vendorName: selectedVendor.name,
+      items: [...cart],
+      totalAmount: cartTotal,
+      paymentMethod: selectedPaymentMethod,
+      date: new Date(),
+      canceled: false
+    };
+
+    setSales(prev => [...prev, newSale]);
+    
+    // Mise à jour des stats vendeur
+    setVendorStats(prev => prev.map(vendor => 
+      vendor.id === selectedVendor.id
+        ? { ...vendor, dailySales: vendor.dailySales + cartTotal, totalSales: vendor.totalSales + 1 }
+        : vendor
+    ));
+
+    clearCart();
+    setShowPaymentModal(false);
+    setShowSuccess(true);
+  }, [selectedVendor, cart, cartTotal, selectedPaymentMethod, setSales, setVendorStats, clearCart]);
+
+  // Timer pour notification de succès
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => setShowSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
+
+  // Ajout ligne diverse avec validation
+  const addMiscLine = useCallback(() => {
+    if (!miscDescription || !miscAmount) return;
+    
+    const amount = parseFloat(miscAmount);
+    if (isNaN(amount)) return;
+
+    const miscItem: ExtendedCartItem = {
+      id: `misc-${Date.now()}`,
+      name: miscDescription,
+      price: amount,
+      quantity: 1,
+      category: 'Divers',
+      addedAt: new Date()
+    };
+
+    setCart(prev => [...prev, miscItem]);
+    setMiscDescription('');
+    setMiscAmount('');
+  }, [miscDescription, miscAmount, setCart]);
+
+  // Export des données optimisé
+  const exportData = useCallback((format: 'csv' | 'json') => {
+    const dataStr = format === 'json' 
+      ? JSON.stringify({ sales, vendors: vendorStats }, null, 2)
+      : convertToCSV(sales);
+    
+    const dataUri = 'data:text/' + (format === 'json' ? 'json' : 'csv') + ';charset=utf-8,' + encodeURIComponent(dataStr);
+    const exportFileDefaultName = `myconfort-export-${new Date().toISOString().split('T')[0]}.${format}`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  }, [sales, vendorStats]);
+
+  const convertToCSV = (salesData: Sale[]) => {
+    const headers = ['Date', 'Vendeur', 'Montant', 'Mode de paiement', 'Nombre d\'articles'];
+    const rows = salesData.map(sale => [
+      new Date(sale.date).toLocaleString('fr-FR'),
+      sale.vendorName,
+      sale.totalAmount.toFixed(2) + '€',
+      sale.paymentMethod,
+      sale.items.reduce((sum, item) => sum + item.quantity, 0)
+    ]);
+    
+    return [headers, ...rows].map(row => row.join(',')).join('\n');
+  };
+
+  // Remise à zéro sécurisée avec nettoyage complet
+  const performReset = useCallback(() => {
+    setSales([]);
+    setCart([]);
+    setVendorStats(vendors);
+    setSelectedVendor(null);
+    setShowResetModal(false);
+    setResetStep(1);
+    
+    // Nettoyage complet du localStorage
+    Object.values(STORAGE_KEYS).forEach(key => {
+      localStorage.removeItem(key);
+    });
+  }, [setSales, setCart, setVendorStats, setSelectedVendor]);
+
+  // Filtrage des produits avec recherche
+  const filteredProducts = useMemo(() => {
+    let filtered = selectedCategory === 'Tous' 
+      ? productCatalog 
+      : productCatalog.filter(p => p.category === selectedCategory);
+    
+    if (debouncedSearchTerm) {
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
+      );
+    }
+    
+    return filtered;
+  }, [selectedCategory, debouncedSearchTerm]);
+
+  // Navigation tabs
+  const tabs: Array<{id: TabType, label: string, icon: any}> = [
+    { id: 'vendeuse', label: 'Vendeuse', icon: User },
+    { id: 'produits', label: 'Produits', icon: Package },
+    { id: 'reglements', label: 'Règlements', icon: CreditCard },
+    { id: 'diverses', label: 'Diverses', icon: FileText },
+    { id: 'annulation', label: 'Annulation', icon: RotateCcw },
+    { id: 'ca', label: 'CA Instant', icon: BarChart },
+    { id: 'raz', label: 'RAZ', icon: RefreshCw },
+  ];
+
+  const categories: Array<ProductCategory | 'Tous'> = ['Tous', 'Matelas', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Accessoires'];
+
+  return (
+    <div className="ipad-frame">
+      <div className="h-screen flex flex-col" style={{ backgroundColor: '#F2EFE2' }}>
+        <style>{`
+          /* Cadre iPad en mode paysage */
+          .ipad-frame {
+            width: 1024px;
+            height: 768px;
+            margin: 20px auto;
+            border: 8px solid #2C2C2C;
+            border-radius: 12px;
+            box-shadow: 
+              0 0 0 2px #1A1A1A,
+              0 8px 32px rgba(0, 0, 0, 0.3),
+              inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+            background: #000;
+            position: relative;
+            overflow: hidden;
+          }
+
+          /* Bouton home iPad */
+          .ipad-frame::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 30px;
+            background: #1A1A1A;
+            border-radius: 50%;
+            border: 2px solid #2C2C2C;
+          }
+
+          /* Ajustement du contenu pour l'iPad */
+          .ipad-frame .h-screen {
+            height: 100%;
+            width: 100%;
+          }
+
+          /* Optimisations tactiles iPad */
+          * {
+            -webkit-tap-highlight-color: rgba(196, 209, 68, 0.3);
+            touch-action: manipulation;
+          }
+
+          input, select, textarea {
+            font-size: 16px; /* Évite le zoom auto sur focus iPad */
+          }
+
+          .touch-feedback {
+            transition: transform 0.1s ease;
+            min-height: 44px; /* Taille minimum Apple HIG */
+            min-width: 44px;
+          }
+
+          .touch-feedback:active {
+            transform: scale(0.95);
+          }
+
+          .gradient-bg {
+            background: linear-gradient(135deg, #F2EFE2 0%, #ffffff 100%);
+          }
+
+          .btn-primary {
+            background: linear-gradient(135deg, #C4D144, #B0C639);
+            color: #14281D;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            min-height: 44px;
+          }
+
+          .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+            background: linear-gradient(135deg, #B0C639, #9FB028);
+          }
+
+          .btn-secondary {
+            background: linear-gradient(135deg, #14281D, #1a2e22);
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            min-height: 44px;
+          }
+
+          .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            padding: 24px;
+            border: 1px solid #E5E7EB;
+            transition: all 0.2s ease;
+          }
+
+          .card:hover {
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+          }
+
+          .input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #E5E7EB;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.2s ease;
+            background: white;
+          }
+
+          .input:focus {
+            outline: none;
+            border-color: #C4D144;
+            box-shadow: 0 0 0 3px rgba(196, 209, 68, 0.1);
+          }
+
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+
+          .animate-fadeIn {
+            animation: fadeIn 0.3s ease-out;
+          }
+
+          /* Safe areas pour iPad Pro */
+          @supports (padding: max(0px)) {
+            .safe-top { padding-top: max(env(safe-area-inset-top), 1rem); }
+            .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 1rem); }
+          }
+
+          /* Responsive breakpoints iPad */
+          @media (min-width: 768px) and (max-width: 1024px) {
+            /* iPad Portrait */
+            .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+            .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+          }
+
+          @media (min-width: 1024px) and (max-width: 1366px) {
+            /* iPad Landscape */
+            .grid-cols-3 { grid-template-columns: repeat(4, 1fr); }
+            .grid-cols-4 { grid-template-columns: repeat(5, 1fr); }
+          }
+
+          /* Ajustements pour le cadre iPad */
+          body {
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+          }
+
+          /* Indicateur de résolution iPad */
+          .ipad-frame::before {
+            content: 'iPad Landscape 1024×768';
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            z-index: 1000;
+          }
+        `}</style>
+
+      {/* Header avec safe area */}
+      <header className="shadow-lg safe-top" style={{ backgroundColor: '#477A0C' }}>
+        <div className="px-6 py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-white">🛒 Caisse MyConfort</h1>
+          <div className="flex items-center gap-6">
+            {!isOnline && (
+              <div className="flex items-center gap-2 text-white">
+                <WifiOff size={20} />
+                <span className="text-sm opacity-90">Mode hors ligne</span>
+              </div>
+            )}
+            {selectedVendor && (
+              <div className="text-white">
+                <span className="text-sm opacity-80">Vendeuse:</span>
+                <span className="ml-2 font-semibold">{selectedVendor.name}</span>
+              </div>
+            )}
+            <div className="text-white">
+              <span className="text-sm text-white">CA du jour:</span>
+              <span className="ml-2 text-xl font-bold text-white">
+                {todaySales.toFixed(2)}€
+              </span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation avec optimisation tactile */}
+      <nav className="border-b" style={{ backgroundColor: '#ffffff' }}>
+        <div className="flex overflow-x-auto">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap relative touch-feedback ${
+                activeTab === tab.id 
+                  ? 'text-white' 
+                  : 'hover:bg-gray-50'
+              }`}
+              style={{
+                backgroundColor: activeTab === tab.id ? '#477A0C' : 'transparent',
+                color: activeTab === tab.id ? 'white' : '#14281D',
+                minWidth: '120px'
+              }}
+            >
+              <tab.icon size={20} />
+              {tab.label}
+              {tab.id === 'raz' && cart.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
+                  style={{ backgroundColor: '#F55D3E', color: 'white' }}>
+                  {cartItemsCount}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Main Content avec safe area */}
+      <main className="flex-1 overflow-hidden gradient-bg safe-bottom">
+        <div className="h-full overflow-auto p-6">
+          {/* Vendeuse Tab */}
+          {activeTab === 'vendeuse' && (
+            <div className="max-w-3xl mx-auto animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
+                Sélection de la vendeuse
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {vendorStats.map(vendor => (
+                  <div
+                    key={vendor.id}
+                    onClick={() => setSelectedVendor(vendor)}
+                    className={`card cursor-pointer touch-feedback ${
+                      selectedVendor?.id === vendor.id ? 'ring-4' : ''
+                    }`}
+                    style={{
+                      borderColor: selectedVendor?.id === vendor.id ? vendor.color : undefined,
+                      boxShadow: selectedVendor?.id === vendor.id ? `0 0 0 4px ${vendor.color}33` : undefined
+                    }}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <h3 className="text-xl font-bold" style={{ color: vendor.color }}>
+                        {vendor.name}
+                      </h3>
+                      {selectedVendor?.id === vendor.id && (
+                        <Check size={24} style={{ color: vendor.color }} />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm" style={{ color: '#6B7280' }}>
+                        CA du jour: <span className="font-bold text-lg" style={{ color: '#14281D' }}>
+                          {vendor.dailySales.toFixed(2)}€
+                        </span>
+                      </p>
+                      <p className="text-sm" style={{ color: '#6B7280' }}>
+                        Nombre de ventes: <span className="font-bold" style={{ color: '#14281D' }}>
+                          {vendor.totalSales}
+                        </span>
+                      </p>
+                      {vendor.totalSales > 0 && (
+                        <p className="text-sm" style={{ color: '#6B7280' }}>
+                          Ticket moyen: <span className="font-bold" style={{ color: '#14281D' }}>
+                            {(vendor.dailySales / vendor.totalSales).toFixed(2)}€
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Produits Tab avec recherche */}
+          {activeTab === 'produits' && (
+            <div className="flex gap-6 h-full">
+              <div className="flex-1">
+                {/* Barre de recherche */}
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Rechercher un produit..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="input w-full md:w-96"
+                  />
+                </div>
+
+                {/* Categories */}
+                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                  {categories.map(category => (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedCategory(category)}
+                      className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all touch-feedback ${
+                        selectedCategory === category
+                          ? 'btn-primary'
+                          : 'bg-white hover:shadow-md'
+                      }`}
+                      style={{
+                        backgroundColor: selectedCategory === category ? undefined : 'white',
+                        color: selectedCategory === category ? undefined : '#14281D'
+                      }}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Products Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {filteredProducts.map((product, index) => (
+                    <button
+                      key={`${product.name}-${index}`}
+                      onClick={() => addToCart(product)}
+                      disabled={product.priceTTC === 0}
+                      className={`card touch-feedback ${
+                        product.priceTTC === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                      }`}
+                    >
+                      <h3 className="font-semibold mb-2 text-sm" style={{ color: '#14281D' }}>
+                        {product.name}
+                      </h3>
+                      <p className="text-2xl font-bold" style={{ color: '#477A0C' }}>
+                        {product.priceTTC > 0 ? `${product.priceTTC}€` : 'Non vendu seul'}
+                      </p>
+                      {product.priceTTC === 0 && (
+                        <p className="text-xs mt-2" style={{ color: '#F55D3E' }}>
+                          ⚠️ Produit complémentaire
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                  {filteredProducts.length === 0 && (
+                    <div className="col-span-full text-center py-12">
+                      <p style={{ color: '#6B7280' }}>Aucun produit trouvé</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Cart Sidebar optimisé */}
+              <div className="w-96 card h-fit sticky top-0">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold" style={{ color: '#14281D' }}>
+                    Panier ({cartItemsCount} articles)
+                  </h3>
+                  {cart.length > 0 && (
+                    <button
+                      onClick={clearCart}
+                      className="text-sm font-semibold touch-feedback"
+                      style={{ color: '#F55D3E' }}
+                    >
+                      Vider le panier
+                    </button>
+                  )}
+                </div>
+
+                {cart.length === 0 ? (
+                  <p className="text-center py-12" style={{ color: '#6B7280' }}>
+                    Panier vide
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-3 mb-6 max-h-96 overflow-y-auto">
+                      {cart.map(item => (
+                        <div key={item.id} className="flex items-center justify-between p-3 rounded-lg"
+                          style={{ backgroundColor: '#F2EFE2' }}>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-sm" style={{ color: '#14281D' }}>
+                              {item.name}
+                            </h4>
+                            <p className="text-sm" style={{ color: '#477A0C' }}>
+                              {item.price}€ / unité
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => updateQuantity(item.id, -1)}
+                              className="w-8 h-8 rounded-full flex items-center justify-center touch-feedback"
+                              style={{ backgroundColor: '#E8E3D3' }}
+                            >
+                              <Minus size={14} />
+                            </button>
+                            <span className="w-8 text-center font-semibold">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.id, 1)}
+                              className="w-8 h-8 rounded-full flex items-center justify-center touch-feedback"
+                              style={{ backgroundColor: '#E8E3D3' }}
+                            >
+                              <Plus size={14} />
+                            </button>
+                            <button
+                              onClick={() => removeFromCart(item.id)}
+                              className="ml-2 touch-feedback"
+                              style={{ color: '#F55D3E' }}
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <div className="flex justify-between items-center text-2xl font-bold"
+                        style={{ color: '#14281D' }}>
+                        <span>Total TTC</span>
+                        <span style={{ color: '#477A0C' }}>{cartTotal.toFixed(2)}€</span>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('reglements')}
+                        className="w-full mt-4 btn-primary"
+                      >
+                        Procéder au paiement
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Règlements Tab */}
+          {activeTab === 'reglements' && (
+            <div className="max-w-4xl mx-auto animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
+                Finalisation du paiement
+              </h2>
+              
+              {cart.length === 0 ? (
+                <div className="card text-center py-12">
+                  <AlertCircle size={48} className="mx-auto mb-4" style={{ color: '#F55D3E' }} />
+                  <p className="text-xl" style={{ color: '#6B7280' }}>
+                    Le panier est vide
+                  </p>
+                  <button
+                    onClick={() => setActiveTab('produits')}
+                    className="mt-4 btn-primary"
+                  >
+                    Retour aux produits
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Récapitulatif */}
+                  <div className="card">
+                    <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
+                      Récapitulatif de la commande
+                    </h3>
+                    <div className="space-y-2 mb-4">
+                      {cart.map(item => (
+                        <div key={item.id} className="flex justify-between py-2 border-b">
+                          <span>{item.name} x{item.quantity}</span>
+                          <span className="font-semibold">
+                            {(item.price * item.quantity).toFixed(2)}€
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center text-xl font-bold pt-4"
+                      style={{ color: '#14281D' }}>
+                      <span>Total TTC</span>
+                      <span style={{ color: '#477A0C' }}>{cartTotal.toFixed(2)}€</span>
+                    </div>
+                  </div>
+
+                  {/* Modes de paiement */}
+                  <div className="card">
+                    <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
+                      Mode de paiement
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        onClick={() => setSelectedPaymentMethod('card')}
+                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
+                          selectedPaymentMethod === 'card' ? 'ring-4' : ''
+                        }`}
+                        style={{
+                          backgroundColor: selectedPaymentMethod === 'card' ? '#477A0C' : '#E8E3D3',
+                          color: selectedPaymentMethod === 'card' ? 'white' : '#14281D',
+                          boxShadow: selectedPaymentMethod === 'card' ? '0 0 0 4px #C4D14433' : undefined
+                        }}
+                      >
+                        💳 Carte Bancaire
+                      </button>
+                      <button
+                        onClick={() => setSelectedPaymentMethod('cash')}
+                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
+                          selectedPaymentMethod === 'cash' ? 'ring-4' : ''
+                        }`}
+                        style={{
+                          backgroundColor: selectedPaymentMethod === 'cash' ? '#477A0C' : '#E8E3D3',
+                          color: selectedPaymentMethod === 'cash' ? 'white' : '#14281D',
+                          boxShadow: selectedPaymentMethod === 'cash' ? '0 0 0 4px #C4D14433' : undefined
+                        }}
+                      >
+                        💵 Espèces
+                      </button>
+                      <button
+                        onClick={() => setSelectedPaymentMethod('check')}
+                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
+                          selectedPaymentMethod === 'check' ? 'ring-4' : ''
+                        }`}
+                        style={{
+                          backgroundColor: selectedPaymentMethod === 'check' ? '#477A0C' : '#E8E3D3',
+                          color: selectedPaymentMethod === 'check' ? 'white' : '#14281D',
+                          boxShadow: selectedPaymentMethod === 'check' ? '0 0 0 4px #C4D14433' : undefined
+                        }}
+                      >
+                        📝 Chèque
+                      </button>
+                      <button
+                        onClick={() => setSelectedPaymentMethod('multi')}
+                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
+                          selectedPaymentMethod === 'multi' ? 'ring-4' : ''
+                        }`}
+                        style={{
+                          backgroundColor: selectedPaymentMethod === 'multi' ? '#477A0C' : '#E8E3D3',
+                          color: selectedPaymentMethod === 'multi' ? 'white' : '#14281D',
+                          boxShadow: selectedPaymentMethod === 'multi' ? '0 0 0 4px #C4D14433' : undefined
+                        }}
+                      >
+                        🔄 Multi-paiement
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={completeSale}
+                      disabled={!selectedVendor}
+                      className="w-full mt-6 btn-primary"
+                      style={{
+                        opacity: !selectedVendor ? 0.5 : 1,
+                        cursor: !selectedVendor ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {!selectedVendor ? 'Sélectionner une vendeuse' : 'Valider le paiement'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Lignes Diverses Tab */}
+          {activeTab === 'diverses' && (
+            <div className="max-w-2xl mx-auto animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
+                Ajouter une ligne diverse
+              </h2>
+              <div className="card">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: '#14281D' }}>
+                      Description
+                    </label>
+                    <input
+                      type="text"
+                      value={miscDescription}
+                      onChange={(e) => setMiscDescription(e.target.value)}
+                      placeholder="Ex: Livraison express, Montage..."
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: '#14281D' }}>
+                      Montant (€)
+                    </label>
+                    <input
+                      type="number"
+                      value={miscAmount}
+                      onChange={(e) => setMiscAmount(e.target.value)}
+                      placeholder="0.00"
+                      step="0.01"
+                      className="input"
+                    />
+                  </div>
+                  <button
+                    onClick={addMiscLine}
+                    disabled={!miscDescription || !miscAmount}
+                    className="w-full btn-primary"
+                    style={{
+                      opacity: !miscDescription || !miscAmount ? 0.5 : 1
+                    }}
+                  >
+                    Ajouter au panier
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Annulation Tab */}
+          {activeTab === 'annulation' && (
+            <div className="max-w-4xl mx-auto animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
+                Annulation du panier
+              </h2>
+              {cart.length === 0 ? (
+                <div className="card text-center py-12">
+                  <p className="text-xl" style={{ color: '#6B7280' }}>
+                    Aucune vente en cours
+                  </p>
+                </div>
+              ) : (
+                <div className="card">
+                  <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
+                    Contenu du panier à annuler
+                  </h3>
+                  <div className="space-y-2 mb-6">
+                    {cart.map(item => (
+                      <div key={item.id} className="flex justify-between py-2 border-b">
+                        <span>{item.name} x{item.quantity}</span>
+                        <span className="font-semibold">
+                          {(item.price * item.quantity).toFixed(2)}€
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between items-center text-xl font-bold mb-6"
+                    style={{ color: '#14281D' }}>
+                    <span>Total à annuler</span>
+                    <span style={{ color: '#F55D3E' }}>{cartTotal.toFixed(2)}€</span>
+                  </div>
+                  <button
+                    onClick={clearCart}
+                    className="w-full btn-secondary"
+                    style={{ backgroundColor: '#F55D3E' }}
+                  >
+                    ⚠️ Confirmer l'annulation
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* CA Instantané Tab */}
+          {activeTab === 'ca' && (
+            <div className="max-w-4xl mx-auto animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
+                Chiffre d'Affaires du Jour
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div className="card text-center">
+                  <h3 className="text-xl font-semibold mb-4" style={{ color: '#6B7280' }}>
+                    CA Total du Jour
+                  </h3>
+                  <p className="text-5xl font-bold" style={{ color: '#477A0C' }}>
+                    {todaySales.toFixed(2)}€
+                  </p>
+                </div>
+                <div className="card text-center">
+                  <h3 className="text-xl font-semibold mb-4" style={{ color: '#6B7280' }}>
+                    Nombre de Ventes
+                  </h3>
+                  <p className="text-5xl font-bold" style={{ color: '#C4D144' }}>
+                    {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="card">
+                <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
+                  CA par Vendeuse
+                </h3>
+                <div className="space-y-4">
+                  {vendorStats.map(vendor => (
+                    <div key={vendor.id} className="flex justify-between items-center p-4 rounded-lg"
+                      style={{ backgroundColor: '#F2EFE2' }}>
+                      <div>
+                        <h4 className="font-semibold" style={{ color: vendor.color }}>
+                          {vendor.name}
+                        </h4>
+                        <p className="text-sm" style={{ color: '#6B7280' }}>
+                          {vendor.totalSales} ventes
+                        </p>
+                      </div>
+                      <p className="text-2xl font-bold" style={{ color: '#14281D' }}>
+                        {vendor.dailySales.toFixed(2)}€
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => exportData('csv')} className="btn-primary flex items-center gap-2">
+                  <Download size={20} />
+                  Export CSV
+                </button>
+                <button onClick={() => exportData('json')} className="btn-secondary flex items-center gap-2">
+                  <Save size={20} />
+                  Export JSON
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* RAZ Tab */}
+          {activeTab === 'raz' && (
+            <div className="max-w-2xl mx-auto animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
+                Remise à Zéro
+              </h2>
+              <div className="card">
+                <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#FEE2E2' }}>
+                  <h3 className="font-bold mb-2 flex items-center gap-2" style={{ color: '#991B1B' }}>
+                    <AlertCircle size={20} />
+                    Attention - Action irréversible
+                  </h3>
+                  <p style={{ color: '#991B1B' }}>
+                    Cette action supprimera définitivement toutes les données du jour :
+                  </p>
+                  <ul className="mt-2 space-y-1" style={{ color: '#991B1B' }}>
+                    <li>• Historique des ventes</li>
+                    <li>• Chiffres d'affaires</li>
+                    <li>• Panier en cours</li>
+                    <li>• Statistiques vendeuses</li>
+                  </ul>
+                </div>
+
+                {!showResetModal ? (
+                  <button
+                    onClick={() => setShowResetModal(true)}
+                    className="w-full btn-secondary"
+                    style={{ backgroundColor: '#F55D3E' }}
+                  >
+                    Demander la remise à zéro
+                  </button>
+                ) : (
+                  <div className="space-y-4">
+                    {resetStep === 1 && (
+                      <>
+                        <p className="text-center font-semibold" style={{ color: '#14281D' }}>
+                          Êtes-vous sûr de vouloir continuer ?
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setResetStep(2)}
+                            className="flex-1 btn-secondary"
+                            style={{ backgroundColor: '#F55D3E' }}
+                          >
+                            Oui, continuer
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowResetModal(false);
+                              setResetStep(1);
+                            }}
+                            className="flex-1 btn-primary"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </>
+                    )}
+                    {resetStep === 2 && (
+                      <>
+                        <p className="text-center font-bold text-lg" style={{ color: '#F55D3E' }}>
+                          Dernière confirmation requise
+                        </p>
+                        <button
+                          onClick={performReset}
+                          className="w-full btn-secondary"
+                          style={{ backgroundColor: '#991B1B' }}
+                        >
+                          ⚠️ OUI, TOUT SUPPRIMER ⚠️
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowResetModal(false);
+                            setResetStep(1);
+                          }}
+                          className="w-full btn-primary"
+                        >
+                          Non, annuler
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Success Notification avec animation */}
+      {showSuccess && (
+        <div className="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg animate-fadeIn safe-bottom"
+          style={{ backgroundColor: '#D1FAE5', border: '1px solid #A7F3D0' }}>
+          <div className="flex items-center gap-2">
+            <Check size={20} style={{ color: '#065F46' }} />
+            <span style={{ color: '#065F46' }}>Vente enregistrée avec succès !</span>
+          </div>
+        </div>
+      )}
+    </div>
+    </div>
+  );
+}
+
+// Composant principal avec Error Boundary
+export default function CaisseMyConfort() {
+  return (
+    <ErrorBoundary>
+      <CaisseMyConfortApp />
+    </ErrorBoundary>
+  );
+}

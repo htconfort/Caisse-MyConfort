@@ -1,21 +1,20 @@
-# Caisse MyConfort
+# 🛒 Caisse MyConfort iPad
 
-## Description
-Caisse MyConfort est une application de caisse iPad moderne et tactile, spécialement conçue pour MyConfort. Cette solution facilite la gestion des ventes dans un environnement de boutique physique avec une interface optimisée pour les écrans tactiles. Elle permet aux vendeuses d'enregistrer rapidement des ventes, de gérer différents modes de paiement, d'annuler des transactions et de suivre le chiffre d'affaires en temps réel.
+> Application de caisse moderne et tactile optimisée pour iPad, développée avec React/TypeScript et GitHub Copilot.
 
-## Fonctionnalités Principales
-- **Catalogue produits complet** : Plus de 70 produits répartis en 5 catégories (Matelas, Accessoires, Sommiers, Oreillers, Divers)
-- **Interface tactile optimisée iPad** : Boutons larges, navigation intuitive, responsive design
-- **Gestion des vendeuses** : Sélection et suivi du CA par vendeuse
-- **Panier intelligent** : Ajout/suppression de produits, gestion des quantités, total en temps réel
-- **Modes de paiement multiples** : Espèces, CB, chèque, multi-paiements
-- **Gestion des produits non vendus seuls** : Indication visuelle et désactivation automatique
-- **Annulations flexibles** : Annulation totale ou partielle des ventes
-- **Suivi du chiffre d'affaires** : CA instantané par vendeuse et global
-- **Historique des ventes** : Consultation des ventes de la journée
-- **Export des données** : CSV/PDF pour les rapports de fin de journée
-- **Sauvegarde locale** : Fonctionnement hors ligne avec persistance des données
-- **Charte graphique MyConfort** : Couleurs et design cohérents avec la marque
+## 🎯 Aperçu
+
+Application de point de vente complète pour MyConfort, conçue spécifiquement pour les iPad avec une interface tactile intuitive, gestion des vendeuses, catalogue produits complet, et reporting en temps réel.
+
+### ✨ Fonctionnalités Principales
+
+- **👤 Gestion des Vendeuses** : Sélection, statistiques individuelles, couleurs distinctives
+- **📦 Catalogue Produits** : 50+ produits MyConfort avec recherche temps réel
+- **🛒 Panier Intelligent** : Ajout/modification dynamique, calculs automatiques
+- **💳 Moyens de Paiement** : CB, Espèces, Chèque, Multi-paiement
+- **📊 Reporting Instantané** : CA par vendeuse, export CSV/JSON
+- **🔄 Remise à Zéro** : Procédure sécurisée fin de journée
+- **💾 Sauvegarde Locale** : Données 100% locales, pas de serveur requis
 
 ## Technologies Utilisées
 - **React 18** avec **TypeScript** : Interface moderne et typée
