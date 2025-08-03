@@ -804,7 +804,7 @@ function CaisseMyConfortApp() {
                     textShadow: '0 0 20px rgba(255,255,255,0.5)',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                   }}>
-                  {selectedVendor.name.toUpperCase()}
+                  {selectedVendor?.name?.toUpperCase() || 'VENDEUSE'}
                 </h2>
               </div>
             </>
@@ -975,11 +975,7 @@ function CaisseMyConfortApp() {
                 {vendorStats.map(vendor => (
                   <div
                     key={vendor.id}
-                    onClick={() => {
-                      setSelectedVendor(vendor);
-                      // Redirection automatique vers l'onglet Produits après sélection vendeuse
-                      setActiveTab('produits');
-                    }}
+                    onClick={() => setSelectedVendor(vendor)}
                     className={`card cursor-pointer touch-feedback ${
                       selectedVendor?.id === vendor.id ? 'ring-4 ring-white' : ''
                     }`}
@@ -1401,24 +1397,34 @@ function CaisseMyConfortApp() {
           {activeTab === 'ca' && (
             <div className="max-w-4xl mx-auto animate-fadeIn">
               <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
-                Chiffre d'Affaires du Jour
+                CA Instantané - Détail des Ventes en Temps Réel
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div className="card text-center">
-                  <h3 className="text-xl font-semibold mb-4" style={{ color: '#6B7280' }}>
+                  <h3 className="text-lg font-semibold mb-2" style={{ color: '#6B7280' }}>
                     CA Total du Jour
                   </h3>
-                  <p className="text-5xl font-bold" style={{ color: '#477A0C' }}>
+                  <p className="text-4xl font-bold" style={{ color: '#477A0C' }}>
                     {todaySales.toFixed(2)}€
                   </p>
                 </div>
                 <div className="card text-center">
-                  <h3 className="text-xl font-semibold mb-4" style={{ color: '#6B7280' }}>
+                  <h3 className="text-lg font-semibold mb-2" style={{ color: '#6B7280' }}>
                     Nombre de Ventes
                   </h3>
-                  <p className="text-5xl font-bold" style={{ color: '#C4D144' }}>
+                  <p className="text-4xl font-bold" style={{ color: '#C4D144' }}>
                     {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length}
+                  </p>
+                </div>
+                <div className="card text-center">
+                  <h3 className="text-lg font-semibold mb-2" style={{ color: '#6B7280' }}>
+                    Ticket Moyen
+                  </h3>
+                  <p className="text-4xl font-bold" style={{ color: '#F55D3E' }}>
+                    {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length > 0 
+                      ? (todaySales / sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length).toFixed(2) 
+                      : '0.00'}€
                   </p>
                 </div>
               </div>
@@ -1546,6 +1552,116 @@ function CaisseMyConfortApp() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Tableau détaillé des ventes par vendeuse */}
+              <div className="mt-8">
+                <h3 className="text-2xl font-bold mb-6" style={{ color: '#14281D' }}>
+                  Détail des Ventes du Jour
+                </h3>
+                
+                {vendorStats.map(vendor => {
+                  const vendorSales = sales.filter(s => 
+                    s.vendorId === vendor.id && 
+                    new Date(s.date).toDateString() === new Date().toDateString() && 
+                    !s.canceled
+                  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Plus récent en premier
+
+                  return vendorSales.length > 0 ? (
+                    <div key={vendor.id} className="card mb-6">
+                      {/* Header vendeuse */}
+                      <div className="flex items-center justify-between mb-4 p-3 rounded-lg" 
+                        style={{ backgroundColor: vendor.color }}>
+                        <h4 className={`text-xl font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                          {vendor.name} - {vendorSales.length} vente{vendorSales.length !== 1 ? 's' : ''}
+                        </h4>
+                        <div className={`text-2xl font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                          {vendor.dailySales.toFixed(2)}€
+                        </div>
+                      </div>
+
+                      {/* Tableau des ventes */}
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b-2" style={{ borderColor: '#E5E7EB' }}>
+                              <th className="text-left py-2 px-3 font-semibold" style={{ color: '#14281D' }}>Heure</th>
+                              <th className="text-left py-2 px-3 font-semibold" style={{ color: '#14281D' }}>Produits</th>
+                              <th className="text-center py-2 px-3 font-semibold" style={{ color: '#14281D' }}>Mode Paiement</th>
+                              <th className="text-right py-2 px-3 font-semibold" style={{ color: '#14281D' }}>Montant</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {vendorSales.map((sale, index) => (
+                              <tr key={sale.id} className={`border-b ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                                style={{ borderColor: '#F3F4F6' }}>
+                                {/* Heure */}
+                                <td className="py-2 px-3 font-mono text-sm" style={{ color: '#6B7280' }}>
+                                  {new Date(sale.date).toLocaleTimeString('fr-FR', {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </td>
+                                
+                                {/* Produits */}
+                                <td className="py-2 px-3">
+                                  <div className="space-y-1">
+                                    {sale.items.map((item, itemIndex) => (
+                                      <div key={itemIndex} className="text-sm">
+                                        <span style={{ color: '#14281D' }}>
+                                          {item.name}
+                                        </span>
+                                        {item.quantity > 1 && (
+                                          <span className="ml-2 text-xs px-2 py-1 rounded bg-gray-200" style={{ color: '#6B7280' }}>
+                                            ×{item.quantity}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                                
+                                {/* Mode de paiement */}
+                                <td className="py-2 px-3 text-center">
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    sale.paymentMethod === 'cash' ? 'bg-green-100 text-green-800' :
+                                    sale.paymentMethod === 'card' ? 'bg-blue-100 text-blue-800' :
+                                    sale.paymentMethod === 'check' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-purple-100 text-purple-800'
+                                  }`}>
+                                    {sale.paymentMethod === 'cash' ? 'Espèces' :
+                                     sale.paymentMethod === 'card' ? 'Carte' :
+                                     sale.paymentMethod === 'check' ? 'Chèque' :
+                                     'Mixte'}
+                                  </span>
+                                </td>
+                                
+                                {/* Montant */}
+                                <td className="py-2 px-3 text-right">
+                                  <span className="text-lg font-bold" style={{ color: vendor.color }}>
+                                    {sale.totalAmount.toFixed(2)}€
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : null;
+                })}
+
+                {/* Message si aucune vente */}
+                {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length === 0 && (
+                  <div className="card text-center py-8">
+                    <p className="text-xl" style={{ color: '#6B7280' }}>
+                      Aucune vente enregistrée aujourd'hui
+                    </p>
+                    <p className="text-sm mt-2" style={{ color: '#9CA3AF' }}>
+                      Les ventes apparaîtront ici en temps réel
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3 mt-6">
