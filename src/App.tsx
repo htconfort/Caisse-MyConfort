@@ -754,25 +754,53 @@ function CaisseMyConfortApp() {
 
       {/* Header avec safe area */}
       <header className="shadow-lg safe-top header-white-text" style={{ backgroundColor: '#477A0C' }}>
-        <div className="px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white header-white-text flex items-center gap-2">
-            <ShoppingCart size={28} color="white" />
-            Caisse MyConfort
-          </h1>
-          <div className="flex items-center gap-6">
-            {!isOnline && (
-              <div className="flex items-center gap-2 text-white header-white-text">
-                <WifiOff size={20} color="white" />
-                <span className="text-sm opacity-90">Mode hors ligne</span>
+        <div className="px-6 py-4 relative">
+          {/* Affichage spécial pour Babette - centré parfaitement */}
+          {selectedVendor && selectedVendor.name === 'Babette' ? (
+            <>
+              {/* Titre fixe à gauche */}
+              <div className="absolute left-6 top-1/2 transform -translate-y-1/2">
+                <h1 className="text-2xl font-bold text-white header-white-text flex items-center gap-2">
+                  <ShoppingCart size={28} color="white" />
+                  Caisse MyConfort
+                </h1>
               </div>
-            )}
-            {selectedVendor && (
-              <div className="text-white header-white-text">
-                <span className="text-sm opacity-80">Vendeuse:</span>
-                <span className="ml-2 font-semibold">{selectedVendor.name}</span>
+              
+              {/* Nom de Babette centré */}
+              <div className="flex justify-center items-center w-full">
+                <h2 className="text-6xl font-black text-white tracking-wider animate-pulse" 
+                  style={{ 
+                    textShadow: '0 0 20px rgba(255,255,255,0.5)',
+                    fontFamily: 'Impact, Arial Black, sans-serif'
+                  }}>
+                  BABETTE
+                </h2>
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            /* Layout normal pour les autres vendeuses */
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold text-white header-white-text flex items-center gap-2">
+                <ShoppingCart size={28} color="white" />
+                Caisse MyConfort
+              </h1>
+              
+              <div className="flex items-center gap-6">
+                {!isOnline && (
+                  <div className="flex items-center gap-2 text-white header-white-text">
+                    <WifiOff size={20} color="white" />
+                    <span className="text-sm opacity-90">Mode hors ligne</span>
+                  </div>
+                )}
+                {selectedVendor && (
+                  <div className="text-white header-white-text">
+                    <span className="text-sm opacity-80">Vendeuse:</span>
+                    <span className="ml-2 font-semibold">{selectedVendor.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
@@ -829,14 +857,6 @@ function CaisseMyConfortApp() {
                   <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
                     style={{ backgroundColor: '#F55D3E', color: 'white' }}>
                     {cartItemsCount}
-                  </span>
-                )}
-                
-                {/* Badge pour CA Instant - montant du jour */}
-                {tab.id === 'ca' && todaySales > 0 && (
-                  <span className="absolute -top-1 -right-1 px-2 py-1 text-xs rounded-full font-bold"
-                    style={{ backgroundColor: '#10B981', color: 'white' }}>
-                    {todaySales.toFixed(0)}€
                   </span>
                 )}
                 
@@ -925,22 +945,10 @@ function CaisseMyConfortApp() {
                     </div>
                     <div className="space-y-1">
                       <p className={`text-xs opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
-                        CA du jour: <span className={`font-bold text-sm ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
-                          {vendor.dailySales.toFixed(2)}€
-                        </span>
-                      </p>
-                      <p className={`text-xs opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                         Ventes: <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                           {vendor.totalSales}
                         </span>
                       </p>
-                      {vendor.totalSales > 0 && (
-                        <p className={`text-xs opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
-                          Ticket moyen: <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
-                            {(vendor.dailySales / vendor.totalSales).toFixed(2)}€
-                          </span>
-                        </p>
-                      )}
                     </div>
                   </div>
                 ))}
