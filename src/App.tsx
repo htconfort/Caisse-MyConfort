@@ -40,7 +40,7 @@ interface Sale {
 }
 
 type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
-type TabType = 'vendeuse' | 'produits' | 'reglements' | 'diverses' | 'annulation' | 'ca' | 'raz';
+type TabType = 'vendeuse' | 'produits' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz';
 
 // Clés localStorage standardisées
 const STORAGE_KEYS = {
@@ -370,12 +370,21 @@ function CaisseMyConfortApp() {
     clearCart();
     setShowPaymentModal(false);
     setShowSuccess(true);
-  }, [selectedVendor, cart, cartTotal, selectedPaymentMethod, setSales, setVendorStats, clearCart]);
+    
+    // Décocher automatiquement la vendeuse après chaque règlement
+    // Force une nouvelle sélection pour éviter les erreurs d'attribution
+    setSelectedVendor(null);
+    
+    // Rediriger vers l'onglet vendeuse pour forcer une nouvelle sélection
+    setTimeout(() => {
+      setActiveTab('vendeuse');
+    }, 2000); // Délai pour laisser le temps de voir la confirmation
+  }, [selectedVendor, cart, cartTotal, selectedPaymentMethod, setSales, setVendorStats, clearCart, setSelectedVendor]);
 
   // Timer pour notification de succès
   useEffect(() => {
     if (showSuccess) {
-      const timer = setTimeout(() => setShowSuccess(false), 3000);
+      const timer = setTimeout(() => setShowSuccess(false), 4000); // Prolongé pour laisser le temps de lire
       return () => clearTimeout(timer);
     }
   }, [showSuccess]);
@@ -463,7 +472,7 @@ function CaisseMyConfortApp() {
   const tabs: Array<{id: TabType, label: string, icon: any}> = [
     { id: 'vendeuse', label: 'Vendeuse', icon: User },
     { id: 'produits', label: 'Produits', icon: Package },
-    { id: 'reglements', label: 'Règlements', icon: CreditCard },
+    { id: 'ventes', label: 'Ventes', icon: BarChart },
     { id: 'diverses', label: 'Diverses', icon: FileText },
     { id: 'annulation', label: 'Annulation', icon: RotateCcw },
     { id: 'ca', label: 'CA Instant', icon: BarChart },
@@ -806,8 +815,8 @@ function CaisseMyConfortApp() {
                   </span>
                 )}
                 
-                {/* Badge pour Règlements - nombre d'articles dans le panier */}
-                {tab.id === 'reglements' && cart.length > 0 && (
+                {/* Badge pour Ventes - nombre d'articles dans le panier */}
+                {tab.id === 'ventes' && cart.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
                     style={{ backgroundColor: '#F59E0B', color: 'white' }}>
                     {cartItemsCount}
@@ -853,7 +862,7 @@ function CaisseMyConfortApp() {
       {/* Main Content avec safe area */}
       <main className="flex-1 overflow-hidden gradient-bg safe-bottom relative">
         <div className={`h-full overflow-auto p-6 ${
-          ['produits', 'reglements', 'annulation'].includes(activeTab) 
+          ['produits', 'ventes', 'annulation'].includes(activeTab) 
             ? `main-content-with-cart ${isCartMinimized ? 'cart-minimized' : ''}`
             : ''
         }`}>
@@ -1033,121 +1042,206 @@ function CaisseMyConfortApp() {
             </div>
           )}
 
-          {/* Règlements Tab */}
-          {activeTab === 'reglements' && (
-            <div className="max-w-4xl mx-auto animate-fadeIn">
-              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
-                Finalisation du paiement
+          {/* Ventes Tab - Historique des ventes */}
+          {activeTab === 'ventes' && (
+            <div className="animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-6" style={{ color: '#14281D' }}>
+                Historique des ventes
               </h2>
               
-              {cart.length === 0 ? (
-                <div className="card text-center py-12">
-                  <AlertCircle size={48} className="mx-auto mb-4" style={{ color: '#F55D3E' }} />
-                  <p className="text-xl" style={{ color: '#6B7280' }}>
-                    Le panier est vide
+              {/* Statistiques rapides */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="card text-center">
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: '#6B7280' }}>
+                    Ventes du jour
+                  </h3>
+                  <p className="text-2xl font-bold" style={{ color: '#477A0C' }}>
+                    {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length}
                   </p>
-                  <button
-                    onClick={() => setActiveTab('produits')}
-                    className="mt-4 btn-primary"
-                  >
-                    Retour aux produits
-                  </button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Récapitulatif */}
-                  <div className="card">
-                    <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
-                      Récapitulatif de la commande
-                    </h3>
-                    <div className="space-y-2 mb-4">
-                      {cart.map(item => (
-                        <div key={item.id} className="flex justify-between py-2 border-b">
-                          <span>{item.name} x{item.quantity}</span>
-                          <span className="font-semibold">
-                            {(item.price * item.quantity).toFixed(2)}€
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex justify-between items-center text-xl font-bold pt-4"
-                      style={{ color: '#14281D' }}>
-                      <span>Total TTC</span>
-                      <span style={{ color: '#477A0C' }}>{cartTotal.toFixed(2)}€</span>
-                    </div>
-                  </div>
+                <div className="card text-center">
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: '#6B7280' }}>
+                    CA total du jour
+                  </h3>
+                  <p className="text-2xl font-bold" style={{ color: '#477A0C' }}>
+                    {todaySales.toFixed(2)}€
+                  </p>
+                </div>
+                <div className="card text-center">
+                  <h3 className="text-sm font-semibold mb-2" style={{ color: '#6B7280' }}>
+                    Ticket moyen
+                  </h3>
+                  <p className="text-2xl font-bold" style={{ color: '#477A0C' }}>
+                    {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length > 0 
+                      ? (todaySales / sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length).toFixed(2)
+                      : '0.00'
+                    }€
+                  </p>
+                </div>
+              </div>
 
-                  {/* Modes de paiement */}
-                  <div className="card">
-                    <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
-                      Mode de paiement
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        onClick={() => setSelectedPaymentMethod('card')}
-                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
-                          selectedPaymentMethod === 'card' ? 'ring-4' : ''
-                        }`}
-                        style={{
-                          backgroundColor: selectedPaymentMethod === 'card' ? '#477A0C' : '#E8E3D3',
-                          color: selectedPaymentMethod === 'card' ? 'white' : '#14281D',
-                          boxShadow: selectedPaymentMethod === 'card' ? '0 0 0 4px #C4D14433' : undefined
-                        }}
-                      >
-                        💳 Carte Bancaire
-                      </button>
-                      <button
-                        onClick={() => setSelectedPaymentMethod('cash')}
-                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
-                          selectedPaymentMethod === 'cash' ? 'ring-4' : ''
-                        }`}
-                        style={{
-                          backgroundColor: selectedPaymentMethod === 'cash' ? '#477A0C' : '#E8E3D3',
-                          color: selectedPaymentMethod === 'cash' ? 'white' : '#14281D',
-                          boxShadow: selectedPaymentMethod === 'cash' ? '0 0 0 4px #C4D14433' : undefined
-                        }}
-                      >
-                        💵 Espèces
-                      </button>
-                      <button
-                        onClick={() => setSelectedPaymentMethod('check')}
-                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
-                          selectedPaymentMethod === 'check' ? 'ring-4' : ''
-                        }`}
-                        style={{
-                          backgroundColor: selectedPaymentMethod === 'check' ? '#477A0C' : '#E8E3D3',
-                          color: selectedPaymentMethod === 'check' ? 'white' : '#14281D',
-                          boxShadow: selectedPaymentMethod === 'check' ? '0 0 0 4px #C4D14433' : undefined
-                        }}
-                      >
-                        📝 Chèque
-                      </button>
-                      <button
-                        onClick={() => setSelectedPaymentMethod('multi')}
-                        className={`p-4 rounded-lg font-semibold transition-all touch-feedback ${
-                          selectedPaymentMethod === 'multi' ? 'ring-4' : ''
-                        }`}
-                        style={{
-                          backgroundColor: selectedPaymentMethod === 'multi' ? '#477A0C' : '#E8E3D3',
-                          color: selectedPaymentMethod === 'multi' ? 'white' : '#14281D',
-                          boxShadow: selectedPaymentMethod === 'multi' ? '0 0 0 4px #C4D14433' : undefined
-                        }}
-                      >
-                        🔄 Multi-paiement
-                      </button>
-                    </div>
-
-                    <button
-                      onClick={completeSale}
-                      disabled={!selectedVendor}
-                      className="w-full mt-6 btn-primary"
-                      style={{
-                        opacity: !selectedVendor ? 0.5 : 1,
-                        cursor: !selectedVendor ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      {!selectedVendor ? 'Sélectionner une vendeuse' : 'Valider le paiement'}
+              {/* Liste des ventes */}
+              <div className="card">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-xl font-bold" style={{ color: '#14281D' }}>
+                    Détail des ventes du jour
+                  </h3>
+                  <div className="flex gap-2">
+                    <button onClick={() => exportData('csv')} className="btn-primary text-sm px-4 py-2">
+                      Export CSV
                     </button>
+                    <button onClick={() => exportData('json')} className="btn-secondary text-sm px-4 py-2">
+                      Export JSON
+                    </button>
+                  </div>
+                </div>
+                
+                {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString()).length === 0 ? (
+                  <div className="text-center py-12">
+                    <BarChart size={48} className="mx-auto mb-4" style={{ color: '#D1D5DB' }} />
+                    <p className="text-xl" style={{ color: '#6B7280' }}>
+                      Aucune vente aujourd'hui
+                    </p>
+                    <p className="text-sm mt-2" style={{ color: '#9CA3AF' }}>
+                      Les ventes apparaîtront ici au fur et à mesure
+                    </p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b-2" style={{ borderColor: '#E5E7EB' }}>
+                          <th className="text-left py-3 px-2 font-semibold" style={{ color: '#14281D' }}>Heure</th>
+                          <th className="text-left py-3 px-2 font-semibold" style={{ color: '#14281D' }}>Vendeuse</th>
+                          <th className="text-left py-3 px-2 font-semibold" style={{ color: '#14281D' }}>Articles</th>
+                          <th className="text-left py-3 px-2 font-semibold" style={{ color: '#14281D' }}>Paiement</th>
+                          <th className="text-right py-3 px-2 font-semibold" style={{ color: '#14281D' }}>Montant</th>
+                          <th className="text-center py-3 px-2 font-semibold" style={{ color: '#14281D' }}>Statut</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sales
+                          .filter(s => new Date(s.date).toDateString() === new Date().toDateString())
+                          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                          .map(sale => (
+                            <tr key={sale.id} className="border-b hover:bg-gray-50 transition-colors" style={{ borderColor: '#F3F4F6' }}>
+                              <td className="py-3 px-2 text-sm" style={{ color: '#6B7280' }}>
+                                {new Date(sale.date).toLocaleTimeString('fr-FR', { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </td>
+                              <td className="py-3 px-2">
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ 
+                                      backgroundColor: vendors.find(v => v.id === sale.vendorId)?.color || '#6B7280' 
+                                    }}
+                                  ></div>
+                                  <span className="font-medium text-sm" style={{ color: '#14281D' }}>
+                                    {sale.vendorName}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-2">
+                                <div className="text-sm">
+                                  <span className="font-medium" style={{ color: '#14281D' }}>
+                                    {sale.items.reduce((sum, item) => sum + item.quantity, 0)} articles
+                                  </span>
+                                  <div className="text-xs mt-1 space-y-1" style={{ color: '#6B7280' }}>
+                                    {sale.items.slice(0, 2).map((item, index) => (
+                                      <div key={index}>
+                                        {item.name} x{item.quantity}
+                                      </div>
+                                    ))}
+                                    {sale.items.length > 2 && (
+                                      <div style={{ color: '#9CA3AF' }}>
+                                        +{sale.items.length - 2} autres...
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="py-3 px-2">
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                  style={{
+                                    backgroundColor: sale.paymentMethod === 'card' ? '#DBEAFE' : 
+                                                   sale.paymentMethod === 'cash' ? '#D1FAE5' : 
+                                                   sale.paymentMethod === 'check' ? '#FEF3CD' : '#F3E8FF',
+                                    color: sale.paymentMethod === 'card' ? '#1D4ED8' : 
+                                           sale.paymentMethod === 'cash' ? '#065F46' : 
+                                           sale.paymentMethod === 'check' ? '#92400E' : '#6B21A8'
+                                  }}>
+                                  {sale.paymentMethod === 'card' ? '💳 Carte' : 
+                                   sale.paymentMethod === 'cash' ? '💵 Espèces' : 
+                                   sale.paymentMethod === 'check' ? '📝 Chèque' : '🔄 Multi'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-right">
+                                <span className={`font-bold text-lg ${sale.canceled ? 'line-through' : ''}`}
+                                  style={{ color: sale.canceled ? '#F55D3E' : '#477A0C' }}>
+                                  {sale.totalAmount.toFixed(2)}€
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                {sale.canceled ? (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                    style={{ backgroundColor: '#FEE2E2', color: '#991B1B' }}>
+                                    ❌ Annulée
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                    style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                                    ✅ Validée
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Répartition par mode de paiement */}
+              {sales.filter(s => new Date(s.date).toDateString() === new Date().toDateString() && !s.canceled).length > 0 && (
+                <div className="card mt-6">
+                  <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
+                    Répartition par mode de paiement
+                  </h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {['card', 'cash', 'check', 'multi'].map(method => {
+                      const methodSales = sales.filter(s => 
+                        new Date(s.date).toDateString() === new Date().toDateString() && 
+                        !s.canceled && 
+                        s.paymentMethod === method
+                      );
+                      const methodTotal = methodSales.reduce((sum, sale) => sum + sale.totalAmount, 0);
+                      const methodLabel = method === 'card' ? 'Carte' : 
+                                        method === 'cash' ? 'Espèces' : 
+                                        method === 'check' ? 'Chèque' : 'Multi';
+                      const methodIcon = method === 'card' ? '💳' : 
+                                       method === 'cash' ? '💵' : 
+                                       method === 'check' ? '📝' : '🔄';
+                      
+                      return (
+                        <div key={method} className="text-center p-4 rounded-lg" 
+                          style={{ backgroundColor: '#F8F9FA', border: '1px solid #E9ECEF' }}>
+                          <div className="text-2xl mb-2">{methodIcon}</div>
+                          <h4 className="font-semibold text-sm mb-1" style={{ color: '#14281D' }}>
+                            {methodLabel}
+                          </h4>
+                          <p className="text-xs mb-1" style={{ color: '#6B7280' }}>
+                            {methodSales.length} vente{methodSales.length > 1 ? 's' : ''}
+                          </p>
+                          <p className="font-bold" style={{ color: '#477A0C' }}>
+                            {methodTotal.toFixed(2)}€
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1400,17 +1494,25 @@ function CaisseMyConfortApp() {
 
       {/* Success Notification avec animation */}
       {showSuccess && (
-        <div className="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg animate-fadeIn safe-bottom"
+        <div className="fixed bottom-4 right-4 p-4 rounded-lg shadow-lg animate-fadeIn safe-bottom max-w-sm"
           style={{ backgroundColor: '#D1FAE5', border: '1px solid #A7F3D0' }}>
-          <div className="flex items-center gap-2">
-            <Check size={20} style={{ color: '#065F46' }} />
-            <span style={{ color: '#065F46' }}>Vente enregistrée avec succès !</span>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Check size={20} style={{ color: '#065F46' }} />
+              <span style={{ color: '#065F46' }} className="font-semibold">Vente enregistrée avec succès !</span>
+            </div>
+            <div className="text-sm" style={{ color: '#047857' }}>
+              ⚠️ Vendeuse décochée automatiquement
+            </div>
+            <div className="text-xs" style={{ color: '#047857' }}>
+              Sélectionnez une nouvelle vendeuse pour l'encaissement suivant
+            </div>
           </div>
         </div>
       )}
 
       {/* Panier flottant - visible uniquement dans certains onglets */}
-      {['produits', 'reglements', 'annulation'].includes(activeTab) && (
+      {['produits', 'ventes', 'annulation'].includes(activeTab) && (
         <div className={`floating-cart ${isCartMinimized ? 'minimized' : ''}`}>
           <div className="cart-header" style={{ 
             backgroundColor: '#477A0C', 
@@ -1519,13 +1621,77 @@ function CaisseMyConfortApp() {
                       <span>Total TTC</span>
                       <span style={{ color: '#477A0C' }}>{cartTotal.toFixed(2)}€</span>
                     </div>
+                    
+                    {/* Sélection du mode de paiement */}
+                    {cart.length > 0 && (
+                      <div className="mb-3">
+                        <h4 className="text-xs font-semibold mb-2" style={{ color: '#14281D' }}>
+                          Mode de paiement
+                        </h4>
+                        <div className="grid grid-cols-2 gap-1">
+                          <button
+                            onClick={() => setSelectedPaymentMethod('card')}
+                            className={`p-2 rounded text-xs font-semibold transition-all ${
+                              selectedPaymentMethod === 'card' ? 'ring-2' : ''
+                            }`}
+                            style={{
+                              backgroundColor: selectedPaymentMethod === 'card' ? '#477A0C' : '#E8E3D3',
+                              color: selectedPaymentMethod === 'card' ? 'white' : '#14281D',
+                              ringColor: selectedPaymentMethod === 'card' ? '#C4D144' : undefined
+                            }}
+                          >
+                            💳 Carte
+                          </button>
+                          <button
+                            onClick={() => setSelectedPaymentMethod('cash')}
+                            className={`p-2 rounded text-xs font-semibold transition-all ${
+                              selectedPaymentMethod === 'cash' ? 'ring-2' : ''
+                            }`}
+                            style={{
+                              backgroundColor: selectedPaymentMethod === 'cash' ? '#477A0C' : '#E8E3D3',
+                              color: selectedPaymentMethod === 'cash' ? 'white' : '#14281D',
+                              ringColor: selectedPaymentMethod === 'cash' ? '#C4D144' : undefined
+                            }}
+                          >
+                            💵 Espèces
+                          </button>
+                          <button
+                            onClick={() => setSelectedPaymentMethod('check')}
+                            className={`p-2 rounded text-xs font-semibold transition-all ${
+                              selectedPaymentMethod === 'check' ? 'ring-2' : ''
+                            }`}
+                            style={{
+                              backgroundColor: selectedPaymentMethod === 'check' ? '#477A0C' : '#E8E3D3',
+                              color: selectedPaymentMethod === 'check' ? 'white' : '#14281D',
+                              ringColor: selectedPaymentMethod === 'check' ? '#C4D144' : undefined
+                            }}
+                          >
+                            📝 Chèque
+                          </button>
+                          <button
+                            onClick={() => setSelectedPaymentMethod('multi')}
+                            className={`p-2 rounded text-xs font-semibold transition-all ${
+                              selectedPaymentMethod === 'multi' ? 'ring-2' : ''
+                            }`}
+                            style={{
+                              backgroundColor: selectedPaymentMethod === 'multi' ? '#477A0C' : '#E8E3D3',
+                              color: selectedPaymentMethod === 'multi' ? 'white' : '#14281D',
+                              ringColor: selectedPaymentMethod === 'multi' ? '#C4D144' : undefined
+                            }}
+                          >
+                            🔄 Multi
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="space-y-2">
                       <button
-                        onClick={() => setActiveTab('reglements')}
+                        onClick={completeSale}
                         className="w-full btn-primary text-sm py-2"
                         disabled={!selectedVendor || cart.length === 0}
                       >
-                        {!selectedVendor ? 'Sélectionner vendeuse' : 'Procéder au paiement'}
+                        {!selectedVendor ? 'Sélectionner vendeuse' : 'Valider le paiement'}
                       </button>
                       <button
                         onClick={clearCart}
