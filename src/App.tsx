@@ -116,10 +116,13 @@ const productCatalog: CatalogProduct[] = [
 
 // Vendeuses disponibles
 const vendors: Vendor[] = [
-  { id: '1', name: 'Marie Dupont', dailySales: 0, totalSales: 0, color: '#477A0C' },
-  { id: '2', name: 'Sophie Martin', dailySales: 0, totalSales: 0, color: '#C4D144' },
-  { id: '3', name: 'Claire Bernard', dailySales: 0, totalSales: 0, color: '#89BBFE' },
-  { id: '4', name: 'Julie Moreau', dailySales: 0, totalSales: 0, color: '#D68FD6' },
+  { id: '1', name: 'Sylvie', dailySales: 0, totalSales: 0, color: '#2D5016' },
+  { id: '2', name: 'Babette', dailySales: 0, totalSales: 0, color: '#8B9A2B' },
+  { id: '3', name: 'Lucia', dailySales: 0, totalSales: 0, color: '#1E40AF' },
+  { id: '4', name: 'Cathy', dailySales: 0, totalSales: 0, color: '#BE185D' },
+  { id: '5', name: 'Johan', dailySales: 0, totalSales: 0, color: '#DC2626' },
+  { id: '6', name: 'Sabrina', dailySales: 0, totalSales: 0, color: '#047857' },
+  { id: '7', name: 'Billy', dailySales: 0, totalSales: 0, color: '#1E3A8A' },
 ];
 
 // Hook localStorage optimisé avec gestion d'erreurs et compression
@@ -708,11 +711,11 @@ function CaisseMyConfortApp() {
         <div className="h-full overflow-auto p-6">
           {/* Vendeuse Tab */}
           {activeTab === 'vendeuse' && (
-            <div className="max-w-3xl mx-auto animate-fadeIn">
-              <h2 className="text-3xl font-bold mb-8" style={{ color: '#14281D' }}>
+            <div className="max-w-5xl mx-auto animate-fadeIn">
+              <h2 className="text-3xl font-bold mb-6" style={{ color: '#14281D' }}>
                 Sélection de la vendeuse
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {vendorStats.map(vendor => (
                   <div
                     key={vendor.id}
@@ -722,30 +725,31 @@ function CaisseMyConfortApp() {
                     }`}
                     style={{
                       borderColor: selectedVendor?.id === vendor.id ? vendor.color : undefined,
-                      boxShadow: selectedVendor?.id === vendor.id ? `0 0 0 4px ${vendor.color}33` : undefined
+                      boxShadow: selectedVendor?.id === vendor.id ? `0 0 0 4px ${vendor.color}33` : undefined,
+                      padding: '16px'
                     }}
                   >
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold" style={{ color: vendor.color }}>
+                    <div className="flex justify-between items-start mb-3">
+                      <h3 className="text-lg font-bold" style={{ color: vendor.color }}>
                         {vendor.name}
                       </h3>
                       {selectedVendor?.id === vendor.id && (
-                        <Check size={24} style={{ color: vendor.color }} />
+                        <Check size={20} style={{ color: vendor.color }} />
                       )}
                     </div>
-                    <div className="space-y-2">
-                      <p className="text-sm" style={{ color: '#6B7280' }}>
-                        CA du jour: <span className="font-bold text-lg" style={{ color: '#14281D' }}>
+                    <div className="space-y-1">
+                      <p className="text-xs" style={{ color: '#6B7280' }}>
+                        CA du jour: <span className="font-bold text-sm" style={{ color: '#14281D' }}>
                           {vendor.dailySales.toFixed(2)}€
                         </span>
                       </p>
-                      <p className="text-sm" style={{ color: '#6B7280' }}>
-                        Nombre de ventes: <span className="font-bold" style={{ color: '#14281D' }}>
+                      <p className="text-xs" style={{ color: '#6B7280' }}>
+                        Ventes: <span className="font-bold" style={{ color: '#14281D' }}>
                           {vendor.totalSales}
                         </span>
                       </p>
                       {vendor.totalSales > 0 && (
-                        <p className="text-sm" style={{ color: '#6B7280' }}>
+                        <p className="text-xs" style={{ color: '#6B7280' }}>
                           Ticket moyen: <span className="font-bold" style={{ color: '#14281D' }}>
                             {(vendor.dailySales / vendor.totalSales).toFixed(2)}€
                           </span>
