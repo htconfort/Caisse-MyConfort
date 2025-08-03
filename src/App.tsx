@@ -114,15 +114,15 @@ const productCatalog: CatalogProduct[] = [
   { name: 'Taie d\'oreiller', category: 'Accessoires', priceTTC: 0 }, // Non vendu seul
 ];
 
-// Vendeuses disponibles
+// Vendeuses disponibles avec couleurs de la charte MyConfort
 const vendors: Vendor[] = [
-  { id: '1', name: 'Sylvie', dailySales: 0, totalSales: 0, color: '#2D5016' },
-  { id: '2', name: 'Babette', dailySales: 0, totalSales: 0, color: '#8B9A2B' },
-  { id: '3', name: 'Lucia', dailySales: 0, totalSales: 0, color: '#1E40AF' },
-  { id: '4', name: 'Cathy', dailySales: 0, totalSales: 0, color: '#BE185D' },
-  { id: '5', name: 'Johan', dailySales: 0, totalSales: 0, color: '#DC2626' },
-  { id: '6', name: 'Sabrina', dailySales: 0, totalSales: 0, color: '#047857' },
-  { id: '7', name: 'Billy', dailySales: 0, totalSales: 0, color: '#1E3A8A' },
+  { id: '1', name: 'Sylvie', dailySales: 0, totalSales: 0, color: '#477A0C' },
+  { id: '2', name: 'Babette', dailySales: 0, totalSales: 0, color: '#F55D3E' },
+  { id: '3', name: 'Lucia', dailySales: 0, totalSales: 0, color: '#14281D' },
+  { id: '4', name: 'Cathy', dailySales: 0, totalSales: 0, color: '#080F0F' },
+  { id: '5', name: 'Johan', dailySales: 0, totalSales: 0, color: '#89BBFE' },
+  { id: '6', name: 'Sabrina', dailySales: 0, totalSales: 0, color: '#D68FD6' },
+  { id: '7', name: 'Billy', dailySales: 0, totalSales: 0, color: '#FFFF99' }, // Jaune poussin
 ];
 
 // Hook localStorage optimisé avec gestion d'erreurs et compression
@@ -270,6 +270,7 @@ function CaisseMyConfortApp() {
   const [miscAmount, setMiscAmount] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCartMinimized, setIsCartMinimized] = useState(false);
   
   // Hooks personnalisés
   const isOnline = useNetworkStatus();
@@ -646,26 +647,123 @@ function CaisseMyConfortApp() {
             font-weight: 500;
             z-index: 1000;
           }
+
+          /* Styles spécifiques pour la police noire sur fonds clairs */
+          .vendor-black-text,
+          .vendor-black-text * {
+            color: #000000 !important;
+          }
+
+          .vendor-white-text,
+          .vendor-white-text * {
+            color: #ffffff !important;
+          }
+
+          /* Styles spécifiques pour le header */
+          .header-white-text,
+          .header-white-text *,
+          header h1,
+          header span,
+          header div {
+            color: #ffffff !important;
+          }
+
+          /* Panier en mode survol */
+          .floating-cart {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 300px;
+            height: 100%;
+            background: white;
+            border-left: 2px solid #477A0C;
+            z-index: 100;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
+          }
+
+          .floating-cart.minimized {
+            width: 60px;
+          }
+
+          .floating-cart.minimized .cart-content {
+            display: none;
+          }
+
+          .floating-cart.minimized .cart-header {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #477A0C;
+          }
+
+          .cart-toggle {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            writing-mode: horizontal-tb;
+          }
+
+          .cart-badge {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #F55D3E;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+          }
+
+          /* Ajustement du contenu principal quand le panier est ouvert */
+          .main-content-with-cart {
+            padding-right: 300px;
+          }
+
+          .main-content-with-cart.cart-minimized {
+            padding-right: 60px;
+          }
         `}</style>
 
       {/* Header avec safe area */}
-      <header className="shadow-lg safe-top" style={{ backgroundColor: '#477A0C' }}>
+      <header className="shadow-lg safe-top header-white-text" style={{ backgroundColor: '#477A0C' }}>
         <div className="px-6 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-white">🛒 Caisse MyConfort</h1>
+          <h1 className="text-2xl font-bold text-white header-white-text flex items-center gap-2">
+            <ShoppingCart size={28} color="white" />
+            Caisse MyConfort
+          </h1>
           <div className="flex items-center gap-6">
             {!isOnline && (
-              <div className="flex items-center gap-2 text-white">
-                <WifiOff size={20} />
+              <div className="flex items-center gap-2 text-white header-white-text">
+                <WifiOff size={20} color="white" />
                 <span className="text-sm opacity-90">Mode hors ligne</span>
               </div>
             )}
             {selectedVendor && (
-              <div className="text-white">
+              <div className="text-white header-white-text">
                 <span className="text-sm opacity-80">Vendeuse:</span>
                 <span className="ml-2 font-semibold">{selectedVendor.name}</span>
               </div>
             )}
-            <div className="text-white">
+            <div className="text-white header-white-text">
               <span className="text-sm text-white">CA du jour:</span>
               <span className="ml-2 text-xl font-bold text-white">
                 {todaySales.toFixed(2)}€
@@ -678,79 +776,164 @@ function CaisseMyConfortApp() {
       {/* Navigation avec optimisation tactile */}
       <nav className="border-b" style={{ backgroundColor: '#ffffff' }}>
         <div className="flex overflow-x-auto">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap relative touch-feedback ${
-                activeTab === tab.id 
-                  ? 'text-white' 
-                  : 'hover:bg-gray-50'
-              }`}
-              style={{
-                backgroundColor: activeTab === tab.id ? '#477A0C' : 'transparent',
-                color: activeTab === tab.id ? 'white' : '#14281D',
-                minWidth: '120px'
-              }}
-            >
-              <tab.icon size={20} />
-              {tab.label}
-              {tab.id === 'raz' && cart.length > 0 && (
-                <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
-                  style={{ backgroundColor: '#F55D3E', color: 'white' }}>
-                  {cartItemsCount}
-                </span>
-              )}
-            </button>
-          ))}
+          {tabs.map(tab => {
+            const isDisabled = !selectedVendor && tab.id !== 'vendeuse';
+            return (
+              <button
+                key={tab.id}
+                onClick={() => !isDisabled && setActiveTab(tab.id)}
+                disabled={isDisabled}
+                className={`flex items-center gap-2 px-6 py-4 font-semibold transition-all whitespace-nowrap relative touch-feedback ${
+                  activeTab === tab.id 
+                    ? 'text-white' 
+                    : isDisabled 
+                      ? 'opacity-40 cursor-not-allowed' 
+                      : 'hover:bg-gray-50'
+                }`}
+                style={{
+                  backgroundColor: activeTab === tab.id ? '#477A0C' : 'transparent',
+                  color: activeTab === tab.id ? 'white' : isDisabled ? '#9CA3AF' : '#14281D',
+                  minWidth: '120px'
+                }}
+              >                <tab.icon size={20} />
+                {tab.label}
+                
+                {/* Badge pour Produits - nombre d'articles dans le catalogue */}
+                {tab.id === 'produits' && (
+                  <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
+                    style={{ backgroundColor: '#C4D144', color: '#14281D' }}>
+                    {productCatalog.filter(p => p.priceTTC > 0).length}
+                  </span>
+                )}
+                
+                {/* Badge pour Règlements - nombre d'articles dans le panier */}
+                {tab.id === 'reglements' && cart.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
+                    style={{ backgroundColor: '#F59E0B', color: 'white' }}>
+                    {cartItemsCount}
+                  </span>
+                )}
+                
+                {/* Badge pour Diverses - indication active */}
+                {tab.id === 'diverses' && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full"
+                    style={{ backgroundColor: '#8B5CF6' }}>
+                  </span>
+                )}
+                
+                {/* Badge pour Annulation - panier à annuler */}
+                {tab.id === 'annulation' && cart.length > 0 && (
+                  <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
+                    style={{ backgroundColor: '#F55D3E', color: 'white' }}>
+                    {cartItemsCount}
+                  </span>
+                )}
+                
+                {/* Badge pour CA Instant - montant du jour */}
+                {tab.id === 'ca' && todaySales > 0 && (
+                  <span className="absolute -top-1 -right-1 px-2 py-1 text-xs rounded-full font-bold"
+                    style={{ backgroundColor: '#10B981', color: 'white' }}>
+                    {todaySales.toFixed(0)}€
+                  </span>
+                )}
+                
+                {/* Badge pour RAZ - avertissement si données présentes */}
+                {tab.id === 'raz' && (sales.length > 0 || cart.length > 0) && (
+                  <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full animate-pulse"
+                    style={{ backgroundColor: '#DC2626', color: 'white' }}>
+                    !
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </nav>
 
       {/* Main Content avec safe area */}
-      <main className="flex-1 overflow-hidden gradient-bg safe-bottom">
-        <div className="h-full overflow-auto p-6">
+      <main className="flex-1 overflow-hidden gradient-bg safe-bottom relative">
+        <div className={`h-full overflow-auto p-6 ${
+          ['produits', 'reglements', 'annulation'].includes(activeTab) 
+            ? `main-content-with-cart ${isCartMinimized ? 'cart-minimized' : ''}`
+            : ''
+        }`}>
+          {/* Message d'avertissement si aucune vendeuse sélectionnée */}
+          {!selectedVendor && activeTab !== 'vendeuse' && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="card max-w-md mx-auto text-center animate-fadeIn">
+                <AlertCircle size={48} className="mx-auto mb-4" style={{ color: '#F55D3E' }} />
+                <h2 className="text-2xl font-bold mb-4" style={{ color: '#14281D' }}>
+                  Vendeuse requise
+                </h2>
+                <p className="mb-6" style={{ color: '#6B7280' }}>
+                  Vous devez sélectionner une vendeuse avant d'utiliser la caisse.
+                </p>
+                <button
+                  onClick={() => setActiveTab('vendeuse')}
+                  className="btn-primary w-full"
+                >
+                  Sélectionner une vendeuse
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Vendeuse Tab */}
           {activeTab === 'vendeuse' && (
             <div className="max-w-5xl mx-auto animate-fadeIn">
               <h2 className="text-3xl font-bold mb-6" style={{ color: '#14281D' }}>
-                Sélection de la vendeuse
+                {!selectedVendor ? 'Sélection de la vendeuse (OBLIGATOIRE)' : 'Sélection de la vendeuse'}
               </h2>
+              {!selectedVendor && (
+                <div className="mb-6 p-4 rounded-lg" style={{ backgroundColor: '#FEF3CD', border: '1px solid #F59E0B' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertCircle size={20} style={{ color: '#D97706' }} />
+                    <h3 className="font-bold" style={{ color: '#D97706' }}>
+                      Sélection obligatoire
+                    </h3>
+                  </div>
+                  <p style={{ color: '#92400E' }}>
+                    Vous devez sélectionner une vendeuse avant de pouvoir utiliser les fonctionnalités de la caisse.
+                  </p>
+                </div>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {vendorStats.map(vendor => (
                   <div
                     key={vendor.id}
                     onClick={() => setSelectedVendor(vendor)}
                     className={`card cursor-pointer touch-feedback ${
-                      selectedVendor?.id === vendor.id ? 'ring-4' : ''
+                      selectedVendor?.id === vendor.id ? 'ring-4 ring-white' : ''
                     }`}
                     style={{
-                      borderColor: selectedVendor?.id === vendor.id ? vendor.color : undefined,
-                      boxShadow: selectedVendor?.id === vendor.id ? `0 0 0 4px ${vendor.color}33` : undefined,
-                      padding: '16px'
+                      backgroundColor: vendor.color,
+                      color: 'white',
+                      padding: '16px',
+                      border: selectedVendor?.id === vendor.id ? '3px solid white' : '1px solid rgba(255,255,255,0.3)'
                     }}
                   >
                     <div className="flex justify-between items-start mb-3">
-                      <h3 className="text-lg font-bold" style={{ color: vendor.color }}>
+                      <h3 className={`text-lg font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                         {vendor.name}
                       </h3>
                       {selectedVendor?.id === vendor.id && (
-                        <Check size={20} style={{ color: vendor.color }} />
+                        <Check size={20} color={['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'black' : 'white'} />
                       )}
                     </div>
                     <div className="space-y-1">
-                      <p className="text-xs" style={{ color: '#6B7280' }}>
-                        CA du jour: <span className="font-bold text-sm" style={{ color: '#14281D' }}>
+                      <p className={`text-xs opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                        CA du jour: <span className={`font-bold text-sm ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                           {vendor.dailySales.toFixed(2)}€
                         </span>
                       </p>
-                      <p className="text-xs" style={{ color: '#6B7280' }}>
-                        Ventes: <span className="font-bold" style={{ color: '#14281D' }}>
+                      <p className={`text-xs opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                        Ventes: <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                           {vendor.totalSales}
                         </span>
                       </p>
                       {vendor.totalSales > 0 && (
-                        <p className="text-xs" style={{ color: '#6B7280' }}>
-                          Ticket moyen: <span className="font-bold" style={{ color: '#14281D' }}>
+                        <p className={`text-xs opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                          Ticket moyen: <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                             {(vendor.dailySales / vendor.totalSales).toFixed(2)}€
                           </span>
                         </p>
@@ -763,150 +946,88 @@ function CaisseMyConfortApp() {
           )}
 
           {/* Produits Tab avec recherche */}
-          {activeTab === 'produits' && (
-            <div className="flex gap-6 h-full">
-              <div className="flex-1">
-                {/* Barre de recherche */}
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Rechercher un produit..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="input w-full md:w-96"
-                  />
-                </div>
+          {activeTab === 'produits' && !selectedVendor && (
+            <div className="max-w-2xl mx-auto text-center animate-fadeIn">
+              <div className="card">
+                <AlertCircle size={48} className="mx-auto mb-4" style={{ color: '#F55D3E' }} />
+                <h2 className="text-2xl font-bold mb-4" style={{ color: '#14281D' }}>
+                  Vendeuse non sélectionnée
+                </h2>
+                <p className="mb-6" style={{ color: '#6B7280' }}>
+                  Veuillez d'abord sélectionner une vendeuse pour accéder au catalogue produits.
+                </p>
+                <button
+                  onClick={() => setActiveTab('vendeuse')}
+                  className="btn-primary"
+                >
+                  Sélectionner une vendeuse
+                </button>
+              </div>
+            </div>
+          )}
 
-                {/* Categories */}
-                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                  {categories.map(category => (
-                    <button
-                      key={category}
-                      onClick={() => setSelectedCategory(category)}
-                      className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all touch-feedback ${
-                        selectedCategory === category
-                          ? 'btn-primary'
-                          : 'bg-white hover:shadow-md'
-                      }`}
-                      style={{
-                        backgroundColor: selectedCategory === category ? undefined : 'white',
-                        color: selectedCategory === category ? undefined : '#14281D'
-                      }}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Products Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {filteredProducts.map((product, index) => (
-                    <button
-                      key={`${product.name}-${index}`}
-                      onClick={() => addToCart(product)}
-                      disabled={product.priceTTC === 0}
-                      className={`card touch-feedback ${
-                        product.priceTTC === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                      }`}
-                    >
-                      <h3 className="font-semibold mb-2 text-sm" style={{ color: '#14281D' }}>
-                        {product.name}
-                      </h3>
-                      <p className="text-2xl font-bold" style={{ color: '#477A0C' }}>
-                        {product.priceTTC > 0 ? `${product.priceTTC}€` : 'Non vendu seul'}
-                      </p>
-                      {product.priceTTC === 0 && (
-                        <p className="text-xs mt-2" style={{ color: '#F55D3E' }}>
-                          ⚠️ Produit complémentaire
-                        </p>
-                      )}
-                    </button>
-                  ))}
-                  {filteredProducts.length === 0 && (
-                    <div className="col-span-full text-center py-12">
-                      <p style={{ color: '#6B7280' }}>Aucun produit trouvé</p>
-                    </div>
-                  )}
-                </div>
+          {activeTab === 'produits' && selectedVendor && (
+            <div className="animate-fadeIn">
+              {/* Barre de recherche */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Rechercher un produit..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="input w-full md:w-96"
+                />
               </div>
 
-              {/* Cart Sidebar optimisé */}
-              <div className="w-96 card h-fit sticky top-0">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-bold" style={{ color: '#14281D' }}>
-                    Panier ({cartItemsCount} articles)
-                  </h3>
-                  {cart.length > 0 && (
-                    <button
-                      onClick={clearCart}
-                      className="text-sm font-semibold touch-feedback"
-                      style={{ color: '#F55D3E' }}
-                    >
-                      Vider le panier
-                    </button>
-                  )}
-                </div>
+              {/* Categories */}
+              <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                {categories.map(category => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all touch-feedback ${
+                      selectedCategory === category
+                        ? 'btn-primary'
+                        : 'bg-white hover:shadow-md'
+                    }`}
+                    style={{
+                      backgroundColor: selectedCategory === category ? undefined : 'white',
+                      color: selectedCategory === category ? undefined : '#14281D'
+                    }}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
 
-                {cart.length === 0 ? (
-                  <p className="text-center py-12" style={{ color: '#6B7280' }}>
-                    Panier vide
-                  </p>
-                ) : (
-                  <>
-                    <div className="space-y-3 mb-6 max-h-96 overflow-y-auto">
-                      {cart.map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-3 rounded-lg"
-                          style={{ backgroundColor: '#F2EFE2' }}>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-sm" style={{ color: '#14281D' }}>
-                              {item.name}
-                            </h4>
-                            <p className="text-sm" style={{ color: '#477A0C' }}>
-                              {item.price}€ / unité
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => updateQuantity(item.id, -1)}
-                              className="w-8 h-8 rounded-full flex items-center justify-center touch-feedback"
-                              style={{ backgroundColor: '#E8E3D3' }}
-                            >
-                              <Minus size={14} />
-                            </button>
-                            <span className="w-8 text-center font-semibold">{item.quantity}</span>
-                            <button
-                              onClick={() => updateQuantity(item.id, 1)}
-                              className="w-8 h-8 rounded-full flex items-center justify-center touch-feedback"
-                              style={{ backgroundColor: '#E8E3D3' }}
-                            >
-                              <Plus size={14} />
-                            </button>
-                            <button
-                              onClick={() => removeFromCart(item.id)}
-                              className="ml-2 touch-feedback"
-                              style={{ color: '#F55D3E' }}
-                            >
-                              <X size={18} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between items-center text-2xl font-bold"
-                        style={{ color: '#14281D' }}>
-                        <span>Total TTC</span>
-                        <span style={{ color: '#477A0C' }}>{cartTotal.toFixed(2)}€</span>
-                      </div>
-                      <button
-                        onClick={() => setActiveTab('reglements')}
-                        className="w-full mt-4 btn-primary"
-                      >
-                        Procéder au paiement
-                      </button>
-                    </div>
-                  </>
+              {/* Products Grid */}
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredProducts.map((product, index) => (
+                  <button
+                    key={`${product.name}-${index}`}
+                    onClick={() => addToCart(product)}
+                    disabled={product.priceTTC === 0}
+                    className={`card touch-feedback ${
+                      product.priceTTC === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                    }`}
+                  >
+                    <h3 className="font-semibold mb-2 text-sm" style={{ color: '#14281D' }}>
+                      {product.name}
+                    </h3>
+                    <p className="text-2xl font-bold" style={{ color: '#477A0C' }}>
+                      {product.priceTTC > 0 ? `${product.priceTTC}€` : 'Non vendu seul'}
+                    </p>
+                    {product.priceTTC === 0 && (
+                      <p className="text-xs mt-2" style={{ color: '#F55D3E' }}>
+                        ⚠️ Produit complémentaire
+                      </p>
+                    )}
+                  </button>
+                ))}
+                {filteredProducts.length === 0 && (
+                  <div className="col-span-full text-center py-12">
+                    <p style={{ color: '#6B7280' }}>Aucun produit trouvé</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1158,16 +1279,16 @@ function CaisseMyConfortApp() {
                 <div className="space-y-4">
                   {vendorStats.map(vendor => (
                     <div key={vendor.id} className="flex justify-between items-center p-4 rounded-lg"
-                      style={{ backgroundColor: '#F2EFE2' }}>
+                      style={{ backgroundColor: vendor.color }}>
                       <div>
-                        <h4 className="font-semibold" style={{ color: vendor.color }}>
+                        <h4 className={`font-semibold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                           {vendor.name}
                         </h4>
-                        <p className="text-sm" style={{ color: '#6B7280' }}>
+                        <p className={`text-sm opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                           {vendor.totalSales} ventes
                         </p>
                       </div>
-                      <p className="text-2xl font-bold" style={{ color: '#14281D' }}>
+                      <p className={`text-2xl font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                         {vendor.dailySales.toFixed(2)}€
                       </p>
                     </div>
@@ -1285,6 +1406,145 @@ function CaisseMyConfortApp() {
             <Check size={20} style={{ color: '#065F46' }} />
             <span style={{ color: '#065F46' }}>Vente enregistrée avec succès !</span>
           </div>
+        </div>
+      )}
+
+      {/* Panier flottant - visible uniquement dans certains onglets */}
+      {['produits', 'reglements', 'annulation'].includes(activeTab) && (
+        <div className={`floating-cart ${isCartMinimized ? 'minimized' : ''}`}>
+          <div className="cart-header" style={{ 
+            backgroundColor: '#477A0C', 
+            padding: isCartMinimized ? '8px' : '16px',
+            display: 'flex',
+            justifyContent: isCartMinimized ? 'center' : 'space-between',
+            alignItems: 'center',
+            minHeight: '60px'
+          }}>
+            {!isCartMinimized ? (
+              <>
+                <h3 className="text-white font-bold text-lg">
+                  Panier ({cartItemsCount})
+                </h3>
+                <button
+                  onClick={() => setIsCartMinimized(true)}
+                  className="cart-toggle"
+                  style={{ width: 'auto', height: 'auto', padding: '8px' }}
+                >
+                  <X size={20} color="white" />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsCartMinimized(false)}
+                className="cart-toggle"
+                style={{ flexDirection: 'column', gap: '4px' }}
+              >
+                <ShoppingCart size={20} color="white" />
+                {cartItemsCount > 0 && (
+                  <span className="cart-badge">
+                    {cartItemsCount}
+                  </span>
+                )}
+                <span style={{ color: 'white', fontSize: '10px', writingMode: 'vertical-rl' }}>
+                  PANIER
+                </span>
+              </button>
+            )}
+          </div>
+
+          {!isCartMinimized && (
+            <div className="cart-content" style={{ 
+              padding: '16px', 
+              height: 'calc(100% - 60px)', 
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {cart.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <ShoppingCart size={48} style={{ color: '#D1D5DB', margin: '0 auto 16px' }} />
+                    <p className="text-gray-500">
+                      Panier vide
+                    </p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Ajoutez des produits pour commencer
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex-1 space-y-2 mb-4 overflow-y-auto">
+                    {cart.map(item => (
+                      <div key={item.id} className="flex items-center justify-between p-2 rounded"
+                        style={{ backgroundColor: '#F2EFE2' }}>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-xs truncate" style={{ color: '#14281D' }}>
+                            {item.name}
+                          </h4>
+                          <p className="text-xs" style={{ color: '#477A0C' }}>
+                            {item.price}€ x {item.quantity} = {(item.price * item.quantity).toFixed(2)}€
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => updateQuantity(item.id, -1)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                            style={{ backgroundColor: '#E8E3D3' }}
+                          >
+                            <Minus size={10} />
+                          </button>
+                          <span className="w-6 text-center text-xs font-semibold">{item.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(item.id, 1)}
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                            style={{ backgroundColor: '#E8E3D3' }}
+                          >
+                            <Plus size={10} />
+                          </button>
+                          <button
+                            onClick={() => removeFromCart(item.id)}
+                            className="ml-1 text-red-500"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t pt-3 mt-auto">
+                    <div className="flex justify-between items-center font-bold mb-3"
+                      style={{ color: '#14281D' }}>
+                      <span>Total TTC</span>
+                      <span style={{ color: '#477A0C' }}>{cartTotal.toFixed(2)}€</span>
+                    </div>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setActiveTab('reglements')}
+                        className="w-full btn-primary text-sm py-2"
+                        disabled={!selectedVendor || cart.length === 0}
+                      >
+                        {!selectedVendor ? 'Sélectionner vendeuse' : 'Procéder au paiement'}
+                      </button>
+                      <button
+                        onClick={clearCart}
+                        className="w-full text-sm py-2 px-3 rounded border"
+                        style={{ 
+                          borderColor: '#F55D3E', 
+                          color: '#F55D3E',
+                          backgroundColor: 'white'
+                        }}
+                        disabled={cart.length === 0}
+                      >
+                        Vider le panier
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
