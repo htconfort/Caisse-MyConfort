@@ -772,12 +772,6 @@ function CaisseMyConfortApp() {
                 <span className="ml-2 font-semibold">{selectedVendor.name}</span>
               </div>
             )}
-            <div className="text-white header-white-text">
-              <span className="text-sm text-white">CA du jour:</span>
-              <span className="ml-2 text-xl font-bold text-white">
-                {todaySales.toFixed(2)}€
-              </span>
-            </div>
           </div>
         </div>
       </header>
@@ -1366,27 +1360,128 @@ function CaisseMyConfortApp() {
                 </div>
               </div>
 
-              <div className="card">
-                <h3 className="text-xl font-bold mb-4" style={{ color: '#14281D' }}>
-                  CA par Vendeuse
+              <div className="card mb-6">
+                <h3 className="text-xl font-bold mb-6" style={{ color: '#14281D' }}>
+                  Performance par Vendeuse - Temps Réel
                 </h3>
-                <div className="space-y-4">
-                  {vendorStats.map(vendor => (
-                    <div key={vendor.id} className="flex justify-between items-center p-4 rounded-lg"
-                      style={{ backgroundColor: vendor.color }}>
-                      <div>
-                        <h4 className={`font-semibold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
-                          {vendor.name}
-                        </h4>
-                        <p className={`text-sm opacity-90 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
-                          {vendor.totalSales} ventes
-                        </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {vendorStats.map(vendor => {
+                    const vendorSales = sales.filter(s => 
+                      s.vendorId === vendor.id && 
+                      new Date(s.date).toDateString() === new Date().toDateString() && 
+                      !s.canceled
+                    );
+                    const avgTicket = vendorSales.length > 0 ? vendor.dailySales / vendorSales.length : 0;
+                    const lastSaleTime = vendorSales.length > 0 
+                      ? new Date(Math.max(...vendorSales.map(s => new Date(s.date).getTime())))
+                      : null;
+                    
+                    return (
+                      <div key={vendor.id} className="card p-4" 
+                        style={{ 
+                          backgroundColor: vendor.color,
+                          border: `3px solid ${vendor.color}`,
+                          transform: 'none',
+                          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                        }}>
+                        <div className="text-center">
+                          <h4 className={`text-xl font-bold mb-3 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                            {vendor.name}
+                          </h4>
+                          
+                          {/* CA du jour */}
+                          <div className="mb-4">
+                            <p className={`text-xs uppercase tracking-wide mb-1 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`} 
+                              style={{ opacity: 0.8 }}>
+                              CA du jour
+                            </p>
+                            <p className={`text-3xl font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                              {vendor.dailySales.toFixed(2)}€
+                            </p>
+                          </div>
+                          
+                          {/* Statistiques détaillées */}
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span className={`${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}
+                                style={{ opacity: 0.9 }}>
+                                Nombre de ventes:
+                              </span>
+                              <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                                {vendorSales.length}
+                              </span>
+                            </div>
+                            
+                            {avgTicket > 0 && (
+                              <div className="flex justify-between">
+                                <span className={`${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}
+                                  style={{ opacity: 0.9 }}>
+                                  Ticket moyen:
+                                </span>
+                                <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                                  {avgTicket.toFixed(2)}€
+                                </span>
+                              </div>
+                            )}
+                            
+                            {lastSaleTime && (
+                              <div className="flex justify-between">
+                                <span className={`${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}
+                                  style={{ opacity: 0.9 }}>
+                                  Dernière vente:
+                                </span>
+                                <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                                  {lastSaleTime.toLocaleTimeString('fr-FR', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}
+                                </span>
+                              </div>
+                            )}
+                            
+                            {/* Pourcentage du CA total */}
+                            {todaySales > 0 && (
+                              <div className="flex justify-between pt-2 border-t" 
+                                style={{ 
+                                  borderColor: ['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)' 
+                                }}>
+                                <span className={`${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}
+                                  style={{ opacity: 0.9 }}>
+                                  Part du CA:
+                                </span>
+                                <span className={`font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                                  {((vendor.dailySales / todaySales) * 100).toFixed(1)}%
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Indicateur de statut */}
+                          <div className="mt-4 pt-3 border-t" 
+                            style={{ 
+                              borderColor: ['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)' 
+                            }}>
+                            {vendorSales.length === 0 ? (
+                              <span className={`text-xs px-3 py-1 rounded-full ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}
+                                style={{ 
+                                  backgroundColor: ['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)',
+                                  opacity: 0.8 
+                                }}>
+                                Aucune vente aujourd'hui
+                              </span>
+                            ) : (
+                              <span className={`text-xs px-3 py-1 rounded-full ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}
+                                style={{ 
+                                  backgroundColor: ['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)' 
+                                }}>
+                                ✓ Active aujourd'hui
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <p className={`text-2xl font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
-                        {vendor.dailySales.toFixed(2)}€
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1636,8 +1731,7 @@ function CaisseMyConfortApp() {
                             }`}
                             style={{
                               backgroundColor: selectedPaymentMethod === 'card' ? '#477A0C' : '#E8E3D3',
-                              color: selectedPaymentMethod === 'card' ? 'white' : '#14281D',
-                              ringColor: selectedPaymentMethod === 'card' ? '#C4D144' : undefined
+                              color: selectedPaymentMethod === 'card' ? 'white' : '#14281D'
                             }}
                           >
                             💳 Carte
@@ -1649,8 +1743,7 @@ function CaisseMyConfortApp() {
                             }`}
                             style={{
                               backgroundColor: selectedPaymentMethod === 'cash' ? '#477A0C' : '#E8E3D3',
-                              color: selectedPaymentMethod === 'cash' ? 'white' : '#14281D',
-                              ringColor: selectedPaymentMethod === 'cash' ? '#C4D144' : undefined
+                              color: selectedPaymentMethod === 'cash' ? 'white' : '#14281D'
                             }}
                           >
                             💵 Espèces
@@ -1662,8 +1755,7 @@ function CaisseMyConfortApp() {
                             }`}
                             style={{
                               backgroundColor: selectedPaymentMethod === 'check' ? '#477A0C' : '#E8E3D3',
-                              color: selectedPaymentMethod === 'check' ? 'white' : '#14281D',
-                              ringColor: selectedPaymentMethod === 'check' ? '#C4D144' : undefined
+                              color: selectedPaymentMethod === 'check' ? 'white' : '#14281D'
                             }}
                           >
                             📝 Chèque
@@ -1675,8 +1767,7 @@ function CaisseMyConfortApp() {
                             }`}
                             style={{
                               backgroundColor: selectedPaymentMethod === 'multi' ? '#477A0C' : '#E8E3D3',
-                              color: selectedPaymentMethod === 'multi' ? 'white' : '#14281D',
-                              ringColor: selectedPaymentMethod === 'multi' ? '#C4D144' : undefined
+                              color: selectedPaymentMethod === 'multi' ? 'white' : '#14281D'
                             }}
                           >
                             🔄 Multi
