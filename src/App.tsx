@@ -928,7 +928,7 @@ function CaisseMyConfortApp() {
       {/* Main Content avec safe area */}
       <main className="flex-1 overflow-hidden gradient-bg safe-bottom relative">
         <div className={`h-full overflow-auto p-6 ${
-          ['produits', 'ventes', 'annulation'].includes(activeTab) 
+          ['produits', 'annulation'].includes(activeTab) 
             ? `main-content-with-cart ${isCartMinimized ? 'cart-minimized' : ''}`
             : ''
         }`}>
@@ -1773,7 +1773,7 @@ function CaisseMyConfortApp() {
       )}
 
       {/* Panier flottant - visible uniquement dans certains onglets */}
-      {['produits', 'ventes', 'annulation'].includes(activeTab) && (
+      {['produits', 'annulation'].includes(activeTab) && (
         <div className={`floating-cart ${isCartMinimized ? 'minimized' : ''}`}>
           <div className="cart-header" style={{ 
             backgroundColor: '#477A0C', 
