@@ -765,8 +765,8 @@ function CaisseMyConfortApp() {
       {/* Header avec safe area */}
       <header className="shadow-lg safe-top header-white-text" style={{ backgroundColor: '#477A0C' }}>
         <div className="px-6 py-4 relative">
-          {/* Affichage spécial pour Babette - centré parfaitement */}
-          {selectedVendor && selectedVendor.name === 'Babette' ? (
+          {/* Affichage spécial quand une vendeuse est sélectionnée - nom centré */}
+          {selectedVendor ? (
             <>
               {/* Titre fixe à gauche */}
               <div className="absolute left-6 top-1/2 transform -translate-y-1/2">
@@ -777,7 +777,7 @@ function CaisseMyConfortApp() {
               </div>
               
               {/* Date et heure à droite */}
-              <div className="absolute right-6 top-1/2 transform -translate-y-1/2">
+              <div className="absolute top-1/2 transform -translate-y-1/2" style={{ right: '24px' }}>
                 <div className="text-white header-white-text text-right">
                   <div className="text-lg font-bold">
                     {currentDateTime.toLocaleDateString('fr-FR', {
@@ -797,50 +797,40 @@ function CaisseMyConfortApp() {
                 </div>
               </div>
               
-              {/* Nom de Babette centré */}
+              {/* Nom de la vendeuse sélectionnée centré */}
               <div className="flex justify-center items-center w-full">
                 <h2 className="text-6xl font-black text-white tracking-wider animate-pulse" 
                   style={{ 
                     textShadow: '0 0 20px rgba(255,255,255,0.5)',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
                   }}>
-                  BABETTE
+                  {selectedVendor.name.toUpperCase()}
                 </h2>
               </div>
             </>
           ) : (
-            /* Layout normal pour les autres vendeuses */
-            <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold text-white header-white-text flex items-center gap-2">
-                <ShoppingCart size={28} color="white" />
-                Caisse MyConfort
-              </h1>
+            /* Layout quand aucune vendeuse n'est sélectionnée - même format avec "VENDEUSE ?" */
+            <>
+              {/* Titre fixe à gauche */}
+              <div className="absolute left-6 top-1/2 transform -translate-y-1/2">
+                <h1 className="text-2xl font-bold text-white header-white-text flex items-center gap-2">
+                  <ShoppingCart size={28} color="white" />
+                  Caisse MyConfort
+                </h1>
+              </div>
               
-              <div className="flex items-center gap-6">
-                {!isOnline && (
-                  <div className="flex items-center gap-2 text-white header-white-text">
-                    <WifiOff size={20} color="white" />
-                    <span className="text-sm opacity-90">Mode hors ligne</span>
-                  </div>
-                )}
-                {selectedVendor && (
-                  <div className="text-white header-white-text">
-                    <span className="text-sm opacity-80">Vendeuse:</span>
-                    <span className="ml-2 font-semibold">{selectedVendor.name}</span>
-                  </div>
-                )}
-                
-                {/* Date et heure */}
+              {/* Date et heure à droite */}
+              <div className="absolute top-1/2 transform -translate-y-1/2" style={{ right: '24px' }}>
                 <div className="text-white header-white-text text-right">
-                  <div className="text-sm font-semibold">
+                  <div className="text-lg font-bold">
                     {currentDateTime.toLocaleDateString('fr-FR', {
-                      weekday: 'short',
+                      weekday: 'long',
                       day: 'numeric',
-                      month: 'short',
+                      month: 'long',
                       year: 'numeric'
                     })}
                   </div>
-                  <div className="text-lg font-mono">
+                  <div className="text-xl font-mono">
                     {currentDateTime.toLocaleTimeString('fr-FR', {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -849,7 +839,18 @@ function CaisseMyConfortApp() {
                   </div>
                 </div>
               </div>
-            </div>
+              
+              {/* Question "VENDEUSE ?" centré */}
+              <div className="flex justify-center items-center w-full">
+                <h2 className="text-6xl font-black text-white tracking-wider animate-pulse" 
+                  style={{ 
+                    textShadow: '0 0 20px rgba(255,255,255,0.5)',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+                  }}>
+                  VENDEUSE ?
+                </h2>
+              </div>
+            </>
           )}
         </div>
       </header>
