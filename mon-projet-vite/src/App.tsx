@@ -1,35 +1,265 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import type { 
+  TabType, 
+  PaymentMethod, 
+  Vendor, 
+  ExtendedCartItem, 
+  Sale,
+  CatalogProduct
+} from './types';
+import { 
+  vendors, 
+  STORAGE_KEYS 
+} from './data';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import { Header } from './components/ui/Header';
+import { Navigation } from './components/ui/Navigation';
+import { VendorSelection, ProductsTab, SalesTab, MiscTab } from './components/tabs';
+import { SuccessNotification, FloatingCart } from './components/ui';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function CaisseMyConfortApp() {
+  // États principaux
+  const [activeTab, setActiveTab] = useState<TabType>('vendeuse');
+  const [selectedVendor, setSelectedVendor] = useLocalStorage<Vendor | null>(STORAGE_KEYS.VENDOR, null);
+  const [cart, setCart] = useLocalStorage<ExtendedCartItem[]>(STORAGE_KEYS.CART, []);
+  const [sales, setSales] = useLocalStorage<Sale[]>(STORAGE_KEYS.SALES, []);
+  const [vendorStats, setVendorStats] = useLocalStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
+  
+  // États UI
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('card');
+  const [miscDescription, setMiscDescription] = useState('');
+  const [miscAmount, setMiscAmount] = useState('');
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentDateTime, setCurrentDateTime] = useState(new Date());
+
+  // Mise à jour de l'heure
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Calculs dérivés
+  const cartTotal = useMemo(() => 
+    cart.reduce((sum, item) => sum + (item.price * item.quantity), 0), 
+    [cart]
+  );
+  
+  const cartItemsCount = useMemo(() => 
+    cart.reduce((sum, item) => sum + item.quantity, 0), 
+    [cart]
+  );
+
+  // Gestion du panier
+  const addToCart = useCallback((product: CatalogProduct) => {
+    if (product.priceTTC === 0) return;
+    if (!selectedVendor) {
+      alert('Veuillez d\'abord sélectionner une vendeuse pour ajouter des produits au panier.');
+      return;
+    }
+    
+    setCart(prevCart => {
+      const existingItem = prevCart.find(item => item.name === product.name);
+      if (existingItem) {
+        return prevCart.map(item =>
+          item.name === product.name 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
+      }
+      return [...prevCart, {
+        id: `${product.name}-${Date.now()}`,
+        name: product.name,
+        price: product.priceTTC,
+        quantity: 1,
+        category: product.category,
+        addedAt: new Date()
+      }];
+    });
+  }, [setCart, selectedVendor]);
+
+  const updateQuantity = useCallback((itemId: string, delta: number) => {
+    setCart(prevCart => {
+      const newCart: ExtendedCartItem[] = [];
+      prevCart.forEach(item => {
+        if (item.id === itemId) {
+          const newQuantity = Math.max(0, item.quantity + delta);
+          if (newQuantity > 0) {
+            newCart.push({ ...item, quantity: newQuantity });
+          }
+        } else {
+          newCart.push(item);
+        }
+      });
+      return newCart;
+    });
+  }, [setCart]);
+
+  const removeFromCart = useCallback((itemId: string) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== itemId));
+  }, [setCart]);
+
+  const clearCart = useCallback(() => {
+    setCart([]);
+  }, [setCart]);
+
+  // Gestion des ventes
+  const completeSale = useCallback(() => {
+    if (!selectedVendor || cart.length === 0) return;
+
+    const newSale: Sale = {
+      id: `sale-${Date.now()}`,
+      vendorId: selectedVendor.id,
+      vendorName: selectedVendor.name,
+      items: [...cart],
+      totalAmount: cartTotal,
+      paymentMethod: selectedPaymentMethod,
+      date: new Date(),
+      canceled: false
+    };
+
+    setSales(prev => [...prev, newSale]);
+    
+    setVendorStats(prev => prev.map(vendor => 
+      vendor.id === selectedVendor.id
+        ? { ...vendor, dailySales: vendor.dailySales + cartTotal, totalSales: vendor.totalSales + 1 }
+        : vendor
+    ));
+
+    clearCart();
+    setShowSuccess(true);
+    setSelectedVendor(null);
+    
+    setTimeout(() => {
+      setActiveTab('vendeuse');
+    }, 2000);
+  }, [selectedVendor, cart, cartTotal, selectedPaymentMethod, setSales, setVendorStats, clearCart, setSelectedVendor]);
+
+  // Gestion du succès
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => setShowSuccess(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
+
+  // Ajout ligne diverse
+  const addMiscToCart = useCallback(() => {
+    if (!miscDescription || !miscAmount) return;
+    
+    const amount = parseFloat(miscAmount);
+    if (isNaN(amount)) return;
+
+    const miscItem: ExtendedCartItem = {
+      id: `misc-${Date.now()}`,
+      name: miscDescription,
+      price: amount,
+      quantity: 1,
+      category: 'Divers',
+      addedAt: new Date()
+    };
+
+    setCart(prev => [...prev, miscItem]);
+    setMiscDescription('');
+    setMiscAmount('');
+  }, [miscDescription, miscAmount, setCart]);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="ipad-frame">
+      <div className="h-screen flex flex-col gradient-bg">
+        
+        {/* Header */}
+        <Header 
+          selectedVendor={selectedVendor}
+          currentDateTime={currentDateTime}
+        />
 
-export default App
+        {/* Navigation */}
+        <Navigation 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          cartItemsCount={cartItemsCount}
+          salesCount={sales.length}
+          cartLength={cart.length}
+        />
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden safe-bottom relative">
+          <div className="h-full overflow-auto p-6">
+
+            {/* Onglet Vendeuse */}
+            {activeTab === 'vendeuse' && (
+              <VendorSelection
+                vendorStats={vendorStats}
+                selectedVendor={selectedVendor}
+                setSelectedVendor={setSelectedVendor}
+                setActiveTab={setActiveTab}
+              />
+            )}
+
+            {/* Onglet Produits */}
+            {activeTab === 'produits' && (
+              <ProductsTab
+                selectedVendor={selectedVendor}
+                setActiveTab={setActiveTab}
+                addToCart={addToCart}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+              />
+            )}
+
+            {/* Onglet Ventes */}
+            {activeTab === 'ventes' && (
+              <SalesTab sales={sales} />
+            )}
+
+            {/* Onglet Diverses */}
+            {activeTab === 'diverses' && (
+              <MiscTab
+                miscDescription={miscDescription}
+                setMiscDescription={setMiscDescription}
+                miscAmount={miscAmount}
+                setMiscAmount={setMiscAmount}
+                addMiscToCart={addMiscToCart}
+              />
+            )}
+
+            {/* Autres onglets avec contenu minimal */}
+            {['annulation', 'ca', 'raz'].includes(activeTab) && (
+              <div className="max-w-4xl mx-auto animate-fadeIn">
+                <h2 className="text-3xl font-bold mb-6" style={{ color: 'var(--dark-green)' }}>
+                  {activeTab === 'annulation' ? 'Annulation' : 
+                   activeTab === 'ca' ? 'CA Instant' : 'Remise à Zéro'}
+                </h2>
+                <div className="card text-center py-12">
+                  <p className="text-xl" style={{ color: '#6B7280' }}>
+                    Module {activeTab} - En cours de développement
+                  </p>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </main>
+
+        {/* Floating Cart */}
+        <FloatingCart
+          activeTab={activeTab}
+          cart={cart}
+          cartItemsCount={cartItemsCount}
+          cartTotal={cartTotal}
+          selectedVendor={selectedVendor}
+          selectedPaymentMethod={selectedPaymentMethod}
+          setSelectedPaymentMethod={setSelectedPaymentMethod}
+          updateQuantity={updateQuantity}
+          removeFromCart={removeFromCart}
+          clearCart={clearCart}
+          completeSale={completeSale}
+        />
+
+        {/* Success Notification */}
+        <SuccessNotification show={showSuccess} />
+      </div>
+    </div>
+  );
+}

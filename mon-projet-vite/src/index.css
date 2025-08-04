@@ -619,16 +619,15 @@ header div {
 /* Panier en mode survol - HAUTEUR RÉDUITE pour voir les onglets */
 .floating-cart {
   position: absolute;
-  top: 80px; /* ✅ AJOUTÉ: décalage du haut pour laisser voir les onglets */
+  top: 200px; /* ✅ MODIFIÉ: commence plus bas, au niveau des cartes produits */
+  bottom: 0; /* ✅ MODIFIÉ: descend jusqu'en bas de l'écran */
   right: 0;
-  width: 300px;
-  height: calc(100% - 160px); /* ✅ RÉDUIT: hauteur adaptative pour laisser de l'espace en haut et en bas */
-  max-height: 600px; /* ✅ AJOUTÉ: hauteur maximum pour rester compact */
+  width: 260px; /* ✅ RÉDUIT: largeur réduite de 280px à 260px pour libérer l'onglet Accessoires */
+  height: auto; /* ✅ MODIFIÉ: hauteur automatique */
   background: white;
   border-left: 2px solid #477A0C;
   border-top: 2px solid #477A0C; /* ✅ AJOUTÉ: bordure du haut */
-  border-bottom: 2px solid #477A0C; /* ✅ AJOUTÉ: bordure du bas */
-  border-radius: 8px 0 0 8px; /* ✅ AJOUTÉ: coins arrondis à gauche */
+  border-radius: 8px 0 0 0; /* ✅ MODIFIÉ: coin arrondi seulement en haut à gauche */
   z-index: 100;
   overflow: hidden;
   transition: all 0.3s ease;
@@ -637,8 +636,9 @@ header div {
 
 .floating-cart.minimized {
   width: 60px;
-  height: calc(100% - 160px); /* ✅ AJOUTÉ: même hauteur réduite en mode minimisé */
-  top: 80px; /* ✅ AJOUTÉ: même décalage du haut */
+  top: 200px; /* ✅ MODIFIÉ: même position que le panier ouvert */
+  bottom: 0; /* ✅ MODIFIÉ: descend jusqu'en bas */
+  height: auto; /* ✅ MODIFIÉ: hauteur automatique */
 }
 
 .floating-cart.minimized .cart-content {

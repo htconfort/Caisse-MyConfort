@@ -1,4 +1,4 @@
-import { CatalogProduct, Vendor } from '../types';
+import type { CatalogProduct, Vendor } from '../types';
 
 // Données complètes du catalogue - EXACTEMENT SELON VOTRE LISTE (49 produits)
 export const productCatalog: CatalogProduct[] = [
