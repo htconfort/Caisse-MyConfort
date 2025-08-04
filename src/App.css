@@ -14,7 +14,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #F2EFE2;
   color: #14281D;
-  overflow: hidden;
+  overflow-x: hidden; /* ✅ CORRIGÉ: overflow-x au lieu de overflow */
 }
 
 code {
@@ -22,8 +22,9 @@ code {
     monospace;
 }
 
-/* Variables CSS MyConfort */
+/* Variables CSS MyConfort - ✅ COMPLÉTÉES */
 :root {
+  /* Palette MyConfort originale */
   --primary-green: #477A0C;
   --accent-lime: #C4D144;
   --neutral-beige: #F2EFE2;
@@ -32,6 +33,15 @@ code {
   --accent-purple: #D68FD6;
   --warning-red: #F55D3E;
   --darkest: #080F0F;
+  
+  /* ✅ AJOUTÉ: Variables manquantes pour compatibilité */
+  --color-primary: var(--primary-green);
+  --color-secondary: var(--secondary-blue);
+  --color-warning: var(--warning-red);
+  --color-success: #059669;
+  
+  /* Variables ring pour les focus */
+  --tw-ring-color: var(--primary-green);
 }
 
 /* Scrollbar personnalisée */
@@ -68,6 +78,7 @@ button,
 select,
 a {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* ✅ AJOUTÉ pour le tactile */
 }
 
 /* Empêcher le zoom sur focus input iPad */
@@ -111,12 +122,25 @@ textarea {
   gap: 0.5rem;
 }
 
+.gap-3 {
+  gap: 0.75rem;
+}
+
 .gap-4 {
   gap: 1rem;
 }
 
 .gap-6 {
   gap: 1.5rem;
+}
+
+/* ✅ NOUVEAU: Gap ultra-compact pour les grilles de produits */
+.gap-1 {
+  gap: 0.25rem;
+}
+
+.gap-1\.5 {
+  gap: 0.375rem;
 }
 
 /* Grid system */
@@ -132,10 +156,18 @@ textarea {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 /* Responsive */
 @media (min-width: 768px) {
   .md\:grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  
+  .md\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   
   .md\:w-96 {
@@ -148,6 +180,14 @@ textarea {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   
+  .lg\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  
+  .lg\:grid-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  
   .lg\:grid-cols-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -156,6 +196,14 @@ textarea {
 @media (min-width: 1280px) {
   .xl\:grid-cols-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  
+  .xl\:grid-cols-5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  
+  .xl\:grid-cols-6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 
@@ -426,9 +474,9 @@ textarea {
   min-height: 100vh;
 }
 
-/* Boutons tactiles optimisés */
+/* ✅ BOUTONS TACTILES CORRIGÉS */
 .btn-primary {
-  background-color: var(--color-primary);
+  background-color: var(--primary-green); /* ✅ Variable correcte */
   color: white;
   border: none;
   padding: 1rem 2rem;
@@ -438,7 +486,7 @@ textarea {
   cursor: pointer;
   transition: all 0.2s ease;
   touch-action: manipulation;
-  min-height: 44px; /* Norme Apple pour les boutons tactiles */
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -457,7 +505,7 @@ textarea {
 }
 
 .btn-secondary {
-  background-color: var(--color-secondary);
+  background-color: var(--secondary-blue); /* ✅ Variable correcte */
   color: white;
   border: none;
   padding: 1rem 2rem;
@@ -481,7 +529,7 @@ textarea {
 }
 
 .btn-warning {
-  background-color: var(--color-warning);
+  background-color: var(--warning-red); /* ✅ Variable correcte */
   color: white;
   border: none;
   padding: 1rem 2rem;
@@ -504,7 +552,7 @@ textarea {
   box-shadow: 0 4px 12px rgba(245, 93, 62, 0.3);
 }
 
-/* Cards avec charte graphique */
+/* ✅ CARDS - Définition unique et claire */
 .card {
   background: white;
   border-radius: 1rem;
@@ -520,7 +568,8 @@ textarea {
 }
 
 /* Inputs optimisés pour iPad */
-.input-field {
+.input-field,
+.input {
   width: 100%;
   padding: 1rem;
   border: 2px solid #e5e7eb;
@@ -530,13 +579,90 @@ textarea {
   min-height: 44px;
 }
 
-.input-field:focus {
+.input-field:focus,
+.input:focus {
   outline: none;
-  border-color: var(--color-secondary);
+  border-color: var(--secondary-blue);
   box-shadow: 0 0 0 3px rgba(137, 187, 254, 0.1);
 }
 
-/* Responsive pour iPad */
+/* ✅ STYLES PRODUITS OPTIMISÉS - Cartes ultra-compactes */
+.product-card {
+  background: white;
+  border-radius: 0.375rem;
+  padding: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  min-height: 70px; /* ✅ RÉDUIT de 90px à 70px */
+  max-height: 85px; /* ✅ RÉDUIT de 110px à 85px */
+  width: 100%;
+  margin: 0 auto;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.product-card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
+
+.product-card:active {
+  transform: translateY(0);
+}
+
+/* Styles spécifiques pour l'affichage des produits - Textes ultra-compacts */
+.product-card-title {
+  font-size: 0.65rem; /* ✅ RÉDUIT de 0.75rem à 0.65rem */
+  line-height: 1; /* ✅ RÉDUIT pour maximum de compacité */
+  margin-bottom: 0.125rem; /* ✅ RÉDUIT de 0.25rem à 0.125rem */
+  font-weight: 600;
+  color: var(--dark-green);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* Max 2 lignes */
+  line-clamp: 2; /* ✅ AJOUTÉ: Standard property pour compatibilité */
+  -webkit-box-orient: vertical;
+}
+
+.product-card-price {
+  color: var(--primary-green);
+  font-size: 0.8rem; /* ✅ RÉDUIT de 1rem à 0.8rem */
+  font-weight: bold;
+  margin-top: 0.125rem; /* ✅ RÉDUIT de 0.25rem à 0.125rem */
+}
+
+/* Cart summary */
+.cart-summary {
+  background-color: white;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Badge de remise pour les matelas */
+.discount-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--warning-red);
+  color: white;
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+/* ✅ RESPONSIVE OPTIMISÉ */
 @media (max-width: 768px) {
   .app-container {
     padding: 0.5rem;
@@ -552,43 +678,74 @@ textarea {
     padding: 0.875rem 1.5rem;
     font-size: 1rem;
   }
+  
+  .product-card {
+    min-height: 100px;
+    padding: 0.75rem;
+  }
+  
+  .product-card-title {
+    font-size: 0.8rem;
+  }
+  
+  .product-card-price {
+    font-size: 1.1rem;
+  }
 }
 
-/* Styles spécifiques MyConfort */
-
-.cart-summary {
-    background-color: white;
-    padding: 15px;
-    border-radius: 5px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-}
-
-.product-card {
-    background-color: white;
-    border: 1px solid #ddd;
-    border-radius: 5px;
+@media (max-width: 480px) {
+  .container {
     padding: 10px;
-    margin: 10px;
+  }
+
+  .button {
+    width: 100%;
+    font-size: 14px;
+  }
+
+  .tab {
+    flex: 1;
     text-align: center;
+  }
+  
+  .product-card {
+    min-height: 80px;
+    padding: 0.5rem;
+  }
+  
+  .product-card-title {
+    font-size: 0.75rem;
+  }
+  
+  .product-card-price {
+    font-size: 1rem;
+  }
 }
 
-.product-card img {
-    max-width: 100%;
-    height: auto;
+/* Classes utilitaires manquantes */
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-in-out;
 }
 
-@media (max-width: 768px) {
-    .container {
-        padding: 10px;
-    }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-    .button {
-        width: 100%;
-        font-size: 14px;
-    }
+.touch-feedback {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
 
-    .tab {
-        flex: 1;
-        text-align: center;
-    }
+/* Styles pour les textes colorés selon les vendeuses */
+.vendor-white-text {
+  color: white !important;
+}
+
+.vendor-black-text {
+  color: black !important;
+}
+
+.header-white-text {
+  color: white !important;
 }

@@ -6,6 +6,8 @@ interface CatalogProduct {
   name: string;
   category: ProductCategory;
   priceTTC: number; // 0 = non vendu seul
+  autoCalculateHT?: boolean;
+  price?: number;
   description?: string;
 }
 
@@ -50,68 +52,68 @@ const STORAGE_KEYS = {
   VENDORS_STATS: 'myconfort-vendors'
 };
 
-// Données complètes du catalogue
+// Données complètes du catalogue - EXACTEMENT SELON VOTRE LISTE
 const productCatalog: CatalogProduct[] = [
   // Matelas
-  { name: 'MATELAS BAMBOU 70 x 190', category: 'Matelas', priceTTC: 900 },
-  { name: 'MATELAS BAMBOU 80 x 200', category: 'Matelas', priceTTC: 1050 },
-  { name: 'MATELAS BAMBOU 90 x 190', category: 'Matelas', priceTTC: 1110 },
-  { name: 'MATELAS BAMBOU 90 x 200', category: 'Matelas', priceTTC: 1150 },
-  { name: 'MATELAS BAMBOU 120 x 190', category: 'Matelas', priceTTC: 1600 },
-  { name: 'MATELAS BAMBOU 140 x 190', category: 'Matelas', priceTTC: 1800 },
-  { name: 'MATELAS BAMBOU 140 x 200', category: 'Matelas', priceTTC: 1880 },
-  { name: 'MATELAS BAMBOU 160 x 200', category: 'Matelas', priceTTC: 2100 },
-  { name: 'MATELAS BAMBOU 180 x 200', category: 'Matelas', priceTTC: 2200 },
-  { name: 'MATELAS BAMBOU 200 x 200', category: 'Matelas', priceTTC: 2300 },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 70 x 190', priceTTC: 900, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 80 x 200', priceTTC: 1050, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 90 x 190', priceTTC: 1110, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 90 x 200', priceTTC: 1150, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 120 x 190', priceTTC: 1600, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 140 x 190', priceTTC: 1800, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 140 x 200', priceTTC: 1880, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 160 x 200', priceTTC: 2100, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 180 x 200', priceTTC: 2200, autoCalculateHT: true },
+  { category: 'Matelas', name: 'MATELAS BAMBOU 200 x 200', priceTTC: 2300, autoCalculateHT: true },
 
   // Sur-matelas
-  { name: 'SURMATELAS BAMBOU 70 x 190', category: 'Sur-matelas', priceTTC: 220 },
-  { name: 'SURMATELAS BAMBOU 80 x 200', category: 'Sur-matelas', priceTTC: 280 },
-  { name: 'SURMATELAS BAMBOU 90 x 190', category: 'Sur-matelas', priceTTC: 310 },
-  { name: 'SURMATELAS BAMBOU 90 x 200', category: 'Sur-matelas', priceTTC: 320 },
-  { name: 'SURMATELAS BAMBOU 120 x 190', category: 'Sur-matelas', priceTTC: 420 },
-  { name: 'SURMATELAS BAMBOU 140 x 190', category: 'Sur-matelas', priceTTC: 440 },
-  { name: 'SURMATELAS BAMBOU 160 x 200', category: 'Sur-matelas', priceTTC: 490 },
-  { name: 'SURMATELAS BAMBOU 180 x 200', category: 'Sur-matelas', priceTTC: 590 },
-  { name: 'SURMATELAS BAMBOU 200 x 200', category: 'Sur-matelas', priceTTC: 630 },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 70 x 190', priceTTC: 220, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 80 x 200', priceTTC: 280, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 90 x 190', priceTTC: 310, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 90 x 200', priceTTC: 320, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 120 x 190', priceTTC: 420, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 140 x 190', priceTTC: 440, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 160 x 200', priceTTC: 490, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 180 x 200', priceTTC: 590, autoCalculateHT: true },
+  { category: 'Sur-matelas', name: 'SURMATELAS BAMBOU 200 x 200', priceTTC: 630, autoCalculateHT: true },
   
   // Couettes
-  { name: 'Couette 220x240', category: 'Couettes', priceTTC: 300 },
-  { name: 'Couette 240 x 260', category: 'Couettes', priceTTC: 350 },
+  { category: 'Couettes', name: 'Couette 220x240', priceTTC: 300, autoCalculateHT: true },
+  { category: 'Couettes', name: 'Couette 240 x 260', priceTTC: 350, autoCalculateHT: true },
   
   // Oreillers
-  { name: 'Oreiller Douceur', category: 'Oreillers', priceTTC: 80 },
-  { name: 'Oreiller Thalasso', category: 'Oreillers', priceTTC: 60 },
-  { name: 'Oreiller Dual', category: 'Oreillers', priceTTC: 60 },
-  { name: 'Oreiller Panama', category: 'Oreillers', priceTTC: 70 },
-  { name: 'Oreiller Papillon', category: 'Oreillers', priceTTC: 80 },
-  { name: 'Oreiller Flocon', category: 'Oreillers', priceTTC: 50 },
-  { name: 'Pack de 2 oreillers (thal et dual)', category: 'Oreillers', priceTTC: 100 },
-  { name: 'Pack oreiller 2 douceur', category: 'Oreillers', priceTTC: 150 },
-  { name: 'Pack deux oreillers papillon', category: 'Oreillers', priceTTC: 150 },
-  { name: 'Pack de deux oreillers Panama', category: 'Oreillers', priceTTC: 130 },
-  { name: 'Pack deux oreillers flocons', category: 'Oreillers', priceTTC: 90 },
-  { name: 'Traversin 140', category: 'Oreillers', priceTTC: 140 },
-  { name: 'Traversin 160', category: 'Oreillers', priceTTC: 160 },
-  { name: 'Pack divers', category: 'Oreillers', priceTTC: 0 }, // Non vendu seul
+  { category: 'Oreillers', name: 'Oreiller Douceur', priceTTC: 80, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Oreiller Thalasso', priceTTC: 60, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Oreiller Dual', priceTTC: 60, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Oreiller Panama', priceTTC: 70, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Oreiller Papillon', priceTTC: 80, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Oreiller Flocon', priceTTC: 50, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack de 2 oreillers (thal et dual)', priceTTC: 100, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack oreiller 2 douceur', priceTTC: 150, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack deux oreillers papillon', priceTTC: 150, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack de deux oreillers Panama', priceTTC: 130, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack deux oreillers flocons', priceTTC: 90, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Traversin 140', priceTTC: 140, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Traversin 160', priceTTC: 160, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack divers', price: 0, priceTTC: 0, autoCalculateHT: false },
   
-  // Plateau
-  { name: 'PLATEAU PRESTIGE 70 x 190', category: 'Plateau', priceTTC: 70 },
-  { name: 'PLATEAU PRESTIGE 80 x 200', category: 'Plateau', priceTTC: 80 },
-  { name: 'PLATEAU PRESTIGE 90 x 190', category: 'Plateau', priceTTC: 100 },
-  { name: 'PLATEAU PRESTIGE 90 x 200', category: 'Plateau', priceTTC: 110 },
-  { name: 'PLATEAU PRESTIGE 120 x 190', category: 'Plateau', priceTTC: 160 },
-  { name: 'PLATEAU PRESTIGE 140 x 190', category: 'Plateau', priceTTC: 180 },
-  { name: 'PLATEAU PRESTIGE 140 x 200', category: 'Plateau', priceTTC: 190 },
-  { name: 'PLATEAU PRESTIGE 160 x 200', category: 'Plateau', priceTTC: 210 },
-  { name: 'PLATEAU PRESTIGE 180 x 200', category: 'Plateau', priceTTC: 220 },
-  { name: 'PLATEAU PRESTIGE 200 x 200', category: 'Plateau', priceTTC: 230 },
+  // Plateaux
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 70 x 190', priceTTC: 70, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 80 x 200', priceTTC: 80, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 90 x 190', priceTTC: 100, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 90 x 200', priceTTC: 110, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 120 x 190', priceTTC: 160, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 140 x 190', priceTTC: 180, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 140 x 200', priceTTC: 190, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 160 x 200', priceTTC: 210, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 180 x 200', priceTTC: 220, autoCalculateHT: true },
+  { category: 'Plateau', name: 'PLATEAU PRESTIGE 200 x 200', priceTTC: 230, autoCalculateHT: true },
   
   // Accessoires
-  { name: 'Le régule jambes', category: 'Accessoires', priceTTC: 70 },
-  { name: 'Protège-matelas', category: 'Accessoires', priceTTC: 0 }, // Non vendu seul
-  { name: 'Housse de couette', category: 'Accessoires', priceTTC: 0 }, // Non vendu seul
-  { name: 'Taie d\'oreiller', category: 'Accessoires', priceTTC: 0 }, // Non vendu seul
+  { category: 'Accessoires', name: 'Le régule jambes', priceTTC: 70, autoCalculateHT: true },
+  { category: 'Accessoires', name: 'Protège-matelas', price: 0, priceTTC: 0, autoCalculateHT: false },
+  { category: 'Accessoires', name: 'Housse de couette', price: 0, priceTTC: 0, autoCalculateHT: false },
+  { category: 'Accessoires', name: 'Taie d\'oreiller', price: 0, priceTTC: 0, autoCalculateHT: false }
 ];
 
 // Vendeuses disponibles avec couleurs de la charte MyConfort
@@ -197,6 +199,56 @@ const useDebounce = (value: string, delay: number) => {
   }, [value, delay]);
   
   return debouncedValue;
+};
+
+// Fonction utilitaire pour extraire les dimensions des matelas/sur-matelas
+const extractDimensions = (productName: string): string | null => {
+  // Recherche pattern "nombre x nombre" dans le nom
+  const match = productName.match(/(\d+)\s*x\s*(\d+)/);
+  return match ? `${match[1]} x ${match[2]}` : null;
+};
+
+// Fonction pour obtenir le nom sans les dimensions pour les matelas
+const getProductNameWithoutDimensions = (productName: string): string => {
+  // Retire les dimensions du nom (ex: "MATELAS 70 x 190" -> "MATELAS")
+  return productName.replace(/\s*\d+\s*x\s*\d+/, '').trim();
+};
+
+// Fonction pour déterminer si un produit nécessite l'affichage spécial matelas
+const isMatressProduct = (category: string): boolean => {
+  return category === 'Matelas'; // Seulement pour les matelas, pas les sur-matelas
+};
+
+// Fonction pour obtenir la couleur de fond selon la catégorie
+const getCategoryBackgroundColor = (category: string): string => {
+  switch (category) {
+    case 'Matelas':
+      return '#477A0C'; // Vert pour matelas
+    case 'Sur-matelas':
+      return '#89BBFE'; // Bleu pour sur-matelas
+    case 'Couettes':
+      return '#D68FD6'; // Violet pour couettes
+    case 'Oreillers':
+      return '#F55D3E'; // Rouge/orange pour oreillers
+    case 'Plateau':
+      return '#14281D'; // Vert foncé pour plateaux
+    case 'Accessoires':
+      return '#C4D144'; // Jaune-vert pour accessoires
+    default:
+      return 'white';
+  }
+};
+
+// Fonction pour déterminer la couleur du texte selon la couleur de fond
+const getTextColor = (backgroundColor: string): string => {
+  // Couleurs claires qui nécessitent du texte noir
+  const lightColors = ['#C4D144', '#89BBFE', '#D68FD6'];
+  return lightColors.includes(backgroundColor) ? '#000000' : '#ffffff';
+};
+
+// Fonction pour déterminer si les dimensions sont déjà dans le nom du produit
+const hasDimensionsInName = (productName: string): boolean => {
+  return /\d+\s*x\s*\d+/.test(productName);
 };
 
 // Error Boundary Component
@@ -470,6 +522,27 @@ function CaisseMyConfortApp() {
 
   // Filtrage des produits avec recherche
   const filteredProducts = useMemo(() => {
+    // DEBUG: Vérification du catalogue complet
+    console.log('� === VERIFICATION CATALOGUE RUNTIME ===');
+    console.log('�📊 CATALOGUE TOTAL:', productCatalog.length, 'produits');
+    
+    const counts = {
+      'Matelas': productCatalog.filter(p => p.category === 'Matelas').length,
+      'Sur-matelas': productCatalog.filter(p => p.category === 'Sur-matelas').length,
+      'Couettes': productCatalog.filter(p => p.category === 'Couettes').length,
+      'Oreillers': productCatalog.filter(p => p.category === 'Oreillers').length,
+      'Plateau': productCatalog.filter(p => p.category === 'Plateau').length,
+      'Accessoires': productCatalog.filter(p => p.category === 'Accessoires').length
+    };
+    
+    console.log('📊 DETAIL PAR CATEGORIE:', counts);
+    console.log('📊 TOTAL CALCULE:', Object.values(counts).reduce((a, b) => a + b, 0));
+    
+    // Vérification complète de la structure
+    console.log('🔍 CATEGORIES UNIQUES:', [...new Set(productCatalog.map(p => p.category))]);
+    console.log('🔍 PREMIERS PRODUITS:', productCatalog.slice(0, 5).map(p => `${p.category}: ${p.name}`));
+    console.log('🔍 DERNIERS PRODUITS:', productCatalog.slice(-5).map(p => `${p.category}: ${p.name}`));
+    
     let filtered = selectedCategory === 'Tous' 
       ? productCatalog 
       : productCatalog.filter(p => p.category === selectedCategory);
@@ -479,6 +552,9 @@ function CaisseMyConfortApp() {
         p.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase())
       );
     }
+    
+    console.log('🔍 PRODUITS AFFICHES:', filtered.length, 'pour catégorie:', selectedCategory);
+    console.log('🚀 === FIN VERIFICATION ===');
     
     return filtered;
   }, [selectedCategory, debouncedSearchTerm]);
@@ -782,33 +858,175 @@ function CaisseMyConfortApp() {
                 ))}
               </div>
 
-              {/* Products Grid */}
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredProducts.map((product, index) => (
-                  <button
-                    key={`${product.name}-${index}`}
-                    onClick={() => addToCart(product)}
-                    disabled={product.priceTTC === 0}
-                    className={`card touch-feedback ${
-                      product.priceTTC === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
-                    }`}
-                  >
-                    <h3 className="font-semibold mb-2 text-sm" style={{ color: '#14281D' }}>
-                      {product.name}
-                    </h3>
-                    <p className="text-2xl font-bold" style={{ color: '#477A0C' }}>
-                      {product.priceTTC > 0 ? `${product.priceTTC}€` : 'Non vendu seul'}
-                    </p>
-                    {product.priceTTC === 0 && (
-                      <p className="text-xs mt-2" style={{ color: '#F55D3E' }}>
-                        ⚠️ Produit complémentaire
+              {/* Compteur de produits - DEBUG */}
+              <div className="mb-4 p-3 bg-blue-100 rounded-lg">
+                <div className="flex justify-between items-center text-sm">
+                  <span><strong>Total catalogue:</strong> {productCatalog.length} produits</span>
+                  <span><strong>Affichés ({selectedCategory}):</strong> {filteredProducts.length} produits</span>
+                </div>
+                <div className="mt-2 text-xs text-gray-600">
+                  Matelas: {productCatalog.filter(p => p.category === 'Matelas').length} | 
+                  Sur-matelas: {productCatalog.filter(p => p.category === 'Sur-matelas').length} | 
+                  Couettes: {productCatalog.filter(p => p.category === 'Couettes').length} | 
+                  Oreillers: {productCatalog.filter(p => p.category === 'Oreillers').length} | 
+                  Plateaux: {productCatalog.filter(p => p.category === 'Plateau').length} | 
+                  Accessoires: {productCatalog.filter(p => p.category === 'Accessoires').length}
+                </div>
+              </div>
+
+              {/* Products Grid - Layout ULTRA-COMPACT optimisé pour coexister avec le panier */}
+              <div 
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)', /* ✅ AUGMENTÉ de 3 à 4 colonnes */
+                  gap: '4px', /* ✅ RÉDUIT de 8px à 4px */
+                  width: '100%',
+                  maxWidth: '100%',
+                  marginRight: '340px', /* ✅ Marge fixe pour le panier */
+                  padding: '0 8px' /* ✅ AJOUTÉ: padding latéral */
+                }}
+              >
+                {filteredProducts.map((product, index) => {
+                  console.log('🔍 RENDU PRODUIT:', index, product.name);
+                  
+                  const isMatress = isMatressProduct(product.category);
+                  const dimensions = extractDimensions(product.name);
+                  const productNameOnly = dimensions ? getProductNameWithoutDimensions(product.name) : product.name;
+                  const backgroundColor = getCategoryBackgroundColor(product.category);
+                  const textColor = getTextColor(backgroundColor);
+                  const isSpecialCategory = backgroundColor !== 'white';
+                  
+                  // Calcul du prix avec remise pour les matelas
+                  const discountedPrice = isMatress ? Math.round(product.priceTTC * 0.8) : product.priceTTC;
+                  
+                  return (
+                    <div
+                      key={`${product.name}-${index}`}
+                      onClick={() => addToCart({...product, priceTTC: discountedPrice})}
+                      style={{
+                        backgroundColor: backgroundColor,
+                        color: textColor,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        padding: '8px', /* ✅ AGRANDI pour plus d'espace */
+                        minHeight: '90px', /* ✅ DOUBLÉ de 40px à 90px */
+                        maxHeight: '110px', /* ✅ DOUBLÉ de 50px à 110px */
+                        border: '1px solid rgba(0,0,0,0.1)',
+                        borderRadius: '4px', /* ✅ RÉDUIT de 6px à 4px */
+                        cursor: product.priceTTC === 0 ? 'not-allowed' : 'pointer',
+                        opacity: product.priceTTC === 0 ? 0.5 : 1,
+                        position: 'relative',
+                        transition: 'transform 0.15s, box-shadow 0.15s', /* ✅ RÉDUIT de 0.2s à 0.15s */
+                        overflow: 'hidden'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (product.priceTTC > 0) {
+                          e.currentTarget.style.transform = 'scale(1.005)'; /* ✅ RÉDUIT de 1.01 à 1.005 */
+                          e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.1)'; /* ✅ RÉDUIT l'ombre */
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      {/* Badge de remise pour les matelas - POSITIONNÉ EN BAS À DROITE */}
+                      {isMatress && (
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '1px', /* ✅ CHANGÉ de top à bottom */
+                          right: '1px',
+                          backgroundColor: '#FF0000',
+                          color: 'white',
+                          padding: '1px 2px',
+                          borderRadius: '2px',
+                          fontSize: '18px', /* ✅ TRIPLÉ de 6px à 18px */
+                          fontWeight: 'bold',
+                          zIndex: 10,
+                          lineHeight: '1'
+                        }}>
+                          -20%
+                        </div>
+                      )}
+                      
+                      {/* Nom du produit (sans dimensions) - POLICE AGRANDIE x3 */}
+                      <h3 style={{ 
+                        color: textColor,
+                        fontSize: isSpecialCategory ? '21px' : '18px', /* ✅ TRIPLÉ de 7px/6px à 21px/18px */
+                        fontWeight: 'bold',
+                        marginBottom: '1px',
+                        lineHeight: '1',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        maxHeight: '42px' /* ✅ TRIPLÉ de 14px à 42px pour 2 lignes */
+                      }}>
+                        {productNameOnly}
+                      </h3>
+                      
+                      {/* Dimensions (si présentes) - POLICE AGRANDIE x3 */}
+                      {dimensions && (
+                        <div style={{ marginBottom: '1px' }}>
+                          <p style={{ 
+                            color: textColor,
+                            fontSize: '24px', /* ✅ TRIPLÉ de 8px à 24px */
+                            fontWeight: 'bold',
+                            lineHeight: '1'
+                          }}>
+                            {dimensions}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Prix - POLICE AGRANDIE x3 */}
+                      <p style={{ 
+                        color: '#000000',
+                        fontSize: '24px', /* ✅ TRIPLÉ de 8px à 24px */
+                        fontWeight: 'bold',
+                        lineHeight: '1'
+                      }}>
+                        {product.priceTTC > 0 ? `${discountedPrice}€` : 'Non vendu seul'}
                       </p>
-                    )}
-                  </button>
-                ))}
+                      
+                      {/* Prix barré pour les matelas - POLICE AGRANDIE x3 */}
+                      {isMatress && product.priceTTC > 0 && (
+                        <p style={{ 
+                          color: isSpecialCategory ? 'white' : '#666666', /* ✅ BLANC pour cartes matelas vertes, gris pour autres */
+                          textDecoration: 'line-through',
+                          fontSize: '18px', /* ✅ TRIPLÉ de 6px à 18px */
+                          marginTop: '1px',
+                          lineHeight: '1'
+                        }}>
+                          {product.priceTTC}€
+                        </p>
+                      )}
+                      
+                      {product.priceTTC === 0 && (
+                        <p style={{ 
+                          color: isSpecialCategory ? '#666666' : '#F55D3E',
+                          fontSize: '18px', /* ✅ TRIPLÉ de 6px à 18px */
+                          marginTop: '1px',
+                          lineHeight: '1'
+                        }}>
+                          ⚠️ Complémentaire
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
                 {filteredProducts.length === 0 && (
-                  <div className="col-span-full text-center py-12">
-                    <p style={{ color: '#6B7280' }}>Aucun produit trouvé</p>
+                  <div style={{ 
+                    gridColumn: '1 / -1',
+                    textAlign: 'center',
+                    padding: '24px', /* ✅ RÉDUIT de 48px à 24px */
+                    color: '#6B7280'
+                  }}>
+                    <p>Aucun produit trouvé</p>
                   </div>
                 )}
               </div>
@@ -1292,7 +1510,7 @@ function CaisseMyConfortApp() {
                       {/* Header vendeuse */}
                       <div className="flex items-center justify-between mb-4 p-3 rounded-lg" 
                         style={{ backgroundColor: vendor.color }}>
-                        <h4 className={`text-xl font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
+                        <h4 className={`text-xl font-bold mb-3 ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
                           {vendor.name} - {vendorSales.length} vente{vendorSales.length !== 1 ? 's' : ''}
                         </h4>
                         <div className={`text-2xl font-bold ${['Johan', 'Sabrina', 'Billy'].includes(vendor.name) ? 'vendor-black-text' : 'vendor-white-text'}`}>
