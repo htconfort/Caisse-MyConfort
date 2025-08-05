@@ -111,15 +111,18 @@ export function ProductsTab({
         </div>
       </div>
 
-      {/* Products Grid */}
+      {/* Products Grid - OPTIMISÉE 3×3 */}
       <div 
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(2, 1fr)',
-          gap: '12px',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '15px',
           width: '100%',
-          maxWidth: 'calc(100% - 280px)',
-          padding: '0 8px'
+          maxWidth: 'calc(100% - 370px)', // Espace pour le panier optimisé
+          padding: '0 12px',
+          marginRight: '10px', // Marge pour éviter que ça colle au panier
+          height: 'calc(100vh - 300px)',
+          overflowY: 'auto'
         }}
       >
         {filteredProducts.map((product, index) => {
@@ -136,7 +139,7 @@ export function ProductsTab({
             <div
               key={`${product.name}-${index}`}
               onClick={() => addToCart({...product, priceTTC: discountedPrice})}
-              className="touch-feedback cursor-pointer relative overflow-hidden transition-all"
+              className="touch-feedback cursor-pointer relative overflow-hidden transition-all hover:shadow-lg"
               style={{
                 backgroundColor: backgroundColor,
                 color: textColor,
@@ -145,26 +148,28 @@ export function ProductsTab({
                 justifyContent: 'center',
                 alignItems: 'center',
                 textAlign: 'center',
-                padding: '16px',
-                minHeight: '120px',
-                maxHeight: '140px',
+                padding: '12px',
+                minHeight: '160px', // Hauteur optimisée pour 3×3
+                maxHeight: '180px',
                 border: '1px solid rgba(0,0,0,0.1)',
-                borderRadius: '6px',
+                borderRadius: '8px',
                 opacity: product.priceTTC === 0 ? 0.5 : 1,
-                pointerEvents: product.priceTTC === 0 ? 'none' : 'auto'
+                pointerEvents: product.priceTTC === 0 ? 'none' : 'auto',
+                transform: 'scale(1)',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
               }}
             >
               {/* Badge de remise pour les matelas */}
               {isMatress && (
                 <div style={{
                   position: 'absolute',
-                  bottom: '2px',
-                  right: '2px',
+                  bottom: '4px',
+                  right: '4px',
                   backgroundColor: '#FF0000',
                   color: 'white',
-                  padding: '2px 4px',
-                  borderRadius: '3px',
-                  fontSize: '16px',
+                  padding: '3px 6px',
+                  borderRadius: '4px',
+                  fontSize: '14px',
                   fontWeight: 'bold',
                   zIndex: 10,
                   lineHeight: '1'
@@ -176,28 +181,28 @@ export function ProductsTab({
               {/* Nom du produit */}
               <h3 style={{ 
                 color: textColor,
-                fontSize: isSpecialCategory ? '20px' : '18px',
+                fontSize: isSpecialCategory ? '16px' : '15px', // Taille réduite pour s'adapter
                 fontWeight: 'bold',
-                marginBottom: '2px',
-                lineHeight: '1.1',
+                marginBottom: '4px',
+                lineHeight: '1.2',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 display: '-webkit-box',
                 WebkitLineClamp: 2,
                 WebkitBoxOrient: 'vertical',
-                maxHeight: '40px'
+                maxHeight: '38px'
               }}>
                 {productNameOnly}
               </h3>
               
               {/* Dimensions */}
               {dimensions && (
-                <div style={{ marginBottom: '2px' }}>
+                <div style={{ marginBottom: '6px' }}>
                   <p style={{ 
                     color: textColor,
-                    fontSize: '22px',
+                    fontSize: '18px', // Taille optimisée
                     fontWeight: 'bold',
-                    lineHeight: '1'
+                    lineHeight: '1.1'
                   }}>
                     {dimensions}
                   </p>
@@ -207,7 +212,7 @@ export function ProductsTab({
               {/* Prix */}
               <p style={{ 
                 color: '#000000',
-                fontSize: '22px',
+                fontSize: '20px', // Taille optimisée
                 fontWeight: 'bold',
                 lineHeight: '1',
                 margin: 0
@@ -220,8 +225,8 @@ export function ProductsTab({
                 <p style={{ 
                   color: isSpecialCategory ? 'white' : '#666666',
                   textDecoration: 'line-through',
-                  fontSize: '16px',
-                  marginTop: '1px',
+                  fontSize: '14px',
+                  marginTop: '2px',
                   lineHeight: '1',
                   margin: 0
                 }}>
@@ -232,8 +237,8 @@ export function ProductsTab({
               {product.priceTTC === 0 && (
                 <p style={{ 
                   color: isSpecialCategory ? '#666666' : 'var(--warning-red)',
-                  fontSize: '16px',
-                  marginTop: '1px',
+                  fontSize: '14px',
+                  marginTop: '2px',
                   lineHeight: '1',
                   margin: 0
                 }}>
@@ -247,7 +252,7 @@ export function ProductsTab({
           <div style={{ 
             gridColumn: '1 / -1',
             textAlign: 'center',
-            padding: '24px',
+            padding: '40px',
             color: '#6B7280'
           }}>
             <p>Aucun produit trouvé</p>
