@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { ShoppingCart, User, Package, CreditCard, BarChart, FileText, RotateCcw, Plus, Minus, X, Save, Download, RefreshCw, AlertCircle, Check, Wifi, WifiOff } from 'lucide-react';
+import { FloatingCart } from './components/ui/FloatingCart';
 
 // Types complets selon le blueprint
 interface CatalogProduct {
@@ -322,7 +323,6 @@ function CaisseMyConfortApp() {
   const [miscAmount, setMiscAmount] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isCartMinimized, setIsCartMinimized] = useState(false);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   
   // Hooks personnalisés
@@ -738,7 +738,7 @@ function CaisseMyConfortApp() {
       <main className="flex-1 overflow-hidden gradient-bg safe-bottom relative">
         <div className={`h-full overflow-auto p-6 ${
           ['produits', 'annulation'].includes(activeTab) 
-            ? `main-content-with-cart ${isCartMinimized ? 'cart-minimized' : ''}`
+            ? 'main-content-with-cart'
             : ''
         }`}>
           {/* Contenu principal de l'application */}
