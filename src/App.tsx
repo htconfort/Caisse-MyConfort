@@ -324,6 +324,7 @@ function CaisseMyConfortApp() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [isCartMinimized, setIsCartMinimized] = useState(false);
   
   // Hooks personnalisés
   const isOnline = useNetworkStatus();
