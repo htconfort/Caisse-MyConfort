@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({ selectedVendor, currentDateTime 
             
             <div className="flex justify-center items-center w-full">
               <h2 className="text-5xl font-bold header-white-text tracking-wider animate-pulse">
-                {selectedVendor.name.toUpperCase()}
+                {selectedVendor?.name?.toUpperCase() || 'VENDEUSE'}
               </h2>
             </div>
           </>

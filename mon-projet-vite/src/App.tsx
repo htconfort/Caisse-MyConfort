@@ -14,7 +14,7 @@ import {
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
-import { VendorSelection, ProductsTab, SalesTab, MiscTab } from './components/tabs';
+import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
 import { SuccessNotification, FloatingCart } from './components/ui';
 
 export default function CaisseMyConfortApp() {
@@ -135,6 +135,61 @@ export default function CaisseMyConfortApp() {
     }, 2000);
   }, [selectedVendor, cart, cartTotal, selectedPaymentMethod, setSales, setVendorStats, clearCart, setSelectedVendor]);
 
+  // Fonction pour annuler la dernière vente
+  const cancelLastSale = useCallback(() => {
+    const lastSale = sales
+      .filter(sale => !sale.canceled)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+
+    if (!lastSale) return false;
+
+    // Marquer la vente comme annulée
+    setSales(prev => prev.map(sale => 
+      sale.id === lastSale.id 
+        ? { ...sale, canceled: true }
+        : sale
+    ));
+
+    // Mettre à jour les statistiques de la vendeuse
+    setVendorStats(prev => prev.map(vendor => 
+      vendor.id === lastSale.vendorId
+        ? { 
+            ...vendor, 
+            dailySales: vendor.dailySales - lastSale.totalAmount, 
+            totalSales: vendor.totalSales - 1 
+          }
+        : vendor
+    ));
+
+    return true;
+  }, [sales, setSales, setVendorStats]);
+
+  // Fonction pour annuler une vente spécifique
+  const cancelSpecificSale = useCallback((saleId: string) => {
+    const saleToCancel = sales.find(sale => sale.id === saleId && !sale.canceled);
+    if (!saleToCancel) return false;
+
+    // Marquer la vente comme annulée
+    setSales(prev => prev.map(sale => 
+      sale.id === saleId 
+        ? { ...sale, canceled: true }
+        : sale
+    ));
+
+    // Mettre à jour les statistiques de la vendeuse
+    setVendorStats(prev => prev.map(vendor => 
+      vendor.id === saleToCancel.vendorId
+        ? { 
+            ...vendor, 
+            dailySales: vendor.dailySales - saleToCancel.totalAmount, 
+            totalSales: vendor.totalSales - 1 
+          }
+        : vendor
+    ));
+
+    return true;
+  }, [sales, setSales, setVendorStats]);
+
   // Gestion du succès
   useEffect(() => {
     if (showSuccess) {
@@ -224,12 +279,31 @@ export default function CaisseMyConfortApp() {
               />
             )}
 
+            {/* Onglet Annulation */}
+            {activeTab === 'annulation' && (
+              <CancellationTab
+                cart={cart}
+                cartTotal={cartTotal}
+                clearCart={clearCart}
+                sales={sales}
+                cancelLastSale={cancelLastSale}
+                cancelSpecificSale={cancelSpecificSale}
+              />
+            )}
+
+            {/* Onglet CA Instant */}
+            {activeTab === 'ca' && (
+              <CATab 
+                sales={sales} 
+                vendorStats={vendorStats} 
+              />
+            )}
+
             {/* Autres onglets avec contenu minimal */}
-            {['annulation', 'ca', 'raz'].includes(activeTab) && (
+            {['raz'].includes(activeTab) && (
               <div className="max-w-4xl mx-auto animate-fadeIn">
                 <h2 className="text-3xl font-bold mb-6" style={{ color: 'var(--dark-green)' }}>
-                  {activeTab === 'annulation' ? 'Annulation' : 
-                   activeTab === 'ca' ? 'CA Instant' : 'Remise à Zéro'}
+                  {activeTab === 'raz' ? 'Remise à Zéro' : 'Module'}
                 </h2>
                 <div className="card text-center py-12">
                   <p className="text-xl" style={{ color: '#6B7280' }}>
@@ -252,7 +326,6 @@ export default function CaisseMyConfortApp() {
           selectedPaymentMethod={selectedPaymentMethod}
           setSelectedPaymentMethod={setSelectedPaymentMethod}
           updateQuantity={updateQuantity}
-          removeFromCart={removeFromCart}
           clearCart={clearCart}
           completeSale={completeSale}
         />
