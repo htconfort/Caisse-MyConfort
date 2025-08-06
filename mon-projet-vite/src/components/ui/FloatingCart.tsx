@@ -223,7 +223,7 @@ export function FloatingCart({
                   marginRight: '12px'
                 }}>
                   <button
-                    onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
                     style={{
                       backgroundColor: '#f3f4f6',
                       border: 'none',

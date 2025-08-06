@@ -64,45 +64,31 @@ export default function CaisseMyConfortApp() {
       return;
     }
     
-    setCart(prevCart => {
-      const existingItem = prevCart.find(item => item.name === product.name);
-      if (existingItem) {
-        return prevCart.map(item =>
-          item.name === product.name 
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...prevCart, {
-        id: `${product.name}-${Date.now()}`,
-        name: product.name,
-        price: product.priceTTC,
-        quantity: 1,
-        category: product.category,
-        addedAt: new Date()
-      }];
-    });
+    // Toujours créer une nouvelle ligne d'article (pas d'incrémentation de quantité)
+    setCart(prevCart => [...prevCart, {
+      id: `${product.name}-${Date.now()}-${Math.random()}`,
+      name: product.name,
+      price: product.priceTTC,
+      quantity: 1,
+      category: product.category,
+      addedAt: new Date()
+    }]);
   }, [setCart, selectedVendor]);
 
-  const updateQuantity = useCallback((itemId: string, delta: number) => {
+  const updateQuantity = useCallback((itemId: string, newQuantity: number) => {
     setCart(prevCart => {
-      const newCart: ExtendedCartItem[] = [];
-      prevCart.forEach(item => {
-        if (item.id === itemId) {
-          const newQuantity = Math.max(0, item.quantity + delta);
-          if (newQuantity > 0) {
-            newCart.push({ ...item, quantity: newQuantity });
-          }
-        } else {
-          newCart.push(item);
-        }
-      });
-      return newCart;
+      if (newQuantity <= 0) {
+        // Si la nouvelle quantité est 0 ou moins, supprimer l'article
+        return prevCart.filter(item => item.id !== itemId);
+      }
+      
+      // Sinon, mettre à jour la quantité
+      return prevCart.map(item =>
+        item.id === itemId 
+          ? { ...item, quantity: newQuantity }
+          : item
+      );
     });
-  }, [setCart]);
-
-  const removeFromCart = useCallback((itemId: string) => {
-    setCart(prevCart => prevCart.filter(item => item.id !== itemId));
   }, [setCart]);
 
   const clearCart = useCallback(() => {

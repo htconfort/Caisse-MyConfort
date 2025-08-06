@@ -355,8 +355,8 @@ export function ProductsTab({
                   {dimensions && (
                     <div style={{ marginBottom: '6px' }}>
                       <p style={{ 
-                        color: (product.category === 'Sur-matelas' || product.category === 'Couettes') ? '#FF0000' : '#FFFFFF',
-                        fontSize: (product.category === 'Sur-matelas' || product.category === 'Couettes') ? '28px' : '18px',
+                        color: (['Sur-matelas', 'Couettes'].includes(product.category)) ? '#FF0000' : '#FFFFFF',
+                        fontSize: (['Sur-matelas', 'Couettes'].includes(product.category)) ? '28px' : '18px',
                         fontWeight: 'bold',
                         lineHeight: '1.1'
                       }}>
@@ -367,7 +367,7 @@ export function ProductsTab({
                   
                   {/* Prix */}
                   <p style={{ 
-                    color: product.category === 'Plateau' ? '#FFFFFF' : '#FFFFFF',
+                    color: '#FFFFFF',
                     fontSize: '20px', // Taille optimisée
                     fontWeight: 'bold',
                     lineHeight: '1',

@@ -19,6 +19,40 @@ export interface Invoice {
   vendorId?: string;
   vendorName?: string;
   notes?: string;
+  // Détails du règlement
+  paymentDetails?: PaymentDetails;
+}
+
+export interface PaymentDetails {
+  method: 'cash' | 'card' | 'check' | 'transfer' | 'multi' | 'installments';
+  status: 'pending' | 'partial' | 'completed' | 'overdue';
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  // Spécifique aux chèques
+  checkDetails?: {
+    totalChecks: number;
+    checksReceived: number;
+    checksRemaining: number;
+    nextCheckDate?: Date;
+    checkAmounts?: number[];
+    characteristics?: string; // ex: "3 chèques de 400€"
+  };
+  // Spécifique aux virements/CB
+  transactionDetails?: {
+    reference?: string;
+    bankName?: string;
+    accountLast4?: string;
+  };
+  // Échelonnement / Paiement multiple
+  installments?: {
+    totalInstallments: number;
+    completedInstallments: number;
+    nextPaymentDate?: Date;
+    installmentAmount: number;
+  };
+  // Notes sur le règlement
+  paymentNotes?: string;
 }
 
 export interface InvoiceItem {
@@ -324,8 +358,109 @@ class SyncService {
       updatedAt: new Date(item.lastUpdate || item.updated_at || Date.now()),
       vendorId: item.advisor || item.vendor_id,
       vendorName: item.advisor || item.vendor_name,
-      notes: item.notes || `Événement: ${item.eventLocation || 'Non spécifié'}`
+      notes: item.notes || `Événement: ${item.eventLocation || 'Non spécifié'}`,
+      // Extraction des détails de règlement depuis N8N
+      paymentDetails: this.extractPaymentDetails(item)
     }));
+  }
+
+  private extractPaymentDetails(item: any): PaymentDetails | undefined {
+    const payment = item.payment || item.paymentDetails || item.reglement;
+    if (!payment) return undefined;
+
+    const paymentDetails: PaymentDetails = {
+      method: this.mapPaymentMethod(payment.method || payment.type || payment.mode),
+      status: this.mapPaymentStatus(payment.status || payment.etat),
+      totalAmount: Number(payment.totalAmount || payment.montant_total || item.totalTTC || 0),
+      paidAmount: Number(payment.paidAmount || payment.montant_paye || 0),
+      remainingAmount: Number(payment.remainingAmount || payment.montant_restant || 0),
+      paymentNotes: payment.notes || payment.remarques
+    };
+
+    // Gestion spécifique des chèques
+    if (payment.method === 'cheque' || payment.method === 'check' || payment.type === 'cheque') {
+      paymentDetails.checkDetails = {
+        totalChecks: Number(payment.nombreCheques || payment.total_checks || 0),
+        checksReceived: Number(payment.chequesRecus || payment.checks_received || 0),
+        checksRemaining: Number(payment.chequesRestants || payment.checks_remaining || 0),
+        nextCheckDate: payment.prochaineCheque ? new Date(payment.prochaineCheque) : undefined,
+        checkAmounts: payment.montantsCheques || payment.check_amounts || [],
+        characteristics: payment.caracteristiques || payment.characteristics
+      };
+    }
+
+    // Gestion des virements/CB
+    if (payment.method === 'virement' || payment.method === 'transfer' || payment.method === 'card') {
+      paymentDetails.transactionDetails = {
+        reference: payment.reference || payment.transactionId,
+        bankName: payment.banque || payment.bank_name,
+        accountLast4: payment.derniers4Chiffres || payment.last_4_digits
+      };
+    }
+
+    // Gestion des échelonnements
+    if (payment.echelonnement || payment.installments) {
+      const installmentData = payment.echelonnement || payment.installments;
+      paymentDetails.installments = {
+        totalInstallments: Number(installmentData.nombreEcheances || installmentData.total_installments || 0),
+        completedInstallments: Number(installmentData.echeancesPayees || installmentData.completed_installments || 0),
+        nextPaymentDate: installmentData.prochaineEcheance ? new Date(installmentData.prochaineEcheance) : undefined,
+        installmentAmount: Number(installmentData.montantEcheance || installmentData.installment_amount || 0)
+      };
+    }
+
+    return paymentDetails;
+  }
+
+  private mapPaymentMethod(method: string): PaymentDetails['method'] {
+    switch (method?.toLowerCase()) {
+      case 'cheque':
+      case 'chèque':
+      case 'check':
+        return 'check';
+      case 'carte':
+      case 'card':
+      case 'cb':
+        return 'card';
+      case 'especes':
+      case 'espèces':
+      case 'cash':
+        return 'cash';
+      case 'virement':
+      case 'transfer':
+        return 'transfer';
+      case 'echelonnement':
+      case 'installments':
+        return 'installments';
+      case 'multiple':
+      case 'multi':
+        return 'multi';
+      default:
+        return 'cash';
+    }
+  }
+
+  private mapPaymentStatus(status: string): PaymentDetails['status'] {
+    switch (status?.toLowerCase()) {
+      case 'paye':
+      case 'payé':
+      case 'paid':
+      case 'completed':
+      case 'termine':
+      case 'terminé':
+        return 'completed';
+      case 'partiel':
+      case 'partial':
+        return 'partial';
+      case 'en_retard':
+      case 'retard':
+      case 'overdue':
+        return 'overdue';
+      case 'attente':
+      case 'pending':
+      default:
+        return 'pending';
+    }
   }
 
   private mapDeliveryStatus(deliveryStatus: string): InvoiceItem['status'] {
@@ -391,6 +526,7 @@ class SyncService {
   private getDemoInvoices(): Invoice[] {
     const now = new Date();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     
     return [
       {
@@ -429,7 +565,23 @@ class SyncService {
         updatedAt: now,
         vendorId: 'vendor-sophie',
         vendorName: 'Sophie Dubois',
-        notes: 'Livraison prévue la semaine prochaine'
+        notes: 'Livraison prévue la semaine prochaine',
+        paymentDetails: {
+          method: 'check',
+          status: 'partial',
+          totalAmount: 1198.00,
+          paidAmount: 400.00,
+          remainingAmount: 798.00,
+          checkDetails: {
+            totalChecks: 3,
+            checksReceived: 1,
+            checksRemaining: 2,
+            nextCheckDate: nextWeek,
+            checkAmounts: [400, 400, 398],
+            characteristics: '3 chèques : 400€ + 400€ + 398€'
+          },
+          paymentNotes: 'Premier chèque encaissé, 2 chèques à venir'
+        }
       },
       {
         id: 'demo-inv-002',
@@ -466,7 +618,20 @@ class SyncService {
         updatedAt: now,
         vendorId: 'vendor-marie',
         vendorName: 'Marie Lefebvre',
-        notes: 'Client satisfait, livraison effectuée'
+        notes: 'Client satisfait, livraison effectuée',
+        paymentDetails: {
+          method: 'card',
+          status: 'completed',
+          totalAmount: 307.00,
+          paidAmount: 307.00,
+          remainingAmount: 0,
+          transactionDetails: {
+            reference: 'CB-240125-001',
+            bankName: 'Crédit Agricole',
+            accountLast4: '1234'
+          },
+          paymentNotes: 'Paiement CB sans contact'
+        }
       },
       {
         id: 'demo-inv-003',
@@ -504,7 +669,21 @@ class SyncService {
         updatedAt: now,
         vendorId: 'vendor-lucie',
         vendorName: 'Lucie Petit',
-        notes: 'Commande en cours de préparation'
+        notes: 'Commande en cours de préparation',
+        paymentDetails: {
+          method: 'installments',
+          status: 'partial',
+          totalAmount: 488.00,
+          paidAmount: 200.00,
+          remainingAmount: 288.00,
+          installments: {
+            totalInstallments: 3,
+            completedInstallments: 1,
+            nextPaymentDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+            installmentAmount: 162.67
+          },
+          paymentNotes: 'Paiement en 3 fois : 200€ + 162,67€ + 125,33€'
+        }
       }
     ];
   }
