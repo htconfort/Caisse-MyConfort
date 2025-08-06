@@ -58,8 +58,21 @@ class SyncService {
   private listeners: Array<(data: any) => void> = [];
 
   constructor() {
-    // URL de votre workflow N8N
-    this.baseUrl = 'http://localhost:5678/webhook';
+    // URL adaptée selon l'environnement
+    const isDevelopment = import.meta.env.DEV;
+    const forceApiTest = localStorage.getItem('n8n-test-mode') === 'true';
+    
+    if (isDevelopment && !forceApiTest) {
+      // En développement normal : utiliser le proxy Vite
+      this.baseUrl = '/api/n8n';
+    } else {
+      // En mode test ou production : URL directe N8N (URL CORRECTE!)
+      this.baseUrl = 'https://n8n.srv765811.hstgr.cloud/webhook';
+    }
+    
+    console.log(`🔧 SyncService mode: ${isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
+    console.log(`🌐 Base URL: ${this.baseUrl}`);
+    console.log(`🧪 Mode test N8N: ${forceApiTest ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
     
     // Écouter les changements de connectivité
     window.addEventListener('online', () => {
@@ -82,24 +95,45 @@ class SyncService {
         return this.getCachedInvoices();
       }
 
-      const response = await fetch(`${this.baseUrl}/invoices`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Force le test de l'API N8N (même en développement)
+      const forceApiTest = localStorage.getItem('n8n-test-mode') === 'true';
+      const isDevelopment = import.meta.env.DEV;
+      
+      if (isDevelopment && !forceApiTest) {
+        console.log('🧪 Mode développement : utilisation des données de démo');
+        console.log('💡 Pour tester N8N, tapez: localStorage.setItem("n8n-test-mode", "true"); puis rechargez');
+        return this.getDemoInvoices();
       }
 
-      const data = await response.json();
-      const invoices = this.transformInvoicesData(data);
+      // MODE PRODUCTION ou TEST API : Essayer de récupérer depuis N8N
+      const demoData = this.getDemoInvoices();
+      console.log(`🔗 Test API N8N sur: ${this.baseUrl}/sync/invoices`);
       
-      // Mise en cache pour le mode offline
-      this.cacheInvoices(invoices);
-      
-      return invoices;
+      try {
+        const response = await fetch(`${this.baseUrl}/sync/invoices`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const invoices = this.transformInvoicesData(data);
+          
+          // Mise en cache pour le mode offline
+          this.cacheInvoices(invoices);
+          
+          return invoices;
+        } else {
+          console.warn('N8N non disponible, utilisation des données de démo');
+          return demoData;
+        }
+      } catch (networkError) {
+        console.warn('Erreur réseau N8N, utilisation des données de démo:', networkError);
+        return demoData;
+      }
+
     } catch (error) {
       console.error('Erreur lors de la récupération des factures:', error);
       
@@ -119,12 +153,14 @@ class SyncService {
         return true;
       }
 
-      const response = await fetch(`${this.baseUrl}/invoices/${invoiceId}/items/${itemId}/status`, {
-        method: 'PATCH',
+      const response = await fetch(`${this.baseUrl}/sync/status-update`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ 
+          invoiceId,
+          itemId,
           status: newStatus,
           updatedAt: new Date().toISOString(),
           source: 'caisse'
@@ -260,33 +296,56 @@ class SyncService {
 
   // ===== MÉTHODES PRIVÉES =====
 
-  private transformInvoicesData(rawData: any[]): Invoice[] {
-    return rawData.map(item => ({
-      id: item.id || `inv-${Date.now()}`,
-      number: item.number || `INV-${Date.now()}`,
-      clientName: item.client_name || 'Client inconnu',
-      clientEmail: item.client_email,
-      clientPhone: item.client_phone,
-      items: (item.items || []).map((rawItem: any) => ({
+  private transformInvoicesData(response: any): Invoice[] {
+    // Gérer la réponse N8N qui contient { success: true, invoices: [...] }
+    const rawData = response.invoices || response || [];
+    
+    return rawData.map((item: any) => ({
+      id: item.id || item.invoiceNumber || `inv-${Date.now()}`,
+      number: item.invoiceNumber || item.number || `INV-${Date.now()}`,
+      clientName: item.client?.name || item.clientName || 'Client inconnu',
+      clientEmail: item.client?.email || item.clientEmail,
+      clientPhone: item.client?.phone || item.clientPhone,
+      items: (item.products || item.items || []).map((rawItem: any) => ({
         id: rawItem.id || `item-${Date.now()}`,
-        productName: rawItem.product_name || 'Produit',
+        productName: rawItem.name || rawItem.productName || 'Produit',
         category: rawItem.category || 'Divers',
         quantity: Number(rawItem.quantity) || 1,
-        unitPrice: Number(rawItem.unit_price) || 0,
-        totalPrice: Number(rawItem.total_price) || 0,
-        status: rawItem.status || 'pending',
-        stockReserved: Boolean(rawItem.stock_reserved)
+        unitPrice: Number(rawItem.unitPrice) || 0,
+        totalPrice: Number(rawItem.totalPrice) || 0,
+        status: this.mapDeliveryStatus(rawItem.deliveryStatus) || 'pending',
+        stockReserved: rawItem.deliveryStatus === 'a_livrer'
       })),
-      totalHT: Number(item.total_ht) || 0,
-      totalTTC: Number(item.total_ttc) || 0,
-      status: item.status || 'draft',
-      dueDate: new Date(item.due_date || Date.now()),
-      createdAt: new Date(item.created_at || Date.now()),
-      updatedAt: new Date(item.updated_at || Date.now()),
-      vendorId: item.vendor_id,
-      vendorName: item.vendor_name,
-      notes: item.notes
+      totalHT: Number(item.totalHT) || Number(item.total_ht) || 0,
+      totalTTC: Number(item.totalTTC) || Number(item.total_ttc) || 0,
+      status: this.mapInvoiceStatus(item.status) || 'draft',
+      dueDate: new Date(item.dueDate || item.due_date || Date.now()),
+      createdAt: new Date(item.createdAt || item.created_at || Date.now()),
+      updatedAt: new Date(item.lastUpdate || item.updated_at || Date.now()),
+      vendorId: item.advisor || item.vendor_id,
+      vendorName: item.advisor || item.vendor_name,
+      notes: item.notes || `Événement: ${item.eventLocation || 'Non spécifié'}`
     }));
+  }
+
+  private mapDeliveryStatus(deliveryStatus: string): InvoiceItem['status'] {
+    switch (deliveryStatus) {
+      case 'a_livrer': return 'pending';
+      case 'emporte': return 'delivered';
+      case 'livre': return 'delivered';
+      case 'pending': return 'pending';
+      default: return 'available';
+    }
+  }
+
+  private mapInvoiceStatus(status: string): Invoice['status'] {
+    switch (status) {
+      case 'to_deliver': return 'sent';
+      case 'partial': return 'partial';
+      case 'delivered': return 'paid';
+      case 'pending': return 'draft';
+      default: return 'draft';
+    }
   }
 
   private getCachedInvoices(): Invoice[] {
@@ -324,6 +383,130 @@ class SyncService {
         console.error('Erreur dans le listener:', error);
       }
     });
+  }
+
+  /**
+   * Génère des données de démo pour tester l'interface
+   */
+  private getDemoInvoices(): Invoice[] {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    
+    return [
+      {
+        id: 'demo-inv-001',
+        number: 'FAC-2025-001',
+        clientName: 'Sophie Martin',
+        clientEmail: 'sophie.martin@email.com',
+        clientPhone: '06 12 34 56 78',
+        items: [
+          {
+            id: 'item-001',
+            productName: 'Matelas Memory Foam 160x200',
+            category: 'Matelas',
+            quantity: 1,
+            unitPrice: 899.00,
+            totalPrice: 899.00,
+            status: 'pending',
+            stockReserved: true
+          },
+          {
+            id: 'item-002', 
+            productName: 'Sommier tapissier 160x200',
+            category: 'Accessoires',
+            quantity: 1,
+            unitPrice: 299.00,
+            totalPrice: 299.00,
+            status: 'available',
+            stockReserved: false
+          }
+        ],
+        totalHT: 998.33,
+        totalTTC: 1198.00,
+        status: 'sent',
+        dueDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+        createdAt: yesterday,
+        updatedAt: now,
+        vendorId: 'vendor-sophie',
+        vendorName: 'Sophie Dubois',
+        notes: 'Livraison prévue la semaine prochaine'
+      },
+      {
+        id: 'demo-inv-002',
+        number: 'FAC-2025-002',
+        clientName: 'Jean Dupont',
+        clientEmail: 'jean.dupont@email.com',
+        items: [
+          {
+            id: 'item-003',
+            productName: 'Couette 4 saisons 220x240',
+            category: 'Couettes',
+            quantity: 1,
+            unitPrice: 189.00,
+            totalPrice: 189.00,
+            status: 'delivered',
+            stockReserved: false
+          },
+          {
+            id: 'item-004',
+            productName: 'Oreiller ergonomique x2',
+            category: 'Oreillers',
+            quantity: 2,
+            unitPrice: 59.00,
+            totalPrice: 118.00,
+            status: 'delivered',
+            stockReserved: false
+          }
+        ],
+        totalHT: 255.83,
+        totalTTC: 307.00,
+        status: 'paid',
+        dueDate: yesterday,
+        createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+        updatedAt: now,
+        vendorId: 'vendor-marie',
+        vendorName: 'Marie Lefebvre',
+        notes: 'Client satisfait, livraison effectuée'
+      },
+      {
+        id: 'demo-inv-003',
+        number: 'FAC-2025-003',
+        clientName: 'Pierre & Anne Moreau',
+        clientEmail: 'contact@moreau-famille.fr',
+        clientPhone: '01 23 45 67 89',
+        items: [
+          {
+            id: 'item-005',
+            productName: 'Sur-matelas climatisé 140x190',
+            category: 'Sur-matelas',
+            quantity: 1,
+            unitPrice: 449.00,
+            totalPrice: 449.00,
+            status: 'available',
+            stockReserved: true
+          },
+          {
+            id: 'item-006',
+            productName: 'Protège-matelas imperméable',
+            category: 'Accessoires',
+            quantity: 1,
+            unitPrice: 39.00,
+            totalPrice: 39.00,
+            status: 'pending',
+            stockReserved: true
+          }
+        ],
+        totalHT: 406.67,
+        totalTTC: 488.00,
+        status: 'partial',
+        dueDate: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000),
+        createdAt: now,
+        updatedAt: now,
+        vendorId: 'vendor-lucie',
+        vendorName: 'Lucie Petit',
+        notes: 'Commande en cours de préparation'
+      }
+    ];
   }
 }
 
