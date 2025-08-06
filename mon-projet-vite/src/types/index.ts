@@ -40,4 +40,10 @@ export interface Sale {
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
-export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz';
+export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures';
+
+// Réexports pour les fonctionnalités de factures
+export * from '../services/syncService';
+export * from '../hooks/useSyncInvoices';
+export * from '../hooks/useStockManagement';
+export * from '../hooks/useNotifications';

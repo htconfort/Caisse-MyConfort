@@ -12,10 +12,13 @@ import {
   STORAGE_KEYS 
 } from './data';
 import { useLocalStorage } from './hooks/useLocalStorage';
+import { useSyncInvoices } from './hooks/useSyncInvoices';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
 import { VendorSelection, ProductsTab, StockTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
+import { InvoicesTab } from './components/InvoicesTab';
 import { SuccessNotification, FloatingCart } from './components/ui';
+import './styles/invoices-tab.css';
 
 export default function CaisseMyConfortApp() {
   // États principaux
@@ -24,6 +27,9 @@ export default function CaisseMyConfortApp() {
   const [cart, setCart] = useLocalStorage<ExtendedCartItem[]>(STORAGE_KEYS.CART, []);
   const [sales, setSales] = useLocalStorage<Sale[]>(STORAGE_KEYS.SALES, []);
   const [vendorStats, setVendorStats] = useLocalStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
+  
+  // Hook pour les factures
+  const { stats: invoicesStats } = useSyncInvoices();
   
   // États UI
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('card');
@@ -236,6 +242,7 @@ export default function CaisseMyConfortApp() {
           cartItemsCount={cartItemsCount}
           salesCount={sales.length}
           cartLength={cart.length}
+          invoicesCount={invoicesStats.pendingInvoices + invoicesStats.partialInvoices}
         />
 
         {/* Main Content */}
@@ -261,6 +268,11 @@ export default function CaisseMyConfortApp() {
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
               />
+            )}
+
+            {/* Onglet Factures */}
+            {activeTab === 'factures' && (
+              <InvoicesTab />
             )}
 
             {/* Onglet Stock */}

@@ -8,6 +8,7 @@ interface NavigationProps {
   cartItemsCount: number;
   salesCount: number;
   cartLength: number;
+  invoicesCount?: number; // Nouveau prop pour les factures
 }
 
 export const Navigation: React.FC<NavigationProps> = ({ 
@@ -15,7 +16,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   setActiveTab, 
   cartItemsCount, 
   salesCount,
-  cartLength 
+  cartLength,
+  invoicesCount = 0 // Valeur par défaut
 }) => {
   return (
     <nav className="border-b bg-white">
@@ -42,6 +44,14 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
                 style={{ backgroundColor: '#F59E0B', color: 'white' }}>
                 {cartItemsCount}
+              </span>
+            )}
+            
+            {/* NOUVEAU : Badge pour l'onglet factures */}
+            {tab.id === 'factures' && invoicesCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
+                style={{ backgroundColor: '#3B82F6', color: 'white' }}>
+                {invoicesCount}
               </span>
             )}
             
