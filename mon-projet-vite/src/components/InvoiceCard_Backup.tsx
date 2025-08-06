@@ -83,9 +83,8 @@ export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice }) => {
     });
   };
 
-  const formatPrice = (price: number | null | undefined) => {
-    const validPrice = price && !isNaN(price) ? price : 0;
-    return `${validPrice.toFixed(2)}€`;
+  const formatPrice = (price: number) => {
+    return `${price.toFixed(2)}€`;
   };
 
   // Récupérer les couleurs de la vendeuse pour les bordures

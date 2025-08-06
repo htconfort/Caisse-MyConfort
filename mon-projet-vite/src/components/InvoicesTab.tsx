@@ -19,7 +19,6 @@ export const InvoicesTab: React.FC = () => {
     loading,
     error,
     syncInvoices,
-    updateItemStatus,
     filterInvoicesByStatus,
     searchInvoices
   } = useSyncInvoices();
@@ -32,26 +31,8 @@ export const InvoicesTab: React.FC = () => {
 
   const {
     notifications,
-    removeNotification,
-    notifyItemStatusChanged,
-    notifySyncError
+    removeNotification
   } = useNotifications();
-
-  // Gestion du changement de statut d'un produit
-  const handleStatusChange = async (invoiceId: string, itemId: string, newStatus: 'pending' | 'available' | 'delivered' | 'cancelled') => {
-    const success = await updateItemStatus(invoiceId, itemId, newStatus);
-    
-    if (success) {
-      const invoice = invoices.find(inv => inv.id === invoiceId);
-      const item = invoice?.items.find(item => item.id === itemId);
-      
-      if (item) {
-        notifyItemStatusChanged(item.productName, newStatus);
-      }
-    } else {
-      notifySyncError('Impossible de mettre à jour le statut');
-    }
-  };
 
   // Filtrage des factures
   const getFilteredInvoices = () => {
@@ -75,8 +56,8 @@ export const InvoicesTab: React.FC = () => {
     return (
       <div className="max-w-6xl mx-auto animate-fadeIn">
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-lg" style={{ color: '#6B7280' }}>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-4 border-black mb-4"></div>
+          <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#000000' }}>
             Chargement des factures...
           </p>
         </div>
@@ -94,7 +75,7 @@ export const InvoicesTab: React.FC = () => {
       {/* Header avec statistiques */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-3xl font-bold" style={{ color: 'var(--dark-green)' }}>
+          <h2 className="text-5xl font-bold" style={{ color: '#000000' }}>
             📄 Factures & Stock
           </h2>
           <SyncStatus 
@@ -108,21 +89,23 @@ export const InvoicesTab: React.FC = () => {
         <div className="flex gap-3 mb-4">
           <button
             onClick={() => setActiveView('invoices')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`px-6 py-3 rounded-lg font-bold text-xl transition-all ${
               activeView === 'invoices'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-black text-white shadow-md'
+                : 'bg-gray-100 text-black hover:bg-gray-200'
             }`}
+            style={{ fontSize: '22px', fontWeight: 'bold' }}
           >
             📄 Factures ({stats.totalInvoices})
           </button>
           <button
             onClick={() => setActiveView('stock')}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`px-6 py-3 rounded-lg font-bold text-xl transition-all ${
               activeView === 'stock'
-                ? 'bg-green-600 text-white shadow-md'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-black text-white shadow-md'
+                : 'bg-gray-100 text-black hover:bg-gray-200'
             }`}
+            style={{ fontSize: '22px', fontWeight: 'bold' }}
           >
             📦 Stock ({stockStats.totalProducts})
           </button>
@@ -130,21 +113,21 @@ export const InvoicesTab: React.FC = () => {
 
         {/* Statistiques rapides */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">{stats.pendingInvoices}</div>
-            <div className="text-sm text-gray-600">En cours</div>
+          <div className="card p-4 text-center" style={{ border: '3px solid #000000' }}>
+            <div className="text-3xl font-bold" style={{ color: '#000000' }}>{stats.pendingInvoices}</div>
+            <div className="text-lg font-bold" style={{ color: '#000000' }}>En cours</div>
           </div>
-          <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-orange-600">{stats.partialInvoices}</div>
-            <div className="text-sm text-gray-600">Partielles</div>
+          <div className="card p-4 text-center" style={{ border: '3px solid #000000' }}>
+            <div className="text-3xl font-bold" style={{ color: '#000000' }}>{stats.partialInvoices}</div>
+            <div className="text-lg font-bold" style={{ color: '#000000' }}>Partielles</div>
           </div>
-          <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">{stockStats.totalAvailable}</div>
-            <div className="text-sm text-gray-600">Disponibles</div>
+          <div className="card p-4 text-center" style={{ border: '3px solid #000000' }}>
+            <div className="text-3xl font-bold" style={{ color: '#000000' }}>{stockStats.totalAvailable}</div>
+            <div className="text-lg font-bold" style={{ color: '#000000' }}>Disponibles</div>
           </div>
-          <div className="card p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">{stockStats.lowStockItems}</div>
-            <div className="text-sm text-gray-600">Stock bas</div>
+          <div className="card p-4 text-center" style={{ border: '3px solid #000000' }}>
+            <div className="text-3xl font-bold" style={{ color: '#000000' }}>{stockStats.lowStockItems}</div>
+            <div className="text-lg font-bold" style={{ color: '#000000' }}>Stock bas</div>
           </div>
         </div>
       </div>
@@ -153,7 +136,7 @@ export const InvoicesTab: React.FC = () => {
       {activeView === 'invoices' && (
         <div>
           {/* Filtres et recherche */}
-          <div className="card p-4 mb-6">
+          <div className="card p-4 mb-6" style={{ border: '3px solid #000000' }}>
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <input
@@ -161,14 +144,16 @@ export const InvoicesTab: React.FC = () => {
                   placeholder="Rechercher par client, numéro ou produit..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border-2 border-black rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-black"
+                  style={{ fontSize: '18px', fontWeight: 'bold', color: '#000000' }}
                 />
               </div>
               <div className="md:w-48">
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as Invoice['status'] | 'all')}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border-2 border-black rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-black"
+                  style={{ fontSize: '18px', fontWeight: 'bold', color: '#000000' }}
                 >
                   <option value="all">Tous les statuts</option>
                   <option value="draft">Brouillon</option>
@@ -183,13 +168,14 @@ export const InvoicesTab: React.FC = () => {
 
           {/* Liste des factures */}
           {error && (
-            <div className="card p-4 mb-6 border-l-4 border-red-500 bg-red-50">
-              <p className="text-red-700">
+            <div className="card p-4 mb-6 border-l-4" style={{ borderColor: '#000000', backgroundColor: 'rgba(255,255,255,0.95)', border: '3px solid #000000' }}>
+              <p style={{ color: '#000000', fontSize: '20px', fontWeight: 'bold' }}>
                 ⚠️ Erreur: {error}
               </p>
               <button
                 onClick={syncInvoices}
-                className="mt-2 text-red-600 hover:text-red-800 underline"
+                className="mt-2 underline"
+                style={{ color: '#000000', fontSize: '18px', fontWeight: 'bold' }}
               >
                 Réessayer
               </button>
@@ -197,8 +183,8 @@ export const InvoicesTab: React.FC = () => {
           )}
 
           {filteredInvoices.length === 0 ? (
-            <div className="card text-center py-12">
-              <p className="text-xl text-gray-600 mb-4">
+            <div className="card text-center py-12" style={{ border: '3px solid #000000' }}>
+              <p style={{ fontSize: '24px', color: '#000000', fontWeight: 'bold', marginBottom: '16px' }}>
                 {invoices.length === 0 ? 'Aucune facture trouvée' : 'Aucune facture ne correspond aux filtres'}
               </p>
               {invoices.length === 0 && (
@@ -206,6 +192,7 @@ export const InvoicesTab: React.FC = () => {
                   onClick={syncInvoices}
                   className="btn-primary"
                   disabled={loading}
+                  style={{ fontSize: '20px', fontWeight: 'bold', padding: '12px 24px', backgroundColor: '#000000', color: '#ffffff', border: 'none', borderRadius: '8px' }}
                 >
                   🔄 Synchroniser
                 </button>
@@ -217,7 +204,6 @@ export const InvoicesTab: React.FC = () => {
                 <InvoiceCard
                   key={invoice.id}
                   invoice={invoice}
-                  onStatusChange={handleStatusChange}
                 />
               ))}
             </div>

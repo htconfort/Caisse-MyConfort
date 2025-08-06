@@ -1,4 +1,38 @@
-/* Styles pour l'onglet Factures */
+/* Styles pour l'onglet Factures - HAUTE LISIBILITÉ FORCÉE */
+
+/* RÈGLES GLOBALES POUR FORCER LA LISIBILITÉ - EXCLUT LES HEADERS DE VENDEUSE */
+.invoice-card *:not(.vendor-header):not(.vendor-header *),
+.invoice-card p:not(.vendor-header):not(.vendor-header *),
+.invoice-card h1:not(.vendor-header):not(.vendor-header *),
+.invoice-card h2:not(.vendor-header):not(.vendor-header *),
+.invoice-card h3:not(.vendor-header):not(.vendor-header *),
+.invoice-card h4:not(.vendor-header):not(.vendor-header *),
+.invoice-card h5:not(.vendor-header):not(.vendor-header *),
+.invoice-card h6:not(.vendor-header):not(.vendor-header *),
+.invoice-card span:not(.vendor-header):not(.vendor-header *),
+.invoice-card div:not(.vendor-header):not(.vendor-header *),
+.invoice-card strong:not(.vendor-header):not(.vendor-header *),
+.invoice-card b:not(.vendor-header):not(.vendor-header *) {
+  color: #000000 !important;
+  font-weight: bold !important;
+  font-size: 18px !important;
+}
+
+.invoice-card h1:not(.vendor-header):not(.vendor-header *) { font-size: 32px !important; }
+.invoice-card h2:not(.vendor-header):not(.vendor-header *) { font-size: 28px !important; }
+.invoice-card h3:not(.vendor-header):not(.vendor-header *) { font-size: 24px !important; }
+.invoice-card h4:not(.vendor-header):not(.vendor-header *) { font-size: 22px !important; }
+.invoice-card h5:not(.vendor-header):not(.vendor-header *) { font-size: 20px !important; }
+
+/* PROTECTION DES COULEURS HEADERS DE VENDEUSE */
+.vendor-header,
+.vendor-header *,
+.vendor-header span,
+.vendor-header div {
+  /* Préserver les couleurs inline des headers vendeuses */
+  color: inherit !important;
+  background-color: inherit !important;
+}
 
 /* Animations pour les notifications */
 @keyframes slideInRight {
@@ -38,76 +72,93 @@
   position: relative;
 }
 
-/* Cartes de factures */
+/* Cartes de factures - STYLE HAUTE LISIBILITÉ */
 .invoice-card {
   background: white;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
-  border: 1px solid #e5e7eb;
+  border: 4px solid #000000 !important;
+  color: #000000 !important;
+  font-size: 18px !important;
+  font-weight: bold !important;
 }
 
 .invoice-card:hover {
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
   transform: translateY(-2px);
 }
 
-/* Statuts des factures */
+/* Statuts des factures - STYLE HAUTE LISIBILITÉ */
 .status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.75rem;
+  padding: 0.5rem 1rem;
   border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 1rem !important;
+  font-weight: bold !important;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: #000000 !important;
+  border: 3px solid #000000 !important;
 }
 
 .status-draft {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 
 .status-sent {
-  background-color: #dbeafe;
-  color: #2563eb;
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 
 .status-partial {
-  background-color: #fed7aa;
-  color: #ea580c;
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 
 .status-paid {
-  background-color: #dcfce7;
-  color: #16a34a;
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 
 .status-cancelled {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: #ffffff !important;
+  color: #000000 !important;
 }
 
-/* Statuts des produits */
+/* Statuts des produits - STYLE HAUTE LISIBILITÉ */
 .item-status-pending {
-  background-color: #f3f4f6;
-  color: #6b7280;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
 }
 
 .item-status-available {
-  background-color: #dcfce7;
-  color: #16a34a;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
 }
 
 .item-status-delivered {
-  background-color: #dbeafe;
-  color: #2563eb;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
 }
 
 .item-status-cancelled {
-  background-color: #fee2e2;
-  color: #dc2626;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+  font-weight: bold !important;
+  font-size: 16px !important;
 }
 
 /* Boutons d'action pour les produits */

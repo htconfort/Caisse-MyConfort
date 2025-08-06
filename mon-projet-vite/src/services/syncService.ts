@@ -60,10 +60,14 @@ export interface InvoiceItem {
   productName: string;
   category: string;
   quantity: number;
-  unitPrice: number;
-  totalPrice: number;
+  unitPrice: number; // Prix unitaire AVANT remise
+  totalPrice: number; // Prix total APRÈS remise
   status: 'pending' | 'available' | 'delivered' | 'cancelled';
   stockReserved?: boolean;
+  // Nouvelles propriétés pour les remises
+  originalPrice?: number; // Prix original avant remise
+  discountPercentage?: number; // Pourcentage de remise (ex: 20 pour -20%)
+  discountAmount?: number; // Montant de la remise en euros
 }
 
 export interface StockItem {
@@ -128,13 +132,17 @@ class SyncService {
    */
   async getInvoices(): Promise<Invoice[]> {
     try {
+      // TEMPORAIRE : En développement, utiliser directement les données de démo pour tester les remises
+      const isDevelopment = import.meta.env.DEV;
+      if (isDevelopment) {
+        console.log('🧪 Mode développement : utilisation directe des données de démo avec remises');
+        return this.getDemoInvoices();
+      }
+
       if (!this.isOnline) {
         return this.getCachedInvoices();
       }
 
-      // En développement, toujours essayer N8N d'abord
-      const isDevelopment = import.meta.env.DEV;
-      
       console.log(`🔗 Récupération des factures depuis N8N: ${this.baseUrl}/sync/invoices`);
       
       try {
@@ -383,54 +391,85 @@ class SyncService {
     // Étape 2: Transformer les factures fusionnées
     const uniqueInvoices = Array.from(invoiceMap.values());
     console.log(`📊 Résultat: ${uniqueInvoices.length} factures uniques`);
-    
-    return uniqueInvoices.map((item: any) => ({
-      id: item.id || item.invoiceNumber || `inv-${Date.now()}`,
-      number: item.invoiceNumber || item.number || `INV-${Date.now()}`,
-      clientName: item.client?.name || item.clientName || 'Client inconnu',
-      clientEmail: item.client?.email || item.clientEmail,
-      clientPhone: item.client?.phone || item.clientPhone,
-      items: (item.products || []).map((rawItem: any, index: number) => ({
-        id: `${item.invoiceNumber || 'inv'}-item-${index}`,
-        productName: rawItem.name || rawItem.productName || 'Produit',
-        category: rawItem.category || 'Divers',
-        quantity: Number(rawItem.quantity) || 1,
-        unitPrice: Number(rawItem.unitPrice) || 0,
-        totalPrice: Number(rawItem.totalPrice) || 0,
-        status: this.mapDeliveryStatus(rawItem.deliveryStatus) || 'pending',
-        stockReserved: rawItem.deliveryStatus === 'a_livrer'
-      })),
-      totalHT: Number(item.totalHT) || Number(item.total_ht) || 0,
-      totalTTC: Number(item.totalTTC) || Number(item.total_ttc) || 0,
-      status: this.mapInvoiceStatus(item.status) || 'draft',
-      dueDate: new Date(item.dueDate || item.due_date || Date.now()),
-      createdAt: new Date(item.createdAt || item.created_at || Date.now()),
-      updatedAt: new Date(item.lastUpdate || item.updated_at || Date.now()),
-      vendorId: item.advisor || item.vendor_id,
-      vendorName: item.advisor || item.vendor_name,
-      notes: item.notes || `Événement: ${item.eventLocation || 'Non spécifié'}`,
-      // Extraction des détails de règlement depuis N8N
-      paymentDetails: this.extractPaymentDetails(item)
-    }));
+    return uniqueInvoices.map((item: any) => {
+      const totalHT = Number(item.totalHT) || Number(item.total_ht) || 0;
+      const totalTTC = Number(item.totalTTC) || Number(item.total_ttc) || 0;
+      
+      return {
+        id: item.id || item.invoiceNumber || `inv-${Date.now()}`,
+        number: item.invoiceNumber || item.number || `INV-${Date.now()}`,
+        clientName: item.client?.name || item.clientName || 'Client inconnu',
+        clientEmail: item.client?.email || item.clientEmail,
+        clientPhone: item.client?.phone || item.clientPhone,
+        items: (item.products || []).map((rawItem: any, index: number) => {
+          const quantity = Number(rawItem.quantity) || 1;
+          const unitPrice = Number(rawItem.unitPrice) || 0;
+          const rawTotalPrice = Number(rawItem.totalPrice) || 0;
+          
+          // Calcul des remises
+          const originalPrice = Number(rawItem.originalPrice) || unitPrice;
+          const discountPercentage = rawItem.discountPercentage ? Number(rawItem.discountPercentage) : 
+            (originalPrice > 0 && unitPrice < originalPrice) ? Math.round(((originalPrice - unitPrice) / originalPrice) * 100) : 0;
+          const discountAmount = originalPrice > unitPrice ? (originalPrice - unitPrice) * quantity : 0;
+          
+          // Calculer le vrai prix total après remise
+          const calculatedTotalPrice = unitPrice * quantity;
+          const totalPrice = rawTotalPrice > 0 ? rawTotalPrice : calculatedTotalPrice;
+          
+          return {
+            id: `${item.invoiceNumber || 'inv'}-item-${index}`,
+            productName: rawItem.name || rawItem.productName || 'Produit',
+            category: rawItem.category || 'Divers',
+            quantity,
+            unitPrice,
+            totalPrice,
+            status: this.mapDeliveryStatus(rawItem.deliveryStatus) || 'pending',
+            stockReserved: rawItem.deliveryStatus === 'a_livrer',
+            // Nouvelles propriétés pour les remises
+            originalPrice: originalPrice !== unitPrice ? originalPrice : undefined,
+            discountPercentage: discountPercentage > 0 ? discountPercentage : undefined,
+            discountAmount: discountAmount > 0 ? discountAmount : undefined
+          };
+        }),
+        totalHT: totalHT,
+        totalTTC: totalTTC,
+        status: this.mapInvoiceStatus(item.status) || 'draft',
+        dueDate: new Date(item.dueDate || item.due_date || Date.now()),
+        createdAt: new Date(item.createdAt || item.created_at || Date.now()),
+        updatedAt: new Date(item.lastUpdate || item.updated_at || Date.now()),
+        vendorId: item.advisor || item.vendor_id,
+        vendorName: item.advisor || item.vendor_name,
+        notes: item.notes || `Événement: ${item.eventLocation || 'Non spécifié'}`,
+        // Extraction des détails de règlement depuis N8N - PASSER LE TOTAL CALCULÉ
+        paymentDetails: this.extractPaymentDetails(item, totalTTC)
+      };
+    });
   }
 
-  private extractPaymentDetails(item: any): PaymentDetails | undefined {
+  private extractPaymentDetails(item: any, calculatedTotal?: number): PaymentDetails | undefined {
     // Extraire depuis le champ paymentMethod qui contient les vraies informations
     const paymentMethodText = item.paymentMethod || '';
-    const totalAmount = Number(item.totalTTC) || Number(item.totalPrice) || 0;
+    const totalAmount = calculatedTotal || Number(item.totalTTC) || Number(item.totalPrice) || 0;
     const deposit = Number(item.deposit) || 0;
-    const remaining = Number(item.remaining) || (totalAmount - deposit);
-
+    
     // Si pas d'info de paiement, retourner undefined
     if (!paymentMethodText) return undefined;
 
-    console.log(`💳 Analyse du règlement: "${paymentMethodText}"`);
+    console.log(`💳 Analyse du règlement: "${paymentMethodText}" - Total: ${totalAmount}€, Acompte: ${deposit}€`);
+    
+    // Analyser le statut de la facture pour déterminer les montants
+    const invoiceStatus = item.status || '';
+    const isFullyPaid = invoiceStatus.toLowerCase().includes('paid') || invoiceStatus.toLowerCase().includes('payé');
+    
+    // Si payé intégralement, paidAmount = totalAmount, remainingAmount = 0
+    const paidAmount = isFullyPaid ? totalAmount : deposit;
+    const remaining = isFullyPaid ? 0 : (totalAmount - deposit);
 
     const paymentDetails: PaymentDetails = {
       method: 'cash', // sera déterminé ci-dessous
       status: this.mapPaymentStatus(item.status),
       totalAmount: totalAmount,
-      paidAmount: deposit,
+      paidAmount: paidAmount,
       remainingAmount: remaining,
       paymentNotes: paymentMethodText
     };
@@ -608,6 +647,7 @@ class SyncService {
    * Génère des données de démo pour tester l'interface
    */
   private getDemoInvoices(): Invoice[] {
+    console.log('🧪 Chargement des données de démo avec remises et couleurs vendeuses');
     const now = new Date();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -678,36 +718,44 @@ class SyncService {
             productName: 'Couette 4 saisons 220x240',
             category: 'Couettes',
             quantity: 1,
-            unitPrice: 189.00,
-            totalPrice: 189.00,
+            unitPrice: 151.20, // Prix après remise 20%
+            totalPrice: 151.20,
             status: 'delivered',
-            stockReserved: false
+            stockReserved: false,
+            // Ajout des champs de remise pour démonstration
+            originalPrice: 189.00, // Prix original
+            discountPercentage: 20, // 20% de remise
+            discountAmount: 37.80 // 189 - 151.20
           },
           {
             id: 'item-004',
             productName: 'Oreiller ergonomique x2',
             category: 'Oreillers',
             quantity: 2,
-            unitPrice: 59.00,
-            totalPrice: 118.00,
+            unitPrice: 47.20, // Prix unitaire après remise 20%
+            totalPrice: 94.40, // 2 * 47.20
             status: 'delivered',
-            stockReserved: false
+            stockReserved: false,
+            // Ajout des champs de remise pour démonstration
+            originalPrice: 59.00, // Prix original unitaire
+            discountPercentage: 20, // 20% de remise
+            discountAmount: 23.60 // (59-47.20) * 2
           }
         ],
-        totalHT: 255.83,
-        totalTTC: 307.00,
+        totalHT: 204.67,
+        totalTTC: 245.60,
         status: 'paid',
         dueDate: yesterday,
         createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
         updatedAt: now,
         vendorId: 'vendor-marie',
         vendorName: 'Marie Lefebvre',
-        notes: 'Client satisfait, livraison effectuée',
+        notes: 'Client satisfait, livraison effectuée avec remises promotionnelles',
         paymentDetails: {
           method: 'card',
           status: 'completed',
-          totalAmount: 307.00,
-          paidAmount: 307.00,
+          totalAmount: 245.60,
+          paidAmount: 245.60,
           remainingAmount: 0,
           transactionDetails: {
             reference: 'CB-240125-001',
@@ -767,6 +815,68 @@ class SyncService {
             installmentAmount: 162.67
           },
           paymentNotes: 'Paiement en 3 fois : 200€ + 162,67€ + 125,33€'
+        }
+      },
+      {
+        id: 'demo-inv-004',
+        number: 'FAC-2025-004',
+        clientName: 'Billy Test Client',
+        clientEmail: 'billy.test@email.com',
+        clientPhone: '06 11 22 33 44',
+        items: [
+          {
+            id: 'item-007',
+            productName: 'MATELAS BAMBOU 160 x 200',
+            category: 'Matelas',
+            quantity: 1,
+            unitPrice: 1680.00, // Prix après remise 20%
+            totalPrice: 1680.00,
+            status: 'pending',
+            stockReserved: true,
+            // Ajout des champs de remise pour démonstration
+            originalPrice: 2100.00, // Prix original du catalogue
+            discountPercentage: 20, // 20% de remise
+            discountAmount: 420.00 // 2100 - 1680
+          },
+          {
+            id: 'item-008',
+            productName: 'SURMATELAS BAMBOU 160 x 200',
+            category: 'Sur-matelas',
+            quantity: 1,
+            unitPrice: 392.00, // Prix après remise 20%
+            totalPrice: 392.00,
+            status: 'available',
+            stockReserved: false,
+            // Ajout des champs de remise pour démonstration
+            originalPrice: 490.00, // Prix original du catalogue
+            discountPercentage: 20, // 20% de remise
+            discountAmount: 98.00 // 490 - 392
+          }
+        ],
+        totalHT: 1726.67,
+        totalTTC: 2072.00,
+        status: 'sent',
+        dueDate: new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
+        updatedAt: now,
+        vendorId: 'vendor-billy',
+        vendorName: 'Billy',
+        notes: 'Grosse commande avec remises exceptionnelles - Billy',
+        paymentDetails: {
+          method: 'check',
+          status: 'partial',
+          totalAmount: 2072.00,
+          paidAmount: 500.00,
+          remainingAmount: 1572.00,
+          checkDetails: {
+            totalChecks: 4,
+            checksReceived: 1,
+            checksRemaining: 3,
+            nextCheckDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+            checkAmounts: [500, 500, 500, 72],
+            characteristics: '4 chèques : 500€ + 500€ + 500€ + 72€'
+          },
+          paymentNotes: 'Premier chèque encaissé, 3 chèques à venir pour Billy'
         }
       }
     ];
