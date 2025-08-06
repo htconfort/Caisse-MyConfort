@@ -96,17 +96,20 @@ class SyncService {
     const isDevelopment = import.meta.env.DEV;
     const forceApiTest = localStorage.getItem('n8n-test-mode') === 'true';
     
-    if (isDevelopment && !forceApiTest) {
-      // En développement normal : utiliser le proxy Vite
+    // En développement, utiliser automatiquement les données N8N
+    if (isDevelopment) {
+      // En développement : utiliser le proxy Vite pour N8N
       this.baseUrl = '/api/n8n';
+      // Activer automatiquement le mode N8N en développement
+      localStorage.setItem('n8n-test-mode', 'true');
     } else {
-      // En mode test ou production : URL directe N8N (URL CORRECTE!)
+      // En production : URL directe N8N
       this.baseUrl = 'https://n8n.srv765811.hstgr.cloud/webhook';
     }
     
     console.log(`🔧 SyncService mode: ${isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
     console.log(`🌐 Base URL: ${this.baseUrl}`);
-    console.log(`🧪 Mode test N8N: ${forceApiTest ? 'ACTIVÉ' : 'DÉSACTIVÉ'}`);
+    console.log(`🧪 Mode N8N: ACTIVÉ automatiquement`);
     
     // Écouter les changements de connectivité
     window.addEventListener('online', () => {
@@ -129,19 +132,10 @@ class SyncService {
         return this.getCachedInvoices();
       }
 
-      // Force le test de l'API N8N (même en développement)
-      const forceApiTest = localStorage.getItem('n8n-test-mode') === 'true';
+      // En développement, toujours essayer N8N d'abord
       const isDevelopment = import.meta.env.DEV;
       
-      if (isDevelopment && !forceApiTest) {
-        console.log('🧪 Mode développement : utilisation des données de démo');
-        console.log('💡 Pour tester N8N, tapez: localStorage.setItem("n8n-test-mode", "true"); puis rechargez');
-        return this.getDemoInvoices();
-      }
-
-      // MODE PRODUCTION ou TEST API : Essayer de récupérer depuis N8N
-      const demoData = this.getDemoInvoices();
-      console.log(`🔗 Test API N8N sur: ${this.baseUrl}/sync/invoices`);
+      console.log(`🔗 Récupération des factures depuis N8N: ${this.baseUrl}/sync/invoices`);
       
       try {
         const response = await fetch(`${this.baseUrl}/sync/invoices`, {
@@ -153,6 +147,7 @@ class SyncService {
 
         if (response.ok) {
           const data = await response.json();
+          console.log(`✅ N8N connecté, ${data.count || 0} factures reçues`);
           const invoices = this.transformInvoicesData(data);
           
           // Mise en cache pour le mode offline
@@ -160,16 +155,16 @@ class SyncService {
           
           return invoices;
         } else {
-          console.warn('N8N non disponible, utilisation des données de démo');
-          return demoData;
+          console.warn(`❌ N8N non disponible (${response.status}), utilisation des données de démo`);
+          return this.getDemoInvoices();
         }
       } catch (networkError) {
-        console.warn('Erreur réseau N8N, utilisation des données de démo:', networkError);
-        return demoData;
+        console.warn('🔌 Erreur réseau N8N, utilisation des données de démo:', networkError);
+        return this.getDemoInvoices();
       }
 
     } catch (error) {
-      console.error('Erreur lors de la récupération des factures:', error);
+      console.error('❌ Erreur lors de la récupération des factures:', error);
       
       // Fallback vers le cache en cas d'erreur
       return this.getCachedInvoices();
@@ -334,14 +329,69 @@ class SyncService {
     // Gérer la réponse N8N qui contient { success: true, invoices: [...] }
     const rawData = response.invoices || response || [];
     
-    return rawData.map((item: any) => ({
+    console.log(`🔍 Transformation de ${rawData.length} entrées de factures N8N`);
+    
+    // Étape 1: Regrouper les factures par numéro pour éviter les doublons
+    const invoiceMap = new Map<string, any>();
+    
+    rawData.forEach((item: any) => {
+      const invoiceNumber = item.invoiceNumber || item.number || `INV-${Date.now()}`;
+      
+      if (invoiceMap.has(invoiceNumber)) {
+        // Facture existante : fusionner les produits
+        const existing = invoiceMap.get(invoiceNumber);
+        const existingProducts = existing.products || [];
+        const newProducts = item.products || [];
+        
+        // Combiner les produits en évitant les doublons
+        const allProducts = [...existingProducts];
+        newProducts.forEach((newProduct: any) => {
+          const isDuplicate = existingProducts.some((existing: any) => 
+            existing.name === newProduct.name && 
+            existing.category === newProduct.category
+          );
+          if (!isDuplicate) {
+            allProducts.push(newProduct);
+          }
+        });
+        
+        // Mettre à jour avec la liste de produits la plus complète
+        existing.products = allProducts;
+        
+        // Prendre les données les plus récentes (lastUpdate le plus récent)
+        const existingUpdate = new Date(existing.lastUpdate || 0);
+        const newUpdate = new Date(item.lastUpdate || 0);
+        
+        if (newUpdate > existingUpdate) {
+          existing.totalTTC = item.totalTTC || existing.totalTTC;
+          existing.totalHT = item.totalHT || existing.totalHT;
+          existing.deposit = item.deposit || existing.deposit;
+          existing.remaining = item.remaining || existing.remaining;
+          existing.paymentMethod = item.paymentMethod || existing.paymentMethod;
+          existing.status = item.status || existing.status;
+          existing.lastUpdate = item.lastUpdate || existing.lastUpdate;
+        }
+        
+        console.log(`🔄 Fusion facture ${invoiceNumber}: ${allProducts.length} produits`);
+      } else {
+        // Nouvelle facture
+        invoiceMap.set(invoiceNumber, { ...item });
+        console.log(`✅ Nouvelle facture ${invoiceNumber}: ${(item.products || []).length} produits`);
+      }
+    });
+    
+    // Étape 2: Transformer les factures fusionnées
+    const uniqueInvoices = Array.from(invoiceMap.values());
+    console.log(`📊 Résultat: ${uniqueInvoices.length} factures uniques`);
+    
+    return uniqueInvoices.map((item: any) => ({
       id: item.id || item.invoiceNumber || `inv-${Date.now()}`,
       number: item.invoiceNumber || item.number || `INV-${Date.now()}`,
       clientName: item.client?.name || item.clientName || 'Client inconnu',
       clientEmail: item.client?.email || item.clientEmail,
       clientPhone: item.client?.phone || item.clientPhone,
-      items: (item.products || item.items || []).map((rawItem: any) => ({
-        id: rawItem.id || `item-${Date.now()}`,
+      items: (item.products || []).map((rawItem: any, index: number) => ({
+        id: `${item.invoiceNumber || 'inv'}-item-${index}`,
         productName: rawItem.name || rawItem.productName || 'Produit',
         category: rawItem.category || 'Divers',
         quantity: Number(rawItem.quantity) || 1,
@@ -365,48 +415,82 @@ class SyncService {
   }
 
   private extractPaymentDetails(item: any): PaymentDetails | undefined {
-    const payment = item.payment || item.paymentDetails || item.reglement;
-    if (!payment) return undefined;
+    // Extraire depuis le champ paymentMethod qui contient les vraies informations
+    const paymentMethodText = item.paymentMethod || '';
+    const totalAmount = Number(item.totalTTC) || Number(item.totalPrice) || 0;
+    const deposit = Number(item.deposit) || 0;
+    const remaining = Number(item.remaining) || (totalAmount - deposit);
+
+    // Si pas d'info de paiement, retourner undefined
+    if (!paymentMethodText) return undefined;
+
+    console.log(`💳 Analyse du règlement: "${paymentMethodText}"`);
 
     const paymentDetails: PaymentDetails = {
-      method: this.mapPaymentMethod(payment.method || payment.type || payment.mode),
-      status: this.mapPaymentStatus(payment.status || payment.etat),
-      totalAmount: Number(payment.totalAmount || payment.montant_total || item.totalTTC || 0),
-      paidAmount: Number(payment.paidAmount || payment.montant_paye || 0),
-      remainingAmount: Number(payment.remainingAmount || payment.montant_restant || 0),
-      paymentNotes: payment.notes || payment.remarques
+      method: 'cash', // sera déterminé ci-dessous
+      status: this.mapPaymentStatus(item.status),
+      totalAmount: totalAmount,
+      paidAmount: deposit,
+      remainingAmount: remaining,
+      paymentNotes: paymentMethodText
     };
 
-    // Gestion spécifique des chèques
-    if (payment.method === 'cheque' || payment.method === 'check' || payment.type === 'cheque') {
-      paymentDetails.checkDetails = {
-        totalChecks: Number(payment.nombreCheques || payment.total_checks || 0),
-        checksReceived: Number(payment.chequesRecus || payment.checks_received || 0),
-        checksRemaining: Number(payment.chequesRestants || payment.checks_remaining || 0),
-        nextCheckDate: payment.prochaineCheque ? new Date(payment.prochaineCheque) : undefined,
-        checkAmounts: payment.montantsCheques || payment.check_amounts || [],
-        characteristics: payment.caracteristiques || payment.characteristics
-      };
-    }
+    // Analyser le texte du paymentMethod pour extraire les détails
+    const lowerText = paymentMethodText.toLowerCase();
 
-    // Gestion des virements/CB
-    if (payment.method === 'virement' || payment.method === 'transfer' || payment.method === 'card') {
+    // Détection des chèques
+    if (lowerText.includes('chèque') || lowerText.includes('cheque')) {
+      paymentDetails.method = 'check';
+      
+      // Extraire le nombre de chèques depuis le texte
+      // Ex: "Chèques à venir - 9 chèques à venir de 133.89€ chacun"
+      const chequesMatch = paymentMethodText.match(/(\d+)\s*chèques?\s*à?\s*venir/i);
+      const amountMatch = paymentMethodText.match(/de\s*([\d,]+\.?\d*)\s*€/i);
+      
+      if (chequesMatch) {
+        const totalChecks = parseInt(chequesMatch[1]);
+        const checkAmount = amountMatch ? parseFloat(amountMatch[1].replace(',', '.')) : 0;
+        
+        paymentDetails.checkDetails = {
+          totalChecks: totalChecks,
+          checksReceived: 0, // Aucun reçu pour les "chèques à venir"
+          checksRemaining: totalChecks,
+          checkAmounts: new Array(totalChecks).fill(checkAmount),
+          characteristics: `${totalChecks} chèques de ${checkAmount}€ chacun`
+        };
+      }
+    }
+    // Détection CB/Carte
+    else if (lowerText.includes('carte') || lowerText.includes('cb') || lowerText.includes('bleue')) {
+      paymentDetails.method = 'card';
       paymentDetails.transactionDetails = {
-        reference: payment.reference || payment.transactionId,
-        bankName: payment.banque || payment.bank_name,
-        accountLast4: payment.derniers4Chiffres || payment.last_4_digits
+        reference: `CB-${item.invoiceNumber || Date.now()}`
       };
     }
-
-    // Gestion des échelonnements
-    if (payment.echelonnement || payment.installments) {
-      const installmentData = payment.echelonnement || payment.installments;
-      paymentDetails.installments = {
-        totalInstallments: Number(installmentData.nombreEcheances || installmentData.total_installments || 0),
-        completedInstallments: Number(installmentData.echeancesPayees || installmentData.completed_installments || 0),
-        nextPaymentDate: installmentData.prochaineEcheance ? new Date(installmentData.prochaineEcheance) : undefined,
-        installmentAmount: Number(installmentData.montantEcheance || installmentData.installment_amount || 0)
+    // Détection virement
+    else if (lowerText.includes('virement')) {
+      paymentDetails.method = 'transfer';
+      paymentDetails.transactionDetails = {
+        reference: `VIR-${item.invoiceNumber || Date.now()}`
       };
+    }
+    // Détection espèces
+    else if (lowerText.includes('espèce')) {
+      paymentDetails.method = 'cash';
+    }
+    // Détection échelonnement (si plusieurs montants)
+    else if (lowerText.includes('fois') || lowerText.includes('échéance')) {
+      paymentDetails.method = 'installments';
+      
+      const installmentsMatch = paymentMethodText.match(/(\d+)\s*fois/i);
+      if (installmentsMatch) {
+        const totalInstallments = parseInt(installmentsMatch[1]);
+        paymentDetails.installments = {
+          totalInstallments: totalInstallments,
+          completedInstallments: deposit > 0 ? 1 : 0,
+          installmentAmount: remaining / (totalInstallments - (deposit > 0 ? 1 : 0))
+        };
+      }
     }
 
     return paymentDetails;
