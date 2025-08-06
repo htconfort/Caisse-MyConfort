@@ -37,10 +37,6 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Oreillers', name: 'Oreiller Papillon', priceTTC: 80, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Flocon', priceTTC: 50, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Voyage', priceTTC: 35, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack oreiller 2 douceur', priceTTC: 150, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack oreiller 2 papillon', priceTTC: 150, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack oreiller 2 Panama', priceTTC: 130, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack oreiller 2 flocons', priceTTC: 90, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 140', priceTTC: 140, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 160', priceTTC: 160, autoCalculateHT: true },
   

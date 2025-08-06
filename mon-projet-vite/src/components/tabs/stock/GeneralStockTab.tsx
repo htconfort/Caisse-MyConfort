@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Package, Search, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Package, Search, AlertTriangle, CheckCircle, Lock } from 'lucide-react';
 import type { CatalogProduct, ProductCategory } from '../../../types';
 import { productCatalog } from '../../../data';
+import { PinModal } from '../../ui/PinModal';
 
 interface StockItem extends CatalogProduct {
   currentStock: number;
@@ -14,10 +15,20 @@ export const GeneralStockTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Tous'>('Tous');
   const [stockQuantities, setStockQuantities] = useState<Record<string, number>>({});
+  const [isEditUnlocked, setIsEditUnlocked] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
 
-  // Simulation des données de stock (à remplacer par de vraies données plus tard)
+  // Simulation des données de stock (filtrage des packs d'oreillers)
   const stockData: StockItem[] = useMemo(() => {
-    return productCatalog.map((product: CatalogProduct, index) => {
+    return productCatalog
+      .filter(product => {
+        // Exclure tous les packs d'oreillers du stock
+        if (product.category === 'Oreillers' && product.name.toLowerCase().includes('pack')) {
+          return false;
+        }
+        return true;
+      })
+      .map((product: CatalogProduct, index) => {
       const productKey = `${product.name}-${index}`;
       // Utiliser la quantité personnalisée ou une valeur par défaut
       const currentStock = stockQuantities[productKey] ?? Math.floor(Math.random() * 50);
@@ -87,7 +98,38 @@ export const GeneralStockTab: React.FC = () => {
   const categories: (ProductCategory | 'Tous')[] = ['Tous', 'Matelas', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Accessoires'];
 
   return (
-    <div>
+    <>
+      {/* Bouton de verrouillage/déverrouillage de l'édition */}
+      <div className="flex justify-end mb-4">
+        {isEditUnlocked ? (
+          <button
+            onClick={() => setIsEditUnlocked(false)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all hover:shadow-lg"
+            style={{
+              borderColor: '#DC2626',
+              backgroundColor: '#FEF2F2',
+              color: '#DC2626'
+            }}
+          >
+            <Lock size={16} />
+            <span className="font-semibold">Verrouiller l'édition</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowPinModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all hover:shadow-lg"
+            style={{
+              borderColor: '#16A34A',
+              backgroundColor: '#F0FDF4',
+              color: '#16A34A'
+            }}
+          >
+            <Lock size={16} />
+            <span className="font-semibold">Déverrouiller l'édition</span>
+          </button>
+        )}
+      </div>
+
       {/* Statistiques globales */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="card text-center" style={{ borderLeft: '4px solid #16A34A' }}>
@@ -206,29 +248,44 @@ export const GeneralStockTab: React.FC = () => {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <input
-                          type="number"
-                          min="0"
-                          value={item.currentStock}
-                          onChange={(e) => updateStock(productKey, parseInt(e.target.value) || 0)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'ArrowUp') {
-                              e.preventDefault();
-                              updateStock(productKey, item.currentStock + 1);
-                            } else if (e.key === 'ArrowDown') {
-                              e.preventDefault();
-                              updateStock(productKey, Math.max(0, item.currentStock - 1));
-                            }
-                          }}
-                          className="w-20 px-2 py-1 text-center font-bold text-lg border rounded transition-all hover:shadow-md focus:shadow-lg focus:outline-none focus:ring-2"
-                          style={{ 
-                            color: statusColor,
-                            borderColor: statusColor,
-                            backgroundColor: item.status === 'out' ? '#FEF2F2' : 
-                                           item.status === 'low' ? '#FFFBEB' : '#F0FDF4'
-                          }}
-                          title="Utilisez ↑/↓ pour modifier rapidement"
-                        />
+                        {isEditUnlocked ? (
+                          <input
+                            type="number"
+                            min="0"
+                            value={item.currentStock}
+                            onChange={(e) => updateStock(productKey, parseInt(e.target.value) || 0)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                updateStock(productKey, item.currentStock + 1);
+                              } else if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                updateStock(productKey, Math.max(0, item.currentStock - 1));
+                              }
+                            }}
+                            className="w-20 px-2 py-1 text-center font-bold text-lg border rounded transition-all hover:shadow-md focus:shadow-lg focus:outline-none focus:ring-2"
+                            style={{ 
+                              color: statusColor,
+                              borderColor: statusColor,
+                              backgroundColor: item.status === 'out' ? '#FEF2F2' : 
+                                             item.status === 'low' ? '#FFFBEB' : '#F0FDF4'
+                            }}
+                            title="Utilisez ↑/↓ pour modifier rapidement"
+                          />
+                        ) : (
+                          <div
+                            className="w-20 mx-auto px-2 py-1 text-center font-bold text-lg border rounded bg-gray-100 text-gray-500"
+                            style={{ 
+                              borderColor: '#D1D5DB',
+                              backgroundColor: '#F9FAFB',
+                              color: statusColor,
+                              opacity: 0.7
+                            }}
+                            title="Déverrouillez l'édition pour modifier"
+                          >
+                            {item.currentStock}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className="text-sm" style={{ color: '#6B7280' }}>
@@ -269,6 +326,14 @@ export const GeneralStockTab: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+
+      {/* Modal PIN pour déverrouiller l'édition */}
+      <PinModal
+        isOpen={showPinModal}
+        onClose={() => setShowPinModal(false)}
+        onSuccess={() => setIsEditUnlocked(true)}
+        title="Déverrouiller l'édition des stocks"
+      />
+    </>
   );
 };

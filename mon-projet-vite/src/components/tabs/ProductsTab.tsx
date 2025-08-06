@@ -12,8 +12,7 @@ import {
   extractDimensions,
   getProductNameWithoutDimensions,
   isMatressProduct,
-  getCategoryBackgroundColor,
-  getTextColor
+  getCategoryBackgroundColor
 } from '../../utils';
 import { useDebounce } from '../../hooks/useDebounce';
 import { SearchBar } from '../ui/SearchBar';
@@ -130,7 +129,7 @@ export function ProductsTab({
           const dimensions = extractDimensions(product.name);
           const productNameOnly = dimensions ? getProductNameWithoutDimensions(product.name) : product.name;
           const backgroundColor = getCategoryBackgroundColor(product.category);
-          const textColor = getTextColor(backgroundColor);
+          // const textColor = getTextColor(backgroundColor); // Supprimé car non utilisé
           const isSpecialCategory = backgroundColor !== 'white';
           
           // Créer un dégradé spécifique à chaque catégorie (sauf oreillers)

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Store, Search, Users, TrendingUp, Calendar } from 'lucide-react';
 import type { CatalogProduct, ProductCategory } from '../../../types';
 import { productCatalog } from '../../../data';
@@ -14,27 +14,57 @@ export const StandEntryTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Tous'>('Tous');
   const [standQuantities, setStandQuantities] = useState<Record<string, number>>({});
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Simulation des données du stand d'entrée (sans matelas)
-  const standData: StandItem[] = useMemo(() => {
+  // Produits filtrés (sans matelas ni packs d'oreillers)
+  const filteredProducts = useMemo(() => {
     return productCatalog
-      .filter(product => product.category !== 'Matelas') // Exclure les matelas
-      .slice(0, 20)
-      .map((product: CatalogProduct, index) => {
+      .filter(product => 
+        product.category !== 'Matelas' && // Exclure les matelas
+        !product.name.toLowerCase().includes('pack') // Exclure les packs d'oreillers
+      )
+      .slice(0, 20);
+  }, []);
+
+  // Initialisation des quantités une seule fois
+  useEffect(() => {
+    if (!isInitialized && filteredProducts.length > 0) {
+      const initialQuantities: Record<string, number> = {};
+      
+      filteredProducts.forEach((product, index) => {
         const productKey = `stand-${product.name}-${index}`;
-        const standStock = standQuantities[productKey] ?? Math.floor(Math.random() * 15);
+        // Générer une quantité stable basée sur l'index et le nom du produit
+        const seed = product.name.length + index;
+        initialQuantities[productKey] = Math.floor((seed * 7) % 15) + 1;
+      });
+      
+      setStandQuantities(initialQuantities);
+      setIsInitialized(true);
+    }
+  }, [filteredProducts, isInitialized]);
+
+  // Simulation des données du stand d'entrée
+  const standData: StandItem[] = useMemo(() => {
+    if (!isInitialized) return [];
+    
+    return filteredProducts.map((product: CatalogProduct, index) => {
+      const productKey = `stand-${product.name}-${index}`;
+      const standStock = standQuantities[productKey] ?? 0;
+      
+      // Générer des données stables basées sur l'index
+      const seed = product.name.length + index;
       
       return {
         ...product,
         standStock,
-        soldToday: Math.floor(Math.random() * 5),
-        reservations: Math.floor(Math.random() * 3),
-        lastSaleTime: Math.random() > 0.5 ? 
-          new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) :
+        soldToday: Math.floor((seed * 3) % 5),
+        reservations: Math.floor((seed * 2) % 3),
+        lastSaleTime: (seed % 2) === 0 ? 
+          new Date(Date.now() - (seed * 60 * 60 * 1000) % (24 * 60 * 60 * 1000)).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) :
           'Aucune vente'
       };
     });
-  }, [standQuantities]);
+  }, [filteredProducts, standQuantities, isInitialized]);
 
   // Fonction pour mettre à jour les quantités du stand
   const updateStandQuantity = (productKey: string, newQuantity: number) => {
@@ -59,9 +89,8 @@ export const StandEntryTab: React.FC = () => {
     const totalStandStock = standData.reduce((sum, item) => sum + item.standStock, 0);
     const totalSoldToday = standData.reduce((sum, item) => sum + item.soldToday, 0);
     const totalReservations = standData.reduce((sum, item) => sum + item.reservations, 0);
-    const totalValue = standData.reduce((sum, item) => sum + (item.standStock * item.priceTTC), 0);
 
-    return { totalItems, totalStandStock, totalSoldToday, totalReservations, totalValue };
+    return { totalItems, totalStandStock, totalSoldToday, totalReservations };
   }, [standData]);
 
   const categories: (ProductCategory | 'Tous')[] = ['Tous', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Accessoires'];
@@ -100,10 +129,6 @@ export const StandEntryTab: React.FC = () => {
         <div className="card text-center" style={{ borderLeft: '4px solid #7C3AED' }}>
           <div className="text-2xl font-bold" style={{ color: '#7C3AED' }}>{standStats.totalReservations}</div>
           <div className="text-sm font-semibold" style={{ color: '#000000' }}>Réservations</div>
-        </div>
-        <div className="card text-center" style={{ borderLeft: '4px solid #DC2626' }}>
-          <div className="text-2xl font-bold" style={{ color: '#DC2626' }}>{standStats.totalValue.toFixed(0)}€</div>
-          <div className="text-sm font-semibold" style={{ color: '#000000' }}>Valeur exposée</div>
         </div>
       </div>
 
@@ -207,16 +232,14 @@ export const StandEntryTab: React.FC = () => {
                   <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Vendus</th>
                   <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Réservés</th>
                   <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Dernière vente</th>
-                  <th className="text-right py-3 px-4 font-bold" style={{ color: '#000000' }}>Prix TTC</th>
-                  <th className="text-right py-3 px-4 font-bold" style={{ color: '#000000' }}>Valeur</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredStand.map((item, index) => {
                   const productKey = `stand-${item.name}-${index}`;
-                  const hasStock = item.standStock > 0;
-                  const lowStock = item.standStock <= 2 && item.standStock > 0;
-                  const outOfStock = item.standStock === 0;
+                  const currentStock = standQuantities[productKey] ?? 0;
+                  const lowStock = currentStock <= 2 && currentStock > 0;
+                  const outOfStock = currentStock === 0;
                   
                   return (
                     <tr 
@@ -243,15 +266,15 @@ export const StandEntryTab: React.FC = () => {
                         <input
                           type="number"
                           min="0"
-                          value={item.standStock}
+                          value={standQuantities[productKey] ?? 0}
                           onChange={(e) => updateStandQuantity(productKey, parseInt(e.target.value) || 0)}
                           onKeyDown={(e) => {
                             if (e.key === 'ArrowUp') {
                               e.preventDefault();
-                              updateStandQuantity(productKey, item.standStock + 1);
+                              updateStandQuantity(productKey, (standQuantities[productKey] ?? 0) + 1);
                             } else if (e.key === 'ArrowDown') {
                               e.preventDefault();
-                              updateStandQuantity(productKey, Math.max(0, item.standStock - 1));
+                              updateStandQuantity(productKey, Math.max(0, (standQuantities[productKey] ?? 0) - 1));
                             }
                           }}
                           className="w-20 px-2 py-1 text-center font-bold text-lg border rounded transition-all hover:shadow-md focus:shadow-lg focus:outline-none focus:ring-2"
@@ -287,47 +310,11 @@ export const StandEntryTab: React.FC = () => {
                           {item.lastSaleTime}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="font-semibold" style={{ color: '#000000' }}>
-                          {item.priceTTC > 0 ? `${item.priceTTC.toFixed(2)}€` : 'N/A'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <span className="font-bold" style={{ color: hasStock ? '#16A34A' : '#6B7280' }}>
-                          {item.priceTTC > 0 ? `${(item.standStock * item.priceTTC).toFixed(2)}€` : 'N/A'}
-                        </span>
-                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
-          </div>
-        )}
-
-        {/* Résumé des performances du jour */}
-        {filteredStand.length > 0 && (
-          <div className="mt-6 pt-4 border-t space-y-3" style={{ borderColor: '#E5E7EB' }}>
-            <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold" style={{ color: '#000000' }}>
-                Valeur totale exposée :
-              </span>
-              <span className="text-2xl font-bold" style={{ color: '#16A34A' }}>
-                {filteredStand
-                  .reduce((sum, item) => sum + (item.standStock * item.priceTTC), 0)
-                  .toFixed(2)}€
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-lg font-semibold" style={{ color: '#000000' }}>
-                CA du jour (stand) :
-              </span>
-              <span className="text-2xl font-bold" style={{ color: '#000000' }}>
-                {filteredStand
-                  .reduce((sum, item) => sum + (item.soldToday * item.priceTTC), 0)
-                  .toFixed(2)}€
-              </span>
-            </div>
           </div>
         )}
       </div>
