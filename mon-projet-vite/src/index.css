@@ -30,7 +30,7 @@ code {
   --dark-green: #14281D;
   --secondary-blue: #89BBFE;
   --accent-purple: #D68FD6;
-  --warning-red: #F55D3E;
+  --warning-red: #F2EFE2;
   --darkest: #080F0F;
 }
 
@@ -519,7 +519,7 @@ input, select, textarea {
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
   padding: 24px;
-  border: 1px solid #E5E7EB;
+  border: 2px solid #000000; /* Encadrement noir */
   transition: all 0.2s ease;
 }
 

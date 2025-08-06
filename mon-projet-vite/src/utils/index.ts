@@ -53,7 +53,7 @@ export const getCategoryBackgroundColor = (category: string): string => {
  * @returns Couleur de texte appropriée
  */
 export const getTextColor = (backgroundColor: string): string => {
-  const lightColors = ['var(--accent-lime)', 'var(--secondary-blue)', 'var(--accent-purple)'];
+  const lightColors = ['var(--accent-lime)', 'var(--secondary-blue)', 'var(--accent-purple)', 'var(--warning-red)'];
   return lightColors.includes(backgroundColor) ? '#000000' : '#ffffff';
 };
 

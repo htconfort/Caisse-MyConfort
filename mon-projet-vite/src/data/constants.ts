@@ -1,11 +1,12 @@
 import type { TabType } from '../types';
-import { User, Package, BarChart, FileText, RotateCcw, RefreshCw } from 'lucide-react';
+import { User, Package, Archive, BarChart, FileText, RotateCcw, RefreshCw } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // Configuration des onglets de navigation
 export const tabs: Array<{id: TabType, label: string, icon: LucideIcon}> = [
   { id: 'vendeuse', label: 'Vendeuse', icon: User },
   { id: 'produits', label: 'Produits', icon: Package },
+  { id: 'stock', label: 'Stock', icon: Archive },
   { id: 'ventes', label: 'Ventes', icon: BarChart },
   { id: 'diverses', label: 'Diverses', icon: FileText },
   { id: 'annulation', label: 'Annulation', icon: RotateCcw },

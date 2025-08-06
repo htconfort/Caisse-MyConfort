@@ -40,4 +40,4 @@ export interface Sale {
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
-export type TabType = 'vendeuse' | 'produits' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz';
+export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz';

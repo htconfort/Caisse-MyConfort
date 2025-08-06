@@ -133,6 +133,26 @@ export function ProductsTab({
           const textColor = getTextColor(backgroundColor);
           const isSpecialCategory = backgroundColor !== 'white';
           
+          // Créer un dégradé spécifique à chaque catégorie (sauf oreillers)
+          const getGradientBackground = (category: string) => {
+            switch (category) {
+              case 'Matelas':
+                return 'linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%)'; // Bleu
+              case 'Sur-matelas':
+                return 'linear-gradient(135deg, #10B981 0%, #065F46 100%)'; // Vert
+              case 'Couettes':
+                return 'linear-gradient(135deg, #8B5CF6 0%, #5B21B6 100%)'; // Violet
+              case 'Oreillers':
+                return '#F2EFE2'; // Fond beige uni pour les oreillers
+              case 'Plateau':
+                return '#000000'; // Fond noir pour les plateaux
+              case 'Accessoires':
+                return 'linear-gradient(135deg, #EAB308 0%, #854D0E 100%)'; // Jaune
+              default:
+                return 'linear-gradient(135deg, #6B7280 0%, #374151 100%)'; // Gris
+            }
+          };
+          
           const discountedPrice = isMatress ? Math.round(product.priceTTC * 0.8) : product.priceTTC;
           
           return (
@@ -141,8 +161,8 @@ export function ProductsTab({
               onClick={() => addToCart({...product, priceTTC: discountedPrice})}
               className="touch-feedback cursor-pointer relative overflow-hidden transition-all hover:shadow-lg"
               style={{
-                backgroundColor: backgroundColor,
-                color: textColor,
+                background: getGradientBackground(product.category),
+                color: (product.category === 'Oreillers') ? '#000000' : 'white', // Texte noir pour oreillers, blanc pour les autres
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -151,7 +171,7 @@ export function ProductsTab({
                 padding: '12px',
                 minHeight: '160px', // Hauteur optimisée pour 3×3
                 maxHeight: '180px',
-                border: '1px solid rgba(0,0,0,0.1)',
+                border: (product.category === 'Oreillers' || product.category === 'Sur-matelas' || product.category === 'Couettes' || product.category === 'Plateau' || product.category === 'Accessoires') ? '3px solid #000000' : '1px solid rgba(0,0,0,0.1)',
                 borderRadius: '8px',
                 opacity: product.priceTTC === 0 ? 0.5 : 1,
                 pointerEvents: product.priceTTC === 0 ? 'none' : 'auto',
@@ -178,47 +198,186 @@ export function ProductsTab({
                 </div>
               )}
               
-              {/* Nom du produit */}
-              <h3 style={{ 
-                color: textColor,
-                fontSize: isSpecialCategory ? '16px' : '15px', // Taille réduite pour s'adapter
-                fontWeight: 'bold',
-                marginBottom: '4px',
-                lineHeight: '1.2',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                maxHeight: '38px'
-              }}>
-                {productNameOnly}
-              </h3>
-              
-              {/* Dimensions */}
-              {dimensions && (
-                <div style={{ marginBottom: '6px' }}>
-                  <p style={{ 
-                    color: textColor,
-                    fontSize: '18px', // Taille optimisée
+              {/* Affichage spécial pour les oreillers et pack de taies : vertical */}
+              {product.category === 'Oreillers' || (product.category === 'Accessoires' && product.name.toLowerCase().includes('pack') && product.name.toLowerCase().includes('taies')) ? (
+                <>
+                  {/* Affichage spécial pour le pack de taies d'oreiller */}
+                  {product.category === 'Accessoires' && product.name.toLowerCase().includes('taies') ? (
+                    <>
+                      {/* 1. "2 taies d'oreiller" en police normale blanche */}
+                      <p style={{ 
+                        color: '#FFFFFF',
+                        fontSize: '16px',
+                        fontWeight: 'normal',
+                        marginBottom: '8px',
+                        lineHeight: '1.1'
+                      }}>
+                        2 taies d'oreiller
+                      </p>
+                      
+                      {/* 2. "Fraîcheur Actif Cool" en rouge 28px */}
+                      <h3 style={{ 
+                        color: '#FF0000',
+                        fontSize: '28px',
+                        fontWeight: 'bold',
+                        marginBottom: '8px',
+                        lineHeight: '1.2',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        Fraîcheur Actif Cool
+                      </h3>
+                      
+                      {/* 3. Prix en blanc */}
+                      <p style={{ 
+                        color: '#FFFFFF',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        lineHeight: '1',
+                        margin: 0
+                      }}>
+                        {product.priceTTC > 0 ? `${discountedPrice}€` : 'Non vendu seul'}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {/* Affichage pour les oreillers normaux */}
+                      {/* 1. Catégorie "Oreillers" ou "Pack oreillers" */}
+                      <p style={{ 
+                        color: '#000000',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        marginBottom: '8px',
+                        lineHeight: '1.1'
+                      }}>
+                        {product.name.toLowerCase().includes('pack') ? 'Pack oreillers' : 'Oreillers'}
+                      </p>
+                      
+                      {/* 2. Nom spécifique de l'oreiller ou du pack - 28px - ROUGE */}
+                      <h3 style={{ 
+                        color: '#FF0000',
+                        fontSize: '28px',
+                        fontWeight: 'bold',
+                        marginBottom: '8px',
+                        lineHeight: '1.2',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}>
+                        {product.name.toLowerCase().includes('pack') 
+                          ? product.name.replace(/Pack\s+(de\s+)?(deux\s+)?oreillers?\s*/i, '').replace(/^oreiller\s+/i, '')
+                          : productNameOnly.replace(/^Oreiller\s+/i, '')
+                        }
+                      </h3>
+                      
+                      {/* 3. Prix */}
+                      <p style={{ 
+                        color: '#000000',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        lineHeight: '1',
+                        margin: 0
+                      }}>
+                        {product.priceTTC > 0 ? `${discountedPrice}€` : 'Non vendu seul'}
+                      </p>
+                    </>
+                  )}
+                </>
+              ) : (product.category === 'Sur-matelas' || product.category === 'Couettes' || product.category === 'Plateau' || product.category === 'Accessoires') ? (
+                <>
+                  {/* Affichage spécial pour les sur-matelas, couettes, plateaux et accessoires : dimensions en 28px rouge */}
+                  {/* Nom du produit */}
+                  <h3 style={{ 
+                    color: '#FFFFFF',
+                    fontSize: '16px',
                     fontWeight: 'bold',
-                    lineHeight: '1.1'
+                    marginBottom: '4px',
+                    lineHeight: '1.2',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
                   }}>
-                    {dimensions}
+                    {productNameOnly}
+                  </h3>
+                  
+                  {/* Dimensions en ROUGE 28px */}
+                  {dimensions && (
+                    <div style={{ marginBottom: '6px' }}>
+                      <p style={{ 
+                        color: '#FF0000',
+                        fontSize: '28px',
+                        fontWeight: 'bold',
+                        lineHeight: '1.1'
+                      }}>
+                        {dimensions}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Prix - BLANC pour les plateaux uniquement, noir pour les autres */}
+                  <p style={{ 
+                    color: product.category === 'Plateau' ? '#FFFFFF' : '#000000',
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    lineHeight: '1',
+                    margin: 0
+                  }}>
+                    {product.priceTTC > 0 ? `${discountedPrice}€` : 'Non vendu seul'}
                   </p>
-                </div>
+                </>
+              ) : (
+                <>
+                  {/* Affichage standard pour les autres produits */}
+                  {/* Nom du produit */}
+                  <h3 style={{ 
+                    color: '#FFFFFF',
+                    fontSize: isSpecialCategory ? '16px' : '15px', // Taille réduite pour s'adapter
+                    fontWeight: 'bold',
+                    marginBottom: '4px',
+                    lineHeight: '1.2',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    maxHeight: '38px'
+                  }}>
+                    {productNameOnly}
+                  </h3>
+                  
+                  {/* Dimensions */}
+                  {dimensions && (
+                    <div style={{ marginBottom: '6px' }}>
+                      <p style={{ 
+                        color: (product.category === 'Sur-matelas' || product.category === 'Couettes') ? '#FF0000' : '#FFFFFF',
+                        fontSize: (product.category === 'Sur-matelas' || product.category === 'Couettes') ? '28px' : '18px',
+                        fontWeight: 'bold',
+                        lineHeight: '1.1'
+                      }}>
+                        {dimensions}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Prix */}
+                  <p style={{ 
+                    color: product.category === 'Plateau' ? '#FFFFFF' : '#FFFFFF',
+                    fontSize: '20px', // Taille optimisée
+                    fontWeight: 'bold',
+                    lineHeight: '1',
+                    margin: 0
+                  }}>
+                    {product.priceTTC > 0 ? `${discountedPrice}€` : 'Non vendu seul'}
+                  </p>
+                </>
               )}
-              
-              {/* Prix */}
-              <p style={{ 
-                color: '#000000',
-                fontSize: '20px', // Taille optimisée
-                fontWeight: 'bold',
-                lineHeight: '1',
-                margin: 0
-              }}>
-                {product.priceTTC > 0 ? `${discountedPrice}€` : 'Non vendu seul'}
-              </p>
               
               {/* Prix barré pour les matelas */}
               {isMatress && product.priceTTC > 0 && (

@@ -29,21 +29,20 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Couettes', name: 'Couette 220x240', priceTTC: 300, autoCalculateHT: true },
   { category: 'Couettes', name: 'Couette 240 x 260', priceTTC: 350, autoCalculateHT: true },
   
-  // Oreillers (14)
+  // Oreillers (13) - Packs limités à Douceur, Panama et Papillon
   { category: 'Oreillers', name: 'Oreiller Douceur', priceTTC: 80, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Thalasso', priceTTC: 60, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Dual', priceTTC: 60, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Panama', priceTTC: 70, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Papillon', priceTTC: 80, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Flocon', priceTTC: 50, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack de 2 oreillers (thal et dual)', priceTTC: 100, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Oreiller Voyage', priceTTC: 35, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Pack oreiller 2 douceur', priceTTC: 150, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack deux oreillers papillon', priceTTC: 150, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack de deux oreillers Panama', priceTTC: 130, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack deux oreillers flocons', priceTTC: 90, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack oreiller 2 papillon', priceTTC: 150, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack oreiller 2 Panama', priceTTC: 130, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack oreiller 2 flocons', priceTTC: 90, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 140', priceTTC: 140, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 160', priceTTC: 160, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack divers', price: 0, priceTTC: 0, autoCalculateHT: false },
   
   // Plateaux (10)
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 70 x 190', priceTTC: 70, autoCalculateHT: true },
@@ -57,11 +56,12 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 180 x 200', priceTTC: 220, autoCalculateHT: true },
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 200 x 200', priceTTC: 230, autoCalculateHT: true },
   
-  // Accessoires (4)
+  // Accessoires (5)
   { category: 'Accessoires', name: 'Le régule jambes', priceTTC: 70, autoCalculateHT: true },
-  { category: 'Accessoires', name: 'Protège-matelas', price: 0, priceTTC: 0, autoCalculateHT: false },
-  { category: 'Accessoires', name: 'Housse de couette', price: 0, priceTTC: 0, autoCalculateHT: false },
-  { category: 'Accessoires', name: 'Taie d\'oreiller', price: 0, priceTTC: 0, autoCalculateHT: false }
+  { category: 'Accessoires', name: 'PACK 2 Taies d\'oreiller fraîcheur Actif Cool', priceTTC: 20, autoCalculateHT: true },
+  { category: 'Accessoires', name: 'Protège-matelas 80 x 200', priceTTC: 80, autoCalculateHT: true },
+  { category: 'Accessoires', name: 'Protège-matelas 140 x 190', priceTTC: 140, autoCalculateHT: true },
+  { category: 'Accessoires', name: 'Protège-matelas 160 x 200', priceTTC: 160, autoCalculateHT: true }
 ];
 
 // Vendeuses disponibles avec couleurs de la charte MyConfort

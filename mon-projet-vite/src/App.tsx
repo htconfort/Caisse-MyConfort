@@ -14,7 +14,7 @@ import {
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
-import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
+import { VendorSelection, ProductsTab, StockTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
 import { SuccessNotification, FloatingCart } from './components/ui';
 
 export default function CaisseMyConfortApp() {
@@ -261,6 +261,11 @@ export default function CaisseMyConfortApp() {
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
               />
+            )}
+
+            {/* Onglet Stock */}
+            {activeTab === 'stock' && (
+              <StockTab />
             )}
 
             {/* Onglet Ventes */}
