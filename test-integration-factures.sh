@@ -7,6 +7,12 @@ echo "🚀 Test de l'intégration système de factures"
 echo "=============================================="
 echo ""
 
+# Se déplacer dans le dossier du projet Vite
+cd "mon-projet-vite" || { echo "❌ Dossier mon-projet-vite introuvable"; exit 1; }
+
+echo "📂 Test depuis: $(pwd)"
+echo ""
+
 echo "📋 Vérification des fichiers créés:"
 echo ""
 
