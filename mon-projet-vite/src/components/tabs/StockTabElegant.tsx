@@ -245,8 +245,8 @@ export const StockTabElegant: React.FC = () => {
         </div>
       )}
 
-      {/* Header du contenu actif - Masqué en mode horizontal ou sur l'onglet général */}
-      {viewMode !== 'horizontal' && activeSubTab !== 'general' && (
+      {/* Header du contenu actif - Masqué en mode horizontal */}
+      {viewMode !== 'horizontal' && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div 
