@@ -1,12 +1,19 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Package, Search, AlertTriangle, CheckCircle, Lock } from 'lucide-react';
-import type { ProductCategory } from '../../../types';
+import type { ProductCategory, CatalogProduct } from '../../../types';
 import { PinModal } from '../../ui/PinModal';
-import { syncService } from '../../../services/syncService';
-import type { PhysicalStock } from '../../../services/syncService';
+import { productCatalog } from '../../../data';
 import '../../../styles/general-stock-compact.css';
 
-interface StockItem extends PhysicalStock {
+interface GeneralStockItem {
+  productName: string;
+  category: ProductCategory;
+  priceTTC: number;
+  currentStock: number;
+  reservedStock: number;
+  availableStock: number;
+  minStockAlert: number;
+  lastUpdated: Date;
   status: 'ok' | 'low' | 'out';
   minStock: number;
 }
@@ -14,31 +21,48 @@ interface StockItem extends PhysicalStock {
 export const GeneralStockTab: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Tous'>('Tous');
-  const [stockData, setStockData] = useState<StockItem[]>([]);
+  const [stockData, setStockData] = useState<GeneralStockItem[]>([]);
   const [isEditUnlocked, setIsEditUnlocked] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [stockQuantities, setStockQuantities] = useState<Record<string, number>>({});
 
-  // Charger le stock général depuis le syncService
+  // Générer les données de stock à partir du catalogue de produits
+  const generateStockFromCatalog = (): GeneralStockItem[] => {
+    return productCatalog.map((product: CatalogProduct) => {
+      const productKey = product.name;
+      // Utiliser la quantité personnalisée ou une valeur par défaut simulée
+      const currentStock = stockQuantities[productKey] ?? Math.floor(Math.random() * 50) + 5;
+      const reservedStock = Math.floor(Math.random() * 5);
+      const availableStock = Math.max(0, currentStock - reservedStock);
+      const minStockAlert = 5;
+      
+      let status: 'ok' | 'low' | 'out' = 'ok';
+      if (currentStock === 0) status = 'out';
+      else if (currentStock <= minStockAlert) status = 'low';
+
+      return {
+        productName: product.name,
+        category: product.category,
+        priceTTC: product.priceTTC,
+        currentStock,
+        reservedStock,
+        availableStock,
+        minStockAlert,
+        lastUpdated: new Date(),
+        status,
+        minStock: minStockAlert
+      };
+    });
+  };
+
+  // Charger le stock général depuis le catalogue de produits
   const loadGeneralStock = () => {
     try {
       setLoading(true);
-      const rawStock = syncService.getCurrentPhysicalStock(); // Utilise les mêmes données pour l'instant
-      
-      const processedStock: StockItem[] = rawStock.map(item => {
-        let status: 'ok' | 'low' | 'out' = 'ok';
-        if (item.currentStock === 0) status = 'out';
-        else if (item.currentStock <= item.minStockAlert) status = 'low';
-
-        return {
-          ...item,
-          status,
-          minStock: item.minStockAlert
-        };
-      });
-
+      const processedStock = generateStockFromCatalog();
       setStockData(processedStock);
-      console.log(`📦 Stock général chargé: ${processedStock.length} produits`);
+      console.log(`📦 Stock général chargé: ${processedStock.length} produits depuis le catalogue`);
     } catch (error) {
       console.error('Erreur lors du chargement du stock général:', error);
     } finally {
@@ -46,26 +70,34 @@ export const GeneralStockTab: React.FC = () => {
     }
   };
 
-  // Charger les données au montage du composant
+  // Charger les données au montage du composant et quand les quantités changent
   useEffect(() => {
     loadGeneralStock();
-  }, []);
+  }, [stockQuantities]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fonction pour mettre à jour le stock général
-  const updateGeneralStock = (productName: string, category: string, newQuantity: number) => {
-    const success = syncService.updateProductStock(
-      productName, 
-      category, 
-      newQuantity, 
-      'Correction manuelle depuis interface stock général'
+  const updateGeneralStock = (productName: string, _category: string, newQuantity: number) => {
+    setStockQuantities(prev => ({
+      ...prev,
+      [productName]: newQuantity
+    }));
+    
+    // Mettre à jour immédiatement l'état local
+    setStockData(prevData => 
+      prevData.map(item => 
+        item.productName === productName 
+          ? {
+              ...item,
+              currentStock: newQuantity,
+              availableStock: Math.max(0, newQuantity - item.reservedStock),
+              status: newQuantity === 0 ? 'out' : newQuantity <= item.minStockAlert ? 'low' : 'ok',
+              lastUpdated: new Date()
+            }
+          : item
+      )
     );
     
-    if (success) {
-      // Recharger les données pour refléter les changements
-      loadGeneralStock();
-    } else {
-      console.error(`Erreur lors de la mise à jour du stock pour ${productName}`);
-    }
+    console.log(`📦 Stock général mis à jour: ${productName} = ${newQuantity}`);
   };
 
   // Filtrage des produits
@@ -131,11 +163,11 @@ export const GeneralStockTab: React.FC = () => {
           </h1>
           <div className="flex items-center gap-3">
             <p className="text-lg text-gray-600 font-medium">
-              Inventaire principal et gestion des stocks
+              Catalogue complet de tous les produits disponibles ({productCatalog.length} produits)
             </p>
             <div className="flex items-center gap-2 px-3 py-1 bg-green-100 rounded-full">
               <Package size={14} className="text-green-600" />
-              <span className="text-sm font-medium text-green-600">Inventaire</span>
+              <span className="text-sm font-medium text-green-600">Catalogue</span>
             </div>
           </div>
         </div>
@@ -276,11 +308,11 @@ export const GeneralStockTab: React.FC = () => {
       <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold" style={{ color: '#000000' }}>
-            Stock général ({filteredStock.length} produits)
+            Catalogue général ({filteredStock.length} produits)
           </h3>
           <div className="flex items-center gap-2 text-sm" style={{ color: '#6B7280' }}>
             <Package size={16} />
-            <span>💡 Inventaire principal de tous les produits</span>
+            <span>💡 Tous les produits du catalogue avec gestion de stock</span>
           </div>
         </div>
 
@@ -300,8 +332,7 @@ export const GeneralStockTab: React.FC = () => {
                   <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Produit</th>
                   <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Catégorie</th>
                   <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock actuel</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock réservé</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock disponible</th>
+                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock min</th>
                   <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Dernière MAJ</th>
                 </tr>
               </thead>
@@ -376,18 +407,13 @@ export const GeneralStockTab: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-medium" style={{ color: '#F59E0B' }}>
-                          {item.reservedStock}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-bold" style={{ color: '#16A34A' }}>
-                          {item.availableStock}
+                        <span className="text-sm font-medium" style={{ color: '#6B7280' }}>
+                          {item.minStock}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className="text-xs" style={{ color: '#6B7280' }}>
-                          {new Date(item.lastUpdated).toLocaleString('fr-FR')}
+                          {new Date().toLocaleString('fr-FR')}
                         </span>
                       </td>
                     </tr>
@@ -404,7 +430,7 @@ export const GeneralStockTab: React.FC = () => {
             <div className="flex items-center gap-2 text-sm" style={{ color: '#6B7280' }}>
               <Package size={16} className="text-green-500" />
               <span>
-                Stock général - Inventaire principal de tous les produits
+                Stock général - Catalogue complet de {productCatalog.length} produits avec gestion des quantités
               </span>
             </div>
             <div className="text-xs" style={{ color: '#6B7280' }}>
