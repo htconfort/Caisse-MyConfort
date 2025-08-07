@@ -1,4 +1,72 @@
-import type { Invoice } from '../services/syncService';
+import type { Invoice, PaymentDetails } from '../services/syncService';
+
+// Fonction pour générer des détails de paiement selon la méthode
+const generatePaymentDetails = (
+  method: 'cash' | 'card' | 'check' | 'transfer' | 'multi',
+  status: Invoice['status'],
+  total: number,
+  index: number
+): PaymentDetails => {
+  const baseDetails: PaymentDetails = {
+    method: method,
+    status: status === 'paid' ? 'completed' : status === 'partial' ? 'partial' : 'pending',
+    totalAmount: total,
+    paidAmount: status === 'paid' ? total : status === 'partial' ? Math.round(total * 0.6) : 0,
+    remainingAmount: status === 'paid' ? 0 : status === 'partial' ? Math.round(total * 0.4) : total
+  };
+
+  switch (method) {
+    case 'check': {
+      const numChecks = [2, 3, 4, 6][index % 4];
+      const checkAmount = Math.round(total / numChecks);
+      return {
+        ...baseDetails,
+        checkDetails: {
+          totalChecks: numChecks,
+          checksReceived: status === 'paid' ? numChecks : status === 'partial' ? Math.floor(numChecks / 2) : 0,
+          checksRemaining: status === 'paid' ? 0 : status === 'partial' ? Math.ceil(numChecks / 2) : numChecks,
+          characteristics: `${numChecks} chèques de ${checkAmount}€ chacun`,
+          checkAmounts: Array(numChecks).fill(checkAmount),
+          nextCheckDate: status !== 'paid' ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : undefined
+        }
+      };
+    }
+
+    case 'card': {
+      return {
+        ...baseDetails,
+        transactionDetails: {
+          reference: `TXN${Date.now()}${index}`,
+          bankName: ['BNP', 'Crédit Agricole', 'LCL', 'Société Générale'][index % 4],
+          accountLast4: String(1000 + index).slice(-4)
+        }
+      };
+    }
+
+    case 'transfer': {
+      return {
+        ...baseDetails,
+        transactionDetails: {
+          reference: `VIR${Date.now()}${index}`,
+          bankName: ['Banque Populaire', 'CIC', 'Caisse d\'Épargne'][index % 3]
+        }
+      };
+    }
+
+    case 'multi': {
+      const paidPart = Math.round(total * 0.7);
+      return {
+        ...baseDetails,
+        paidAmount: paidPart,
+        remainingAmount: total - paidPart,
+        paymentNotes: `Paiement mixte : ${paidPart}€ CB + ${total - paidPart}€ espèces`
+      };
+    }
+
+    default:
+      return baseDetails;
+  }
+};
 
 // Génération de factures de test pour chaque vendeuse
 export const generateTestInvoices = (): Invoice[] => {
@@ -66,13 +134,7 @@ export const generateTestInvoices = (): Invoice[] => {
       createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Dans les 7 derniers jours
       updatedAt: new Date(),
       notes: `Facture de test pour ${vendor} - Statut: ${status}`,
-      paymentDetails: {
-        method: paymentMethod,
-        status: status === 'paid' ? 'completed' : status === 'partial' ? 'partial' : 'pending',
-        totalAmount: total,
-        paidAmount: status === 'paid' ? total : status === 'partial' ? Math.round(total * 0.5) : 0,
-        remainingAmount: status === 'paid' ? 0 : status === 'partial' ? Math.round(total * 0.5) : total
-      }
+      paymentDetails: generatePaymentDetails(paymentMethod, status, total, index)
     };
   });
 };

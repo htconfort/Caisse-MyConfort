@@ -3,9 +3,9 @@ import { useSyncInvoices } from '../hooks/useSyncInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { SyncStatus } from './SyncStatus';
 import { NotificationCenter } from './NotificationCenter';
-import type { Invoice } from '../services/syncService';
+import type { Invoice, PaymentDetails } from '../services/syncService';
 import { getVendorColorInfo } from '../utils/vendorColors';
-import { generateTestInvoices } from '../utils/testInvoices';
+import { getVendorThemeColors } from '../utils/colorUtils';
 import '../styles/invoices-elegant.css';
 
 export const InvoicesTabElegant: React.FC = () => {
@@ -28,8 +28,47 @@ export const InvoicesTabElegant: React.FC = () => {
 
   // Fonction pour créer des factures de test
   const createTestInvoices = () => {
-    const testData = generateTestInvoices();
-    setTestInvoices(testData);
+    console.log('🧪 Début création factures de test...');
+    
+    try {
+      // Créer une facture simple pour tester
+      const simpleTestInvoice: Invoice = {
+        id: 'test-simple-1',
+        number: 'TEST-001',
+        vendorName: 'Billy',
+        clientName: 'Client Test',
+        clientEmail: 'test@email.com',
+        status: 'paid',
+        items: [{
+          id: 'item-1',
+          productName: 'Matelas Test',
+          category: 'Literie',
+          quantity: 1,
+          unitPrice: 1000,
+          totalPrice: 1000,
+          status: 'available'
+        }],
+        totalHT: 833.33,
+        totalTTC: 1000,
+        dueDate: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        paymentDetails: {
+          method: 'cash',
+          status: 'completed',
+          totalAmount: 1000,
+          paidAmount: 1000,
+          remainingAmount: 0
+        }
+      };
+      
+      console.log('� Facture simple créée:', simpleTestInvoice);
+      setTestInvoices([simpleTestInvoice]);
+      console.log('✅ State mis à jour');
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la création:', error);
+    }
   };
 
   // Filtrage des factures (inclut les factures de test)
@@ -52,7 +91,53 @@ export const InvoicesTabElegant: React.FC = () => {
     return filtered;
   };
 
+  // Calculer le thème de couleur predominant basé sur les factures visibles
+  const getThemeColors = () => {
+    const filteredInvoices = getFilteredInvoices();
+    
+    // Compter les vendeurs dans les factures filtrées
+    const vendorCounts: { [key: string]: number } = {};
+    filteredInvoices.forEach(invoice => {
+      if (invoice.vendorName) {
+        vendorCounts[invoice.vendorName] = (vendorCounts[invoice.vendorName] || 0) + 1;
+      }
+    });
+
+    // Trouver le vendeur le plus fréquent
+    const predominantVendor = Object.keys(vendorCounts).length > 0 
+      ? Object.keys(vendorCounts).reduce((a, b) => vendorCounts[a] > vendorCounts[b] ? a : b)
+      : 'Billy'; // Fallback par défaut
+
+    const vendorColors = getVendorColorInfo(predominantVendor);
+    return getVendorThemeColors(vendorColors.backgroundColor);
+  };
+
   const filteredInvoices = getFilteredInvoices();
+  const themeColors = getThemeColors();
+
+  // Helper pour convertir une couleur hex en rgb pour les variables CSS
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 59, g: 130, b: 246 }; // Fallback
+  };
+
+  const rgbColors = hexToRgb(themeColors.primary);
+
+  // CSS variables pour appliquer le thème dynamiquement
+  const themeStyle = {
+    '--vendor-primary-color': themeColors.primary,
+    '--vendor-secondary-color': themeColors.dark,
+    '--vendor-accent-color': themeColors.light,
+    '--vendor-text-color': themeColors.text,
+    '--vendor-light-color': themeColors.light,
+    '--vendor-text-on-light': themeColors.textOnLight,
+    '--vendor-text-on-dark': themeColors.textOnDark,
+    '--vendor-primary-color-rgb': `${rgbColors.r}, ${rgbColors.g}, ${rgbColors.b}`,
+  } as React.CSSProperties;
 
   // Fonction pour obtenir le badge de statut
   const getStatusBadge = (status: Invoice['status']) => {
@@ -111,9 +196,100 @@ export const InvoicesTabElegant: React.FC = () => {
     return translations[method] || method;
   };
 
+  // Nouvelle fonction pour afficher les détails du règlement
+  const renderPaymentDetails = (paymentDetails: PaymentDetails) => {
+    const methodName = translatePaymentMethod(paymentDetails.method);
+    
+    return (
+      <div className="payment-details-elegant">
+        <div className="payment-method-header-elegant">
+          <span className="payment-method-name-elegant">{methodName}</span>
+          <span className={`payment-status-badge-elegant ${paymentDetails.status}`}>
+            {translatePaymentStatus(paymentDetails.status)}
+          </span>
+        </div>
+
+        {/* Détails des montants */}
+        <div className="payment-amounts-elegant">
+          <div className="payment-amount-row-elegant">
+            <span className="payment-label-elegant">Montant total :</span>
+            <span className="payment-value-elegant">{formatPrice(paymentDetails.totalAmount)}</span>
+          </div>
+          <div className="payment-amount-row-elegant">
+            <span className="payment-label-elegant">Montant payé :</span>
+            <span className="payment-value-elegant paid">{formatPrice(paymentDetails.paidAmount)}</span>
+          </div>
+          {paymentDetails.remainingAmount > 0 && (
+            <div className="payment-amount-row-elegant">
+              <span className="payment-label-elegant">Reste à payer :</span>
+              <span className="payment-value-elegant remaining">{formatPrice(paymentDetails.remainingAmount)}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Détails spécifiques selon le type de paiement */}
+        {paymentDetails.method === 'check' && paymentDetails.checkDetails && (
+          <div className="check-details-elegant">
+            {/* Caractéristiques simplifiées des chèques */}
+            {paymentDetails.checkDetails.characteristics && (
+              <div className="check-characteristics-elegant">
+                <span className="check-characteristics-label-elegant">�</span>
+                <span className="check-characteristics-text-elegant">{paymentDetails.checkDetails.characteristics}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Détails pour les virements/CB - simplifiés */}
+        {(paymentDetails.method === 'transfer' || paymentDetails.method === 'card') && paymentDetails.transactionDetails && (
+          <div className="transaction-details-elegant">
+            {paymentDetails.transactionDetails.reference && (
+              <div className="transaction-info-simple">
+                <span className="transaction-label-elegant">📋 Réf:</span>
+                <span className="transaction-value-elegant">{paymentDetails.transactionDetails.reference}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Détails pour les paiements échelonnés - simplifiés */}
+        {paymentDetails.method === 'installments' && paymentDetails.installments && (
+          <div className="installments-details-elegant">
+            <div className="installment-info-simple">
+              <span className="installment-label-elegant">📅</span>
+              <span className="installment-value-elegant">
+                {paymentDetails.installments.totalInstallments} échéances de {formatPrice(paymentDetails.installments.installmentAmount)}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Notes sur le règlement */}
+        {paymentDetails.paymentNotes && (
+          <div className="payment-notes-elegant">
+            <span className="payment-notes-label-elegant">📝 Notes :</span>
+            <span className="payment-notes-text-elegant">{paymentDetails.paymentNotes}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Fonction pour traduire le statut de paiement
+  const translatePaymentStatus = (status: string) => {
+    const translations: { [key: string]: string } = {
+      'pending': '⏳ En attente',
+      'partial': '🔄 Partiel',
+      'completed': '✅ Terminé',
+      'overdue': '⚠️ En retard'
+    };
+    
+    return translations[status] || status;
+  };
+
   if (loading && invoices.length === 0) {
     return (
-      <div className="invoices-tab-elegant">
+      <div className="invoices-tab-elegant" style={themeStyle}>
         <div className="loading-state-elegant">
           <div className="loading-spinner-elegant"></div>
           <p className="loading-text-elegant">
@@ -125,7 +301,7 @@ export const InvoicesTabElegant: React.FC = () => {
   }
 
   return (
-    <div className="invoices-tab-elegant">
+    <div className="invoices-tab-elegant" style={themeStyle}>
       <NotificationCenter 
         notifications={notifications}
         onRemove={removeNotification}
@@ -192,7 +368,31 @@ export const InvoicesTabElegant: React.FC = () => {
             {/* Bouton pour créer des factures de test */}
             <div className="filter-group-elegant">
               <button
-                onClick={createTestInvoices}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('🔥 BOUTON CLIQUÉ !');
+                  
+                  // Créer une facture ultra simple directement
+                  const newTestInvoice = {
+                    id: `test-${Date.now()}`,
+                    number: `TEST-${Date.now()}`,
+                    vendorName: 'Billy',
+                    clientName: 'Client Test',
+                    status: 'paid' as const,
+                    items: [],
+                    totalHT: 1000,
+                    totalTTC: 1200,
+                    dueDate: new Date(),
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                  };
+                  
+                  console.log('📊 Ajout facture:', newTestInvoice);
+                  setTestInvoices(prev => [...prev, newTestInvoice]);
+                  console.log('✅ Facture ajoutée !');
+                }}
+                type="button"
                 className="btn-test-elegant"
                 style={{
                   background: 'linear-gradient(135deg, #10b981, #059669)',
@@ -204,10 +404,12 @@ export const InvoicesTabElegant: React.FC = () => {
                   cursor: 'pointer',
                   fontSize: '0.9rem',
                   transition: 'all 0.3s ease',
-                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                  zIndex: 1000,
+                  position: 'relative'
                 }}
               >
-                🧪 Créer factures test
+                🧪 Ajouter facture test
               </button>
             </div>
           </div>
@@ -247,6 +449,7 @@ export const InvoicesTabElegant: React.FC = () => {
               {filteredInvoices.map((invoice) => {
                 // Récupérer les couleurs de la vendeuse
                 const vendorColors = getVendorColorInfo(invoice.vendorName);
+                const themeColors = getVendorThemeColors(vendorColors.backgroundColor);
                 
                 return (
                   <div key={invoice.id} className="invoice-card-elegant">
@@ -255,8 +458,8 @@ export const InvoicesTabElegant: React.FC = () => {
                       <div 
                         className="vendor-header-elegant"
                         style={{
-                          backgroundColor: vendorColors.backgroundColor,
-                          color: vendorColors.textColor,
+                          backgroundColor: themeColors.primary,
+                          color: themeColors.text,
                           border: 'none'
                         }}
                       >
@@ -299,18 +502,39 @@ export const InvoicesTabElegant: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Tableau des produits */}
+                      {/* Tableau des produits avec couleur du vendeur */}
                       <div className="products-section-elegant">
-                        <h4 className="products-title-elegant">
+                        <h4 
+                          className="products-title-elegant"
+                          style={{ color: themeColors.primary }}
+                        >
                           📦 Produits ({invoice.items.length})
                         </h4>
                         <div className="products-table-container-elegant">
                           <table className="products-table-elegant">
                             <thead>
                               <tr>
-                                <th className="product-col-elegant">Produit</th>
-                                <th className="quantity-col-elegant">Quantité</th>
-                                <th className="price-col-elegant">Prix</th>
+                                <th 
+                                  className="product-col-elegant"
+                                  style={{ 
+                                    borderLeftColor: themeColors.primary,
+                                    color: '#000000' // Force le noir pour la lisibilité
+                                  }}
+                                >
+                                  Produit
+                                </th>
+                                <th 
+                                  className="quantity-col-elegant"
+                                  style={{ color: '#000000' }} // Force le noir
+                                >
+                                  Quantité
+                                </th>
+                                <th 
+                                  className="price-col-elegant"
+                                  style={{ color: '#000000' }} // Force le noir
+                                >
+                                  Prix
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -322,11 +546,23 @@ export const InvoicesTabElegant: React.FC = () => {
                                         {item.productName}
                                       </span>
                                       <div className="product-badges-elegant">
-                                        <span className="status-badge-small-elegant">
+                                        <span 
+                                          className="status-badge-small-elegant"
+                                          style={{ 
+                                            backgroundColor: themeColors.primary, 
+                                            color: themeColors.text 
+                                          }}
+                                        >
                                           {translateItemStatus(item.status)}
                                         </span>
                                         {item.discountPercentage && item.discountPercentage > 0 && (
-                                          <span className="discount-badge-small-elegant">
+                                          <span 
+                                            className="discount-badge-small-elegant"
+                                            style={{ 
+                                              backgroundColor: themeColors.dark, 
+                                              color: themeColors.textOnDark 
+                                            }}
+                                          >
                                             -{item.discountPercentage}%
                                           </span>
                                         )}
@@ -364,14 +600,25 @@ export const InvoicesTabElegant: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Mode de règlement */}
+                      {/* Mode de règlement détaillé avec couleur du vendeur */}
                       {invoice.paymentDetails?.method && (
                         <div className="payment-section-elegant">
-                          <h4 className="payment-title-elegant">
+                          <h4 
+                            className="payment-title-elegant"
+                            style={{ color: themeColors.primary }}
+                          >
                             💳 Mode de règlement
                           </h4>
-                          <div className="payment-method-elegant">
-                            {translatePaymentMethod(invoice.paymentDetails.method)}
+                          <div 
+                            className="payment-details-vendor-themed"
+                            style={{ 
+                              '--vendor-color': themeColors.primary, 
+                              '--vendor-text-color': themeColors.text,
+                              '--vendor-light-color': themeColors.light,
+                              '--vendor-text-on-light': themeColors.textOnLight
+                            } as React.CSSProperties}
+                          >
+                            {renderPaymentDetails(invoice.paymentDetails)}
                           </div>
                         </div>
                       )}
