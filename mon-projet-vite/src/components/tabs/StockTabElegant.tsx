@@ -49,8 +49,6 @@ export const StockTabElegant: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<StockSubTab>('general');
   const [viewMode, setViewMode] = useState<ViewMode>('cards');
 
-  const currentSubTab = stockSubTabs.find(tab => tab.id === activeSubTab) || stockSubTabs[0];
-
   const cycleViewMode = () => {
     const modes: ViewMode[] = ['cards', 'compact', 'horizontal'];
     const currentIndex = modes.indexOf(viewMode);
@@ -242,38 +240,6 @@ export const StockTabElegant: React.FC = () => {
               </div>
             );
           })}
-        </div>
-      )}
-
-      {/* Header du contenu actif - Masqué en mode horizontal */}
-      {viewMode !== 'horizontal' && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div 
-              className="p-3 rounded-xl text-white shadow-lg"
-              style={{ backgroundColor: currentSubTab.color }}
-            >
-              <currentSubTab.icon size={24} />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {currentSubTab.label}
-              </h2>
-              <p className="text-gray-600 text-sm">
-                {currentSubTab.description}
-              </p>
-            </div>
-          </div>
-
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Archive size={16} />
-            <span>Stock</span>
-            <span>›</span>
-            <span style={{ color: currentSubTab.color }} className="font-medium">
-              {currentSubTab.label}
-            </span>
-          </div>
         </div>
       )}
 
