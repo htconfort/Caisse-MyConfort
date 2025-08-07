@@ -132,13 +132,6 @@ class SyncService {
    */
   async getInvoices(): Promise<Invoice[]> {
     try {
-      // TEMPORAIRE : En développement, utiliser directement les données de démo pour tester les remises
-      const isDevelopment = import.meta.env.DEV;
-      if (isDevelopment) {
-        console.log('🧪 Mode développement : utilisation directe des données de démo avec remises');
-        return this.getDemoInvoices();
-      }
-
       if (!this.isOnline) {
         return this.getCachedInvoices();
       }

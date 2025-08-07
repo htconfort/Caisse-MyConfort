@@ -36,7 +36,7 @@
 
 /* ===== HEADER SECTION ===== */
 .header-section-elegant {
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 165, 0, 0.9) !important; /* Orange semi-transparent */
   backdrop-filter: blur(10px) !important;
   border-radius: 20px !important;
   padding: 2rem !important;
@@ -44,7 +44,7 @@
   box-shadow: 
     0 10px 25px -5px rgba(0, 0, 0, 0.1),
     0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 165, 0, 0.3) !important; /* Bordure orange */
 }
 
 .header-top-elegant {
@@ -175,11 +175,11 @@
 
 /* ===== SECTION FACTURES ===== */
 .invoices-section-elegant {
-  background: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(245, 93, 62, 0.9) !important; /* Couleur #F55D3E avec transparence */
   border-radius: 20px !important;
   padding: 2rem !important;
   box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(245, 93, 62, 0.3) !important; /* Bordure assortie */
 }
 
 /* ===== FILTRES ===== */
@@ -815,32 +815,182 @@
   animation: fadeInUp 0.3s ease-out;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .invoices-tab-elegant {
-    padding: 1rem;
-  }
-  
-  .invoices-title-elegant {
-    font-size: 2.5rem;
-  }
-  
-  .invoices-nav-elegant {
-    flex-direction: column;
-    align-items: center;
-  }
-  
-  .invoices-nav-button {
-    width: 100%;
-    max-width: 300px;
-  }
-  
-  .invoices-stats-elegant {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-  
-  .invoices-filters-elegant .flex {
-    flex-direction: column;
-  }
+/* ===== TABLEAU PRODUITS ÉLÉGANT ===== */
+.products-table-container-elegant {
+  margin-top: 1rem !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.products-table-elegant {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  background: white !important;
+  font-size: 1.1rem !important;
+}
+
+.products-table-elegant thead {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0) !important;
+}
+
+.products-table-elegant th {
+  padding: 1.2rem 1rem !important;
+  text-align: left !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+  font-size: 1rem !important;
+  border-bottom: 2px solid #e5e7eb !important;
+}
+
+.product-col-elegant {
+  width: 50% !important;
+}
+
+.quantity-col-elegant {
+  width: 20% !important;
+  text-align: center !important;
+}
+
+.price-col-elegant {
+  width: 30% !important;
+  text-align: right !important;
+}
+
+.product-row-elegant {
+  border-bottom: 1px solid #f3f4f6 !important;
+  transition: background-color 0.2s ease !important;
+}
+
+.product-row-elegant:hover {
+  background-color: #f9fafb !important;
+}
+
+.product-row-elegant:last-child {
+  border-bottom: none !important;
+}
+
+.product-cell-elegant,
+.quantity-cell-elegant,
+.price-cell-elegant {
+  padding: 1.2rem 1rem !important;
+  vertical-align: top !important;
+}
+
+.product-name-wrapper-elegant {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.5rem !important;
+}
+
+.product-name-elegant {
+  font-weight: 600 !important;
+  color: #111827 !important;
+  font-size: 1.1rem !important;
+  line-height: 1.4 !important;
+}
+
+.product-badges-elegant {
+  display: flex !important;
+  gap: 0.5rem !important;
+  flex-wrap: wrap !important;
+}
+
+.status-badge-small-elegant {
+  background: linear-gradient(135deg, #dbeafe, #bfdbfe) !important;
+  color: #1e40af !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 6px !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  border: 1px solid #93c5fd !important;
+}
+
+.discount-badge-small-elegant {
+  background: linear-gradient(135deg, #fef3c7, #fde68a) !important;
+  color: #92400e !important;
+  padding: 0.25rem 0.5rem !important;
+  border-radius: 6px !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  border: 1px solid #fbbf24 !important;
+}
+
+.product-category-elegant {
+  font-size: 0.9rem !important;
+  color: #6b7280 !important;
+  font-style: italic !important;
+}
+
+.quantity-cell-elegant {
+  text-align: center !important;
+}
+
+.quantity-value-elegant {
+  background: linear-gradient(135deg, #f3f4f6, #e5e7eb) !important;
+  color: #374151 !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: 1.1rem !important;
+  display: inline-block !important;
+  min-width: 3rem !important;
+  text-align: center !important;
+}
+
+.price-cell-elegant {
+  text-align: right !important;
+}
+
+.price-wrapper-elegant {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.25rem !important;
+  align-items: flex-end !important;
+}
+
+.original-price-elegant {
+  font-size: 0.9rem !important;
+  color: #9ca3af !important;
+  text-decoration: line-through !important;
+}
+
+.current-price-elegant {
+  font-weight: 600 !important;
+  color: #059669 !important;
+  font-size: 1.1rem !important;
+}
+
+/* ===== SECTION MODE DE PAIEMENT ===== */
+.payment-section-elegant {
+  margin-top: 1.5rem !important;
+  padding: 1.2rem !important;
+  background: linear-gradient(135deg, #f0f9ff, #e0f2fe) !important;
+  border-radius: 12px !important;
+  border: 1px solid #7dd3fc !important;
+}
+
+.payment-title-elegant {
+  font-size: 1.2rem !important;
+  font-weight: 600 !important;
+  color: #0c4a6e !important;
+  margin: 0 0 0.8rem 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+}
+
+.payment-method-elegant {
+  background: white !important;
+  padding: 1rem 1.2rem !important;
+  border-radius: 8px !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  color: #0c4a6e !important;
+  border: 2px solid #bae6fd !important;
+  box-shadow: 
+    0 2px 4px -1px rgba(0, 0, 0, 0.1),
+    0 1px 2px -1px rgba(0, 0, 0, 0.06) !important;
 }

@@ -32,6 +32,7 @@ export const generateTestInvoices = (): Invoice[] => {
 
   const statuses: Invoice['status'][] = ['draft', 'sent', 'partial', 'paid'];
   const itemStatuses = ['pending', 'available', 'delivered', 'cancelled'];
+  const paymentMethods = ['cash', 'card', 'check', 'transfer', 'multi'] as const;
 
   return vendors.map((vendor, index) => {
     const client = clients[index];
@@ -40,6 +41,7 @@ export const generateTestInvoices = (): Invoice[] => {
     
     const total = selectedProducts.reduce((sum, product) => sum + (product.price * product.quantity), 0);
     const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 jours à partir d'aujourd'hui
+    const paymentMethod = paymentMethods[index % paymentMethods.length];
     
     return {
       id: `test-invoice-${index + 1}`,
@@ -63,7 +65,14 @@ export const generateTestInvoices = (): Invoice[] => {
       dueDate: dueDate,
       createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Dans les 7 derniers jours
       updatedAt: new Date(),
-      notes: `Facture de test pour ${vendor} - Statut: ${status}`
+      notes: `Facture de test pour ${vendor} - Statut: ${status}`,
+      paymentDetails: {
+        method: paymentMethod,
+        status: status === 'paid' ? 'completed' : status === 'partial' ? 'partial' : 'pending',
+        totalAmount: total,
+        paidAmount: status === 'paid' ? total : status === 'partial' ? Math.round(total * 0.5) : 0,
+        remainingAmount: status === 'paid' ? 0 : status === 'partial' ? Math.round(total * 0.5) : total
+      }
     };
   });
 };

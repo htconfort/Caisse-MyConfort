@@ -97,6 +97,20 @@ export const InvoicesTabElegant: React.FC = () => {
     return translations[status] || status;
   };
 
+  // Fonction pour traduire les modes de paiement en français
+  const translatePaymentMethod = (method: string) => {
+    const translations: { [key: string]: string } = {
+      'cash': '💵 Espèces',
+      'card': '💳 Carte bancaire',
+      'check': '📄 Chèque',
+      'transfer': '🏦 Virement',
+      'multi': '🔄 Paiement multiple',
+      'installments': '📅 Échelonné'
+    };
+    
+    return translations[method] || method;
+  };
+
   if (loading && invoices.length === 0) {
     return (
       <div className="invoices-tab-elegant">
@@ -285,46 +299,82 @@ export const InvoicesTabElegant: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Liste des produits */}
+                      {/* Tableau des produits */}
                       <div className="products-section-elegant">
                         <h4 className="products-title-elegant">
                           📦 Produits ({invoice.items.length})
                         </h4>
-                        <div className="products-list-elegant">
-                          {invoice.items.map((item) => (
-                            <div key={item.id} className="product-item-elegant">
-                              <div className="product-details-elegant">
-                                <div className="product-header-elegant">
-                                  <span className="product-name-elegant">
-                                    {item.productName}
-                                  </span>
-                                  <span className="status-badge-elegant">
-                                    {translateItemStatus(item.status)}
-                                  </span>
-                                  {item.discountPercentage && item.discountPercentage > 0 && (
-                                    <span className="discount-badge-elegant">
-                                      -{item.discountPercentage}%
+                        <div className="products-table-container-elegant">
+                          <table className="products-table-elegant">
+                            <thead>
+                              <tr>
+                                <th className="product-col-elegant">Produit</th>
+                                <th className="quantity-col-elegant">Quantité</th>
+                                <th className="price-col-elegant">Prix</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {invoice.items.map((item) => (
+                                <tr key={item.id} className="product-row-elegant">
+                                  <td className="product-cell-elegant">
+                                    <div className="product-name-wrapper-elegant">
+                                      <span className="product-name-elegant">
+                                        {item.productName}
+                                      </span>
+                                      <div className="product-badges-elegant">
+                                        <span className="status-badge-small-elegant">
+                                          {translateItemStatus(item.status)}
+                                        </span>
+                                        {item.discountPercentage && item.discountPercentage > 0 && (
+                                          <span className="discount-badge-small-elegant">
+                                            -{item.discountPercentage}%
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="product-category-elegant">
+                                        📂 {item.category}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="quantity-cell-elegant">
+                                    <span className="quantity-value-elegant">
+                                      {item.quantity}
                                     </span>
-                                  )}
-                                </div>
-                                <div className="product-info-elegant">
-                                  <span>📂 {item.category}</span>
-                                  <span>📊 Qté: {item.quantity}</span>
-                                  {item.originalPrice && item.originalPrice !== item.unitPrice ? (
-                                    <span>
-                                      💰 <span className="original-price-elegant">
-                                        {formatPrice(item.originalPrice)}
-                                      </span> → {formatPrice(item.unitPrice)}
-                                    </span>
-                                  ) : (
-                                    <span>💰 {formatPrice(item.unitPrice)}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                                  </td>
+                                  <td className="price-cell-elegant">
+                                    {item.originalPrice && item.originalPrice !== item.unitPrice ? (
+                                      <div className="price-wrapper-elegant">
+                                        <span className="original-price-elegant">
+                                          {formatPrice(item.originalPrice)}
+                                        </span>
+                                        <span className="current-price-elegant">
+                                          {formatPrice(item.unitPrice)}
+                                        </span>
+                                      </div>
+                                    ) : (
+                                      <span className="current-price-elegant">
+                                        {formatPrice(item.unitPrice)}
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
+
+                      {/* Mode de règlement */}
+                      {invoice.paymentDetails?.method && (
+                        <div className="payment-section-elegant">
+                          <h4 className="payment-title-elegant">
+                            💳 Mode de règlement
+                          </h4>
+                          <div className="payment-method-elegant">
+                            {translatePaymentMethod(invoice.paymentDetails.method)}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
