@@ -3,6 +3,7 @@ import { Package, Search, AlertTriangle, CheckCircle, Lock } from 'lucide-react'
 import type { CatalogProduct, ProductCategory } from '../../../types';
 import { productCatalog } from '../../../data';
 import { PinModal } from '../../ui/PinModal';
+import '../../../styles/general-stock-compact.css';
 
 interface StockItem extends CatalogProduct {
   currentStock: number;
