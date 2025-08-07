@@ -7,6 +7,7 @@ import { StockOverview } from './StockOverview';
 import { SyncStatus } from './SyncStatus';
 import { NotificationCenter } from './NotificationCenter';
 import type { Invoice } from '../services/syncService';
+import '../styles/invoices-tab.css';
 
 export const InvoicesTab: React.FC = () => {
   const [activeView, setActiveView] = useState<'invoices' | 'stock'>('invoices');

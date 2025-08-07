@@ -16,7 +16,7 @@ import { useSyncInvoices } from './hooks/useSyncInvoices';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
 import { VendorSelection, ProductsTab, StockTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
-import { InvoicesTab } from './components/InvoicesTab';
+import { InvoicesTabElegant } from './components/InvoicesTabElegant';
 import { SuccessNotification, FloatingCart } from './components/ui';
 import './styles/invoices-tab.css';
 
@@ -258,7 +258,7 @@ export default function CaisseMyConfortApp() {
 
             {/* Onglet Factures */}
             {activeTab === 'factures' && (
-              <InvoicesTab />
+              <InvoicesTabElegant />
             )}
 
             {/* Onglet Stock */}
@@ -302,13 +302,14 @@ export default function CaisseMyConfortApp() {
               />
             )}
 
-            {/* Autres onglets avec contenu minimal */}
-            {['raz'].includes(activeTab) && (
-              <div className="max-w-4xl mx-auto animate-fadeIn">
-                <h2 className="text-3xl font-bold mb-6" style={{ color: 'var(--dark-green)' }}>
-                  {activeTab === 'raz' ? 'Remise à Zéro' : 'Module'}
-                </h2>
-                <div className="card text-center py-12">
+            {/* Fallback pour les onglets non définis */}
+            {!['vendeuse', 'produits', 'factures', 'stock', 'ventes', 'diverses', 'annulation', 'ca'].includes(activeTab) && (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-md mx-auto">
+                  <p className="text-4xl mb-4">🚧</p>
+                  <h3 className="text-2xl font-bold mb-2" style={{ color: '#1F2937' }}>
+                    En construction
+                  </h3>
                   <p className="text-xl" style={{ color: '#6B7280' }}>
                     Module {activeTab} - En cours de développement
                   </p>

@@ -163,39 +163,39 @@ export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice }) => {
         </div>
 
         {/* Liste des produits */}
-        <div className="mb-6">
-          <h4 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px', color: '#000000' }}>
+        <div className="products-section">
+          <h4 className="products-title">
             📦 Produits ({invoice.items.length})
           </h4>
-          <div className="space-y-3">
+          <div className="products-list">
             {invoice.items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between p-4 rounded-lg border-2" 
-                   style={{ borderColor: vendorColors.backgroundColor, backgroundColor: 'rgba(255,255,255,0.8)' }}>
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span style={{ fontSize: '24px' }}>
+              <div key={item.id} className="product-item" 
+                   style={{ borderColor: vendorColors.backgroundColor }}>
+                <div className="product-details">
+                  <div className="product-header">
+                    <span className="product-status-icon">
                       {getItemStatusIcon(item.status)}
                     </span>
-                    <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#000000' }}>
+                    <span className="product-name">
                       {item.productName}
                     </span>
-                    <span className="px-3 py-1 rounded-full text-lg font-bold" style={{ backgroundColor: '#e5e7eb', color: '#000000' }}>
+                    <span className="status-badge">
                       {item.status}
                     </span>
                     {/* Badge de remise si applicable */}
                     {item.discountPercentage && item.discountPercentage > 0 && (
-                      <span className="px-3 py-1 rounded-full text-lg font-bold" style={{ backgroundColor: '#F55D3E', color: '#ffffff' }}>
+                      <span className="discount-badge">
                         -{item.discountPercentage}%
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-4" style={{ fontSize: '20px', color: '#000000', fontWeight: 'bold' }}>
+                  <div className="product-info">
                     <span>📂 {item.category}</span>
                     <span>📊 Qté: {item.quantity}</span>
                     {/* Affichage du prix avec remise */}
                     {item.originalPrice && item.originalPrice !== item.unitPrice ? (
                       <span>
-                        💰 <span style={{ textDecoration: 'line-through', color: '#999999' }}>
+                        💰 <span className="original-price">
                           {formatPrice(item.originalPrice)}
                         </span> → {formatPrice(item.unitPrice)}
                       </span>
