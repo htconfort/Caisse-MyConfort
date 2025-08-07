@@ -15,7 +15,8 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { useSyncInvoices } from './hooks/useSyncInvoices';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
-import { VendorSelection, ProductsTab, StockTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
+import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
+import { StockTabElegant } from './components/tabs/StockTabElegant';
 import { InvoicesTabElegant } from './components/InvoicesTabElegant';
 import { SuccessNotification, FloatingCart } from './components/ui';
 import './styles/invoices-tab.css';
@@ -263,7 +264,7 @@ export default function CaisseMyConfortApp() {
 
             {/* Onglet Stock */}
             {activeTab === 'stock' && (
-              <StockTab />
+              <StockTabElegant />
             )}
 
             {/* Onglet Ventes */}
