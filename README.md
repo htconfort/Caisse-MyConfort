@@ -1,125 +1,47 @@
-# 🛒 Caisse MyConfort iPad
+# 🏪 Caisse MyConfort - Application de Gestion
 
-> Application de caisse moderne et tactile optimisée pour iPad, développée avec React/TypeScript et GitHub Copilot.
+## 🎯 PROJET PRINCIPAL : `mon-projet-vite/`
 
-## 🎯 Aperçu
+**⚠️ IMPORTANT** : Utiliser UNIQUEMENT le projet Vite dans le dossier `mon-projet-vite/`
 
-Application de point de vente complète pour MyConfort, conçue spécifiquement pour les iPad avec une interface tactile intuitive, gestion des vendeuses, catalogue produits complet, et reporting en temps réel.
+### 🚀 Démarrage
 
-### ✨ Fonctionnalités Principales
-
-- **👤 Gestion des Vendeuses** : Sélection, statistiques individuelles, couleurs distinctives
-- **📦 Catalogue Produits** : 50+ produits MyConfort avec recherche temps réel
-- **🛒 Panier Intelligent** : Ajout/modification dynamique, calculs automatiques
-- **💳 Moyens de Paiement** : CB, Espèces, Chèque, Multi-paiement
-- **📊 Reporting Instantané** : CA par vendeuse, export CSV/JSON
-- **🔄 Remise à Zéro** : Procédure sécurisée fin de journée
-- **💾 Sauvegarde Locale** : Données 100% locales, pas de serveur requis
-
-## Technologies Utilisées
-- **React 18** avec **TypeScript** : Interface moderne et typée
-- **Hooks personnalisés** : Gestion du state (panier, vendeuses, paiements, ventes)
-- **CSS3 + Classes utilitaires** : Charte graphique MyConfort et responsive design
-- **LocalStorage** : Persistance des données côté client
-- **Modular Architecture** : Composants réutilisables et maintenables
-
-## Installation et Démarrage
-1. Clonez le dépôt :
-   ```bash
-   git clone https://github.com/votre-username/caisse-myconfort.git
-   ```
-2. Accédez au répertoire du projet :
-   ```bash
-   cd caisse-myconfort
-   ```
-3. Installez les dépendances :
-   ```bash
-   npm install
-   ```
-4. Lancez l'application en mode développement :
-   ```bash
-   npm start
-   ```
-5. Ouvrez [http://localhost:3000](http://localhost:3000) dans votre navigateur
-
-## Build de Production
 ```bash
-npm run build
-```
-Les fichiers de production seront générés dans le dossier `build/`.
-
-## Structure du Projet
-```
-caisse-myconfort/
-├── public/
-│   ├── index.html          # Page HTML principale
-│   └── manifest.json       # Métadonnées PWA
-├── src/
-│   ├── components/         # Composants React
-│   │   ├── cart/          # Composants du panier
-│   │   ├── common/        # Composants réutilisables
-│   │   ├── payment/       # Composants de paiement
-│   │   ├── products/      # Composants catalogue
-│   │   ├── sales/         # Composants ventes et historique
-│   │   └── vendor/        # Composants vendeuses
-│   ├── data/              # Données statiques
-│   │   ├── productCatalog.ts # Catalogue des produits MyConfort
-│   │   ├── categories.json   # Catégories de produits
-│   │   └── products.json     # Liste des produits
-│   ├── hooks/             # Hooks personnalisés
-│   │   ├── useCart.ts     # Gestion du panier
-│   │   ├── useLocalStorage.ts # Persistance locale
-│   │   ├── usePayment.ts  # Gestion des paiements
-│   │   └── useSales.ts    # Gestion des ventes
-│   ├── services/          # Services métier
-│   │   ├── exportService.ts  # Export CSV/PDF
-│   │   ├── printService.ts   # Impression tickets
-│   │   └── storageService.ts # Gestion stockage
-│   ├── styles/            # Styles CSS
-│   │   ├── globals.css    # Styles globaux
-│   │   ├── components.css # Styles composants
-│   │   └── responsive.css # Media queries
-│   ├── types/             # Types TypeScript
-│   │   ├── Cart.ts        # Types panier
-│   │   ├── Payment.ts     # Types paiement
-│   │   ├── Product.ts     # Types produits
-│   │   ├── Sale.ts        # Types ventes
-│   │   └── Vendor.ts      # Types vendeuses
-│   ├── utils/             # Utilitaires
-│   │   ├── calculations.ts   # Calculs TTC/HT
-│   │   ├── constants.ts      # Constantes app
-│   │   └── formatting.ts     # Formatage données
-│   ├── App.tsx            # Composant principal
-│   ├── App.css            # Styles principaux
-│   └── index.tsx          # Point d'entrée
-├── package.json           # Dépendances npm
-├── tsconfig.json          # Configuration TypeScript
-└── README.md              # Documentation
+cd mon-projet-vite
+npm run dev
 ```
 
-## Utilisation
-1. **Sélection vendeuse** : Choisir la vendeuse avant de commencer une vente
-2. **Ajout produits** : Naviguer dans les catégories et ajouter au panier
-3. **Gestion panier** : Modifier quantités, supprimer articles
-4. **Règlement** : Choisir mode(s) de paiement et valider
-5. **Suivi CA** : Consulter le chiffre d'affaires en temps réel
-6. **Export** : Générer les rapports de fin de journée
+**URL** : http://localhost:5173 (ou 5174, 5175 selon disponibilité)
 
-## Fonctionnalités Avancées
-- **Mode hors ligne** : Fonctionne sans connexion internet
-- **Sauvegarde automatique** : Toutes les données sont sauvegardées localement
-- **Interface responsive** : Optimisée pour iPad et autres tablettes
-- **Gestion erreurs** : Messages d'erreur explicites et récupération gracieuse
+### ✨ Fonctionnalités
 
-## Contribuer
-1. Forkez le projet
-2. Créez une branche pour votre fonctionnalité (`git checkout -b feature/nouvelle-fonctionnalite`)
-3. Commitez vos changements (`git commit -am 'Ajout nouvelle fonctionnalité'`)
-4. Poussez vers la branche (`git push origin feature/nouvelle-fonctionnalite`)
-5. Ouvrez une Pull Request
+- ✅ **Interface factures élégante** avec tableau produits
+- ✅ **Déduction automatique du stock** lors de l'arrivée de factures N8N
+- ✅ **Synchronisation N8N** en temps réel
+- ✅ **Gestion du stock physique** avec alertes visuelles
+- ✅ **Traçabilité complète** des mouvements de stock
+- ✅ **Interface intuitive** avec onglets dédiés
 
-## Licence
-Ce projet est la propriété de MyConfort. Tous droits réservés.
+### 📱 Navigation
 
-## Contact
-Pour toute question ou demande de support, contactez l'équipe de développement MyConfort.
+- **Onglet Factures** : Visualisation des factures N8N avec interface élégante
+- **Onglet Stock > Stock physique** : Gestion du stock avec déductions automatiques
+- **Autres onglets** : Ventes, Produits, etc.
+
+### 🔄 Workflow Automatique
+
+1. **Facture N8N reçue** → Synchronisation automatique
+2. **Produits détectés** → Déduction automatique du stock
+3. **Alertes générées** → Notifications visuelles si stock faible
+4. **Traçabilité** → Historique complet des mouvements
+
+### 📚 Documentation
+
+- `DEDUCTION-STOCK-AUTOMATIQUE-v3.0.0.md` : Documentation de la déduction automatique
+- `AMELIORATION-INTERFACE-FACTURES-v2.1.0.md` : Documentation de l'interface factures
+
+### 🗂️ Archive
+
+L'ancien projet React a été archivé dans `archive-ancien-projet-react-*/` pour éviter toute confusion.
+
+**Version actuelle** : v3.0.0-deduction-stock-automatique
