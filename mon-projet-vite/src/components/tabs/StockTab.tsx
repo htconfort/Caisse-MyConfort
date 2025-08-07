@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Archive, Package, Truck, Store } from 'lucide-react';
+import { Archive, Package, Truck, Store, Database } from 'lucide-react';
 import { GeneralStockTab, TrailerEntryTab, StandEntryTab } from './stock';
+import { PhysicalStockManager } from '../PhysicalStockManager';
 
-type StockSubTab = 'general' | 'trailer' | 'stand';
+type StockSubTab = 'general' | 'trailer' | 'stand' | 'physical';
 
 interface SubTabInfo {
   id: StockSubTab;
@@ -19,6 +20,13 @@ const stockSubTabs: SubTabInfo[] = [
     icon: Package,
     color: '#16A34A',
     description: 'Inventaire principal et gestion des stocks'
+  },
+  {
+    id: 'physical',
+    label: 'Stock physique',
+    icon: Database,
+    color: '#8B5CF6',
+    description: 'Stock réel avec déductions automatiques N8N'
   },
   {
     id: 'trailer',
@@ -43,6 +51,8 @@ export const StockTab: React.FC = () => {
     switch (activeSubTab) {
       case 'general':
         return <GeneralStockTab />;
+      case 'physical':
+        return <PhysicalStockManager />;
       case 'trailer':
         return <TrailerEntryTab />;
       case 'stand':

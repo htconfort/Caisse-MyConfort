@@ -1,6 +1,38 @@
 /**
  * Service de synchronisation avec N8N pour les factures
  * Gère la communication bidirectionnelle entre Caisse et Facturation
+ * NOUVEAU : Déduction automatique du stock lors de l'arrivée de factures N8N
+ */
+
+// Interface pour le stock physique
+export interface PhysicalStock {
+  productName: string;
+  category: string;
+  currentStock: number;
+  reservedStock: number;
+  availableStock: number;
+  lastUpdated: Date;
+  minStockAlert: number;
+}
+
+// Interface pour les mouvements de stock
+export interface StockMovement {
+  id: string;
+  productName: string;
+  category: string;
+  movementType: 'deduction' | 'addition' | 'correction';
+  quantity: number;
+  reason: string;
+  invoiceNumber?: string;
+  previousStock: number;
+  newStock: number;
+  timestamp: Date;
+  vendorName?: string;
+}
+
+/**
+ * Service de synchronisation avec N8N pour les factures
+ * Gère la communication bidirectionnelle entre Caisse et Facturation
  */
 
 export interface Invoice {
@@ -94,8 +126,12 @@ class SyncService {
   private isOnline: boolean = navigator.onLine;
   private syncInterval: number | null = null;
   private listeners: Array<(data: any) => void> = [];
+  private lastProcessedInvoices: Set<string> = new Set(); // Pour éviter le double traitement
 
   constructor() {
+    // Charger les factures déjà traitées
+    this.loadProcessedInvoices();
+    
     // URL adaptée selon l'environnement
     const isDevelopment = import.meta.env.DEV;
     const forceApiTest = localStorage.getItem('n8n-test-mode') === 'true';
@@ -153,6 +189,9 @@ class SyncService {
           
           // Mise en cache pour le mode offline
           this.cacheInvoices(invoices);
+          
+          // 🆕 NOUVEAU : Déduction automatique du stock pour les nouvelles factures
+          await this.processNewInvoicesForStockDeduction(invoices);
           
           return invoices;
         } else {
@@ -322,6 +361,304 @@ class SyncService {
   cleanup(): void {
     this.stopAutoSync();
     this.listeners = [];
+  }
+
+  /**
+   * Traite les nouvelles factures pour la déduction automatique du stock
+   */
+  private async processNewInvoicesForStockDeduction(invoices: Invoice[]): Promise<void> {
+    console.log(`🔍 Vérification de ${invoices.length} factures pour déduction stock`);
+    
+    let newInvoicesProcessed = 0;
+    
+    for (const invoice of invoices) {
+      // Vérifier si la facture n'a pas déjà été traitée
+      if (!this.lastProcessedInvoices.has(invoice.id)) {
+        console.log(`🆕 Nouvelle facture détectée: ${invoice.number} - Déduction en cours...`);
+        await this.deductStockFromInvoice(invoice);
+        newInvoicesProcessed++;
+      }
+    }
+    
+    if (newInvoicesProcessed > 0) {
+      console.log(`✅ ${newInvoicesProcessed} nouvelles factures traitées pour déduction stock`);
+    } else {
+      console.log(`ℹ️ Aucune nouvelle facture à traiter pour déduction stock`);
+    }
+  }
+
+  // ===== NOUVELLES MÉTHODES POUR LA GESTION DU STOCK PHYSIQUE =====
+
+  /**
+   * Récupère le stock physique depuis le localStorage
+   */
+  private getPhysicalStock(): PhysicalStock[] {
+    try {
+      const stored = localStorage.getItem('physicalStock');
+      return stored ? JSON.parse(stored) : this.initializeDefaultStock();
+    } catch {
+      return this.initializeDefaultStock();
+    }
+  }
+
+  /**
+   * Sauvegarde le stock physique dans le localStorage
+   */
+  private savePhysicalStock(stock: PhysicalStock[]): void {
+    try {
+      localStorage.setItem('physicalStock', JSON.stringify(stock));
+      localStorage.setItem('lastStockUpdate', new Date().toISOString());
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du stock:', error);
+    }
+  }
+
+  /**
+   * Initialise un stock par défaut basé sur les produits du catalogue
+   */
+  private initializeDefaultStock(): PhysicalStock[] {
+    console.log('🏪 Initialisation du stock physique par défaut');
+    const defaultStock: PhysicalStock[] = [
+      // Matelas
+      { productName: 'Matelas Memory Foam 160x200', category: 'Matelas', currentStock: 5, reservedStock: 0, availableStock: 5, lastUpdated: new Date(), minStockAlert: 2 },
+      { productName: 'MATELAS BAMBOU 160 x 200', category: 'Matelas', currentStock: 3, reservedStock: 0, availableStock: 3, lastUpdated: new Date(), minStockAlert: 1 },
+      { productName: 'Matelas Latex 140x190', category: 'Matelas', currentStock: 4, reservedStock: 0, availableStock: 4, lastUpdated: new Date(), minStockAlert: 2 },
+      
+      // Sur-matelas  
+      { productName: 'Sur-matelas climatisé 140x190', category: 'Sur-matelas', currentStock: 8, reservedStock: 0, availableStock: 8, lastUpdated: new Date(), minStockAlert: 3 },
+      { productName: 'SURMATELAS BAMBOU 160 x 200', category: 'Sur-matelas', currentStock: 6, reservedStock: 0, availableStock: 6, lastUpdated: new Date(), minStockAlert: 2 },
+      
+      // Couettes
+      { productName: 'Couette 4 saisons 220x240', category: 'Couettes', currentStock: 10, reservedStock: 0, availableStock: 10, lastUpdated: new Date(), minStockAlert: 5 },
+      { productName: 'Couette hiver 200x200', category: 'Couettes', currentStock: 8, reservedStock: 0, availableStock: 8, lastUpdated: new Date(), minStockAlert: 3 },
+      
+      // Oreillers
+      { productName: 'Oreiller ergonomique', category: 'Oreillers', currentStock: 20, reservedStock: 0, availableStock: 20, lastUpdated: new Date(), minStockAlert: 10 },
+      { productName: 'Pack 2 oreillers confort', category: 'Oreillers', currentStock: 15, reservedStock: 0, availableStock: 15, lastUpdated: new Date(), minStockAlert: 5 },
+      
+      // Accessoires
+      { productName: 'Sommier tapissier 160x200', category: 'Accessoires', currentStock: 6, reservedStock: 0, availableStock: 6, lastUpdated: new Date(), minStockAlert: 2 },
+      { productName: 'Protège-matelas imperméable', category: 'Accessoires', currentStock: 12, reservedStock: 0, availableStock: 12, lastUpdated: new Date(), minStockAlert: 5 }
+    ];
+    
+    this.savePhysicalStock(defaultStock);
+    return defaultStock;
+  }
+
+  /**
+   * Déduit automatiquement les produits du stock lors de l'arrivée d'une facture N8N
+   */
+  private async deductStockFromInvoice(invoice: Invoice): Promise<void> {
+    console.log(`📦 DÉDUCTION STOCK: Traitement facture ${invoice.number}`);
+    
+    // Vérifier si cette facture a déjà été traitée
+    if (this.lastProcessedInvoices.has(invoice.id)) {
+      console.log(`⏭️ Facture ${invoice.number} déjà traitée, passage...`);
+      return;
+    }
+
+    const currentStock = this.getPhysicalStock();
+    const movements: StockMovement[] = [];
+    let stockUpdated = false;
+
+    // Traiter chaque produit de la facture
+    for (const item of invoice.items) {
+      // Trouver le produit dans le stock physique
+      const stockIndex = currentStock.findIndex(stock => 
+        this.normalizeProductName(stock.productName) === this.normalizeProductName(item.productName) &&
+        stock.category === item.category
+      );
+
+      if (stockIndex === -1) {
+        console.warn(`⚠️ Produit non trouvé dans le stock: ${item.productName} (${item.category})`);
+        // Créer automatiquement une entrée de stock si le produit n'existe pas
+        const newStockItem: PhysicalStock = {
+          productName: item.productName,
+          category: item.category,
+          currentStock: Math.max(0, item.quantity), // Éviter les stocks négatifs
+          reservedStock: 0,
+          availableStock: Math.max(0, item.quantity),
+          lastUpdated: new Date(),
+          minStockAlert: 2
+        };
+        currentStock.push(newStockItem);
+        console.log(`✅ Nouveau produit ajouté au stock: ${item.productName} avec ${item.quantity} unités`);
+        continue;
+      }
+
+      const stockItem = currentStock[stockIndex];
+      const previousStock = stockItem.currentStock;
+
+      // Déduire la quantité
+      const newStock = Math.max(0, stockItem.currentStock - item.quantity);
+      const actualDeduction = stockItem.currentStock - newStock;
+
+      stockItem.currentStock = newStock;
+      stockItem.availableStock = Math.max(0, newStock - stockItem.reservedStock);
+      stockItem.lastUpdated = new Date();
+
+      // Enregistrer le mouvement
+      const movement: StockMovement = {
+        id: `mov-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        productName: item.productName,
+        category: item.category,
+        movementType: 'deduction',
+        quantity: actualDeduction,
+        reason: `Facture N8N ${invoice.number} - Client: ${invoice.clientName}`,
+        invoiceNumber: invoice.number,
+        previousStock,
+        newStock,
+        timestamp: new Date(),
+        vendorName: invoice.vendorName
+      };
+      movements.push(movement);
+
+      console.log(`📉 STOCK DÉDUIT: ${item.productName} - Quantité: ${actualDeduction} (${previousStock} → ${newStock})`);
+      
+      // Alerte stock faible
+      if (newStock <= stockItem.minStockAlert) {
+        console.warn(`🚨 ALERTE STOCK FAIBLE: ${item.productName} - Stock restant: ${newStock} (seuil: ${stockItem.minStockAlert})`);
+      }
+
+      stockUpdated = true;
+    }
+
+    if (stockUpdated) {
+      // Sauvegarder le stock mis à jour
+      this.savePhysicalStock(currentStock);
+      
+      // Sauvegarder les mouvements
+      this.saveStockMovements(movements);
+      
+      // Marquer la facture comme traitée
+      this.lastProcessedInvoices.add(invoice.id);
+      this.saveProcessedInvoices();
+      
+      console.log(`✅ Stock mis à jour pour la facture ${invoice.number} - ${movements.length} mouvements enregistrés`);
+      
+      // Notifier les listeners
+      this.notifyListeners({ 
+        type: 'stock_updated', 
+        invoiceNumber: invoice.number,
+        movements: movements,
+        totalItems: invoice.items.length
+      });
+    }
+  }
+
+  /**
+   * Normalise le nom des produits pour faciliter la correspondance
+   */
+  private normalizeProductName(name: string): string {
+    return name.toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '') // Supprimer caractères spéciaux
+      .replace(/\s+/g, ' ') // Normaliser les espaces
+      .trim();
+  }
+
+  /**
+   * Sauvegarde les mouvements de stock
+   */
+  private saveStockMovements(movements: StockMovement[]): void {
+    try {
+      const existingMovements = this.getStockMovements();
+      const allMovements = [...existingMovements, ...movements];
+      localStorage.setItem('stockMovements', JSON.stringify(allMovements));
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des mouvements:', error);
+    }
+  }
+
+  /**
+   * Récupère les mouvements de stock
+   */
+  public getStockMovements(): StockMovement[] {
+    try {
+      const stored = localStorage.getItem('stockMovements');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Sauvegarde la liste des factures traitées
+   */
+  private saveProcessedInvoices(): void {
+    try {
+      localStorage.setItem('processedInvoicesIds', JSON.stringify([...this.lastProcessedInvoices]));
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde des factures traitées:', error);
+    }
+  }
+
+  /**
+   * Charge la liste des factures déjà traitées
+   */
+  private loadProcessedInvoices(): void {
+    try {
+      const stored = localStorage.getItem('processedInvoicesIds');
+      if (stored) {
+        const ids = JSON.parse(stored);
+        this.lastProcessedInvoices = new Set(ids);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des factures traitées:', error);
+    }
+  }
+
+  /**
+   * Récupère le stock physique actuel (API publique)
+   */
+  public getCurrentPhysicalStock(): PhysicalStock[] {
+    return this.getPhysicalStock();
+  }
+
+  /**
+   * Met à jour manuellement le stock d'un produit
+   */
+  public updateProductStock(productName: string, category: string, newQuantity: number, reason: string = 'Correction manuelle'): boolean {
+    try {
+      const currentStock = this.getPhysicalStock();
+      const stockIndex = currentStock.findIndex(stock => 
+        this.normalizeProductName(stock.productName) === this.normalizeProductName(productName) &&
+        stock.category === category
+      );
+
+      if (stockIndex === -1) {
+        console.error(`Produit non trouvé: ${productName} (${category})`);
+        return false;
+      }
+
+      const stockItem = currentStock[stockIndex];
+      const previousStock = stockItem.currentStock;
+      
+      stockItem.currentStock = Math.max(0, newQuantity);
+      stockItem.availableStock = Math.max(0, newQuantity - stockItem.reservedStock);
+      stockItem.lastUpdated = new Date();
+
+      // Enregistrer le mouvement
+      const movement: StockMovement = {
+        id: `mov-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        productName,
+        category,
+        movementType: 'correction',
+        quantity: Math.abs(newQuantity - previousStock),
+        reason,
+        previousStock,
+        newStock: newQuantity,
+        timestamp: new Date()
+      };
+
+      this.savePhysicalStock(currentStock);
+      this.saveStockMovements([movement]);
+
+      console.log(`✅ Stock mis à jour manuellement: ${productName} (${previousStock} → ${newQuantity})`);
+      return true;
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du stock:', error);
+      return false;
+    }
   }
 
   // ===== MÉTHODES PRIVÉES =====
