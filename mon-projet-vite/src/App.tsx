@@ -19,6 +19,7 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import { InvoicesTabElegant } from './components/InvoicesTabElegant';
 import { SuccessNotification, FloatingCart } from './components/ui';
+import { Settings } from 'lucide-react';
 import './styles/invoices-tab.css';
 
 export default function CaisseMyConfortApp() {
@@ -303,8 +304,122 @@ export default function CaisseMyConfortApp() {
               />
             )}
 
+            {/* Onglet Gestion */}
+            {activeTab === 'gestion' && (
+              <div style={{
+                padding: '20px',
+                maxWidth: '800px',
+                margin: '0 auto',
+                fontFamily: 'Arial, sans-serif'
+              }}>
+                {/* En-tête */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  marginBottom: '20px',
+                  textAlign: 'center'
+                }}>
+                  <h1 style={{ margin: 0, fontSize: '24px' }}>
+                    <Settings size={28} style={{ marginRight: '10px', verticalAlign: 'middle' }} />
+                    Gestion Simplifiée
+                  </h1>
+                  <p style={{ margin: '8px 0 0 0', opacity: 0.9 }}>
+                    Version temporaire - Fonctionnalités de base
+                  </p>
+                </div>
+
+                {/* Liste des vendeuses actuelles */}
+                <div style={{
+                  background: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  padding: '20px',
+                  marginBottom: '20px'
+                }}>
+                  <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>
+                    👥 Vendeuses actuelles ({vendors.length})
+                  </h3>
+                  
+                  <div style={{
+                    display: 'grid',
+                    gap: '10px',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))'
+                  }}>
+                    {vendors.map((vendor) => (
+                      <div
+                        key={vendor.id}
+                        style={{
+                          background: selectedVendor?.id === vendor.id ? '#e8f5e8' : '#f8f9fa',
+                          border: selectedVendor?.id === vendor.id ? '2px solid #28a745' : '1px solid #ddd',
+                          borderRadius: '6px',
+                          padding: '12px',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease'
+                        }}
+                        onClick={() => setSelectedVendor(vendor)}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                          <div
+                            style={{
+                              width: '16px',
+                              height: '16px',
+                              backgroundColor: vendor.color,
+                              borderRadius: '50%',
+                              marginRight: '8px',
+                              border: '2px solid #fff',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                            }}
+                          />
+                          <strong style={{ color: '#495057' }}>{vendor.name}</strong>
+                        </div>
+                        
+                        <div style={{ fontSize: '14px', color: '#6c757d' }}>
+                          💰 Total: {vendor.dailySales.toFixed(2)}€
+                        </div>
+                        
+                        {selectedVendor?.id === vendor.id && (
+                          <div style={{
+                            marginTop: '8px',
+                            padding: '4px 8px',
+                            background: '#28a745',
+                            color: 'white',
+                            borderRadius: '4px',
+                            textAlign: 'center',
+                            fontSize: '12px',
+                            fontWeight: 'bold'
+                          }}>
+                            ✅ Sélectionnée
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Message temporaire */}
+                <div style={{
+                  background: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  textAlign: 'center'
+                }}>
+                  <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>
+                    🚧 Version Temporaire
+                  </h4>
+                  <p style={{ margin: '0', color: '#856404' }}>
+                    Cette version simplifiée permet de voir et sélectionner les vendeuses existantes.
+                    <br />
+                    Les fonctionnalités d'ajout/suppression seront restaurées prochainement.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Fallback pour les onglets non définis */}
-            {!['vendeuse', 'produits', 'factures', 'stock', 'ventes', 'diverses', 'annulation', 'ca'].includes(activeTab) && (
+            {!['vendeuse', 'produits', 'factures', 'stock', 'ventes', 'diverses', 'annulation', 'ca', 'gestion'].includes(activeTab) && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-md mx-auto">
                   <p className="text-4xl mb-4">🚧</p>

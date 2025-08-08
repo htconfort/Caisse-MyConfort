@@ -45,7 +45,7 @@ export interface Sale {
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
-export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures';
+export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures' | 'gestion';
 
 // ============================================================================
 // 🗄️ TYPES INDEXEDDB - Simplifiés et compatibles avec le schéma Dexie

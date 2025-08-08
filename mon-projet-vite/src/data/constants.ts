@@ -1,5 +1,5 @@
 import type { TabType } from '../types';
-import { User, Package, Archive, BarChart, FileText, RotateCcw, RefreshCw, Receipt } from 'lucide-react';
+import { User, Package, Archive, BarChart, FileText, RotateCcw, RefreshCw, Receipt, Settings } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 // Configuration des onglets de navigation
@@ -12,6 +12,7 @@ export const tabs: Array<{id: TabType, label: string, icon: LucideIcon}> = [
   { id: 'diverses', label: 'Diverses', icon: FileText },
   { id: 'annulation', label: 'Annulation', icon: RotateCcw },
   { id: 'ca', label: 'CA Instant', icon: BarChart },
+  { id: 'gestion', label: 'Gestion', icon: Settings },
   { id: 'raz', label: 'RAZ', icon: RefreshCw },
 ];
 
