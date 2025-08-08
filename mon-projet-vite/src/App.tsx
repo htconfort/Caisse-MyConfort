@@ -19,8 +19,16 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import { InvoicesTabElegant } from './components/InvoicesTabElegant';
 import { SuccessNotification, FloatingCart } from './components/ui';
-import { Settings, Plus, Save, X } from 'lucide-react';
+import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2 } from 'lucide-react';
 import './styles/invoices-tab.css';
+
+// Palette de couleurs pour les vendeuses
+const VENDOR_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+  '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+  '#F8C471', '#82E0AA', '#F1948A', '#AED6F1', '#D7BDE2',
+  '#A9DFBF', '#F9E79F', '#D5A6BD', '#85C1E9', '#A3E4D7'
+];
 
 export default function CaisseMyConfortApp() {
   // États principaux
@@ -45,6 +53,14 @@ export default function CaisseMyConfortApp() {
   const [showAddVendorForm, setShowAddVendorForm] = useState(false);
   const [newVendorName, setNewVendorName] = useState('');
   const [newVendorEmail, setNewVendorEmail] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
+
+  // États pour l'édition et la suppression des vendeuses
+  const [editingVendor, setEditingVendor] = useState<string | null>(null);
+  const [editVendorName, setEditVendorName] = useState('');
+  const [editVendorEmail, setEditVendorEmail] = useState('');
+  const [editVendorColor, setEditVendorColor] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   // Mise à jour de l'heure
   useEffect(() => {
@@ -218,6 +234,191 @@ export default function CaisseMyConfortApp() {
     setMiscAmount('');
   }, [miscDescription, miscAmount, setCart]);
 
+  // Fonctions utilitaires pour les couleurs
+  const isColorUsed = useCallback((color: string) => {
+    return vendorStats.some(vendor => vendor.color === color);
+  }, [vendorStats]);
+
+  const getAvailableColors = useCallback(() => {
+    return VENDOR_COLORS.filter(color => !isColorUsed(color));
+  }, [isColorUsed]);
+
+  const getFirstAvailableColor = useCallback(() => {
+    const available = getAvailableColors();
+    return available.length > 0 ? available[0] : VENDOR_COLORS[0];
+  }, [getAvailableColors]);
+
+  // Fonctions pour l'édition des vendeuses
+  const startEditVendor = useCallback((vendor: Vendor) => {
+    setEditingVendor(vendor.id);
+    setEditVendorName(vendor.name);
+    setEditVendorEmail(vendor.email || '');
+    setEditVendorColor(vendor.color);
+    console.log('✏️ Début édition vendeuse:', vendor.name);
+  }, []);
+
+  const saveEditVendor = useCallback(() => {
+    if (!editVendorName.trim() || !editingVendor) {
+      alert('⚠️ Le nom de la vendeuse est obligatoire !');
+      return;
+    }
+
+    if (!editVendorColor) {
+      alert('⚠️ Veuillez sélectionner une couleur !');
+      return;
+    }
+
+    // Mettre à jour la vendeuse
+    const updatedVendors = vendorStats.map(vendor => 
+      vendor.id === editingVendor
+        ? {
+            ...vendor,
+            name: editVendorName.trim(),
+            email: editVendorEmail.trim(),
+            color: editVendorColor
+          }
+        : vendor
+    );
+
+    setVendorStats(updatedVendors);
+
+    // Mettre à jour la vendeuse sélectionnée si c'est celle modifiée
+    if (selectedVendor?.id === editingVendor) {
+      const updatedSelectedVendor = updatedVendors.find(v => v.id === editingVendor);
+      if (updatedSelectedVendor) {
+        setSelectedVendor(updatedSelectedVendor);
+      }
+    }
+
+    // Reset du mode édition
+    setEditingVendor(null);
+    setEditVendorName('');
+    setEditVendorEmail('');
+    setEditVendorColor('');
+
+    console.log('✅ Vendeuse modifiée:', editingVendor);
+    alert('🎉 Vendeuse modifiée avec succès !');
+  }, [editVendorName, editingVendor, editVendorColor, editVendorEmail, vendorStats, setVendorStats, selectedVendor, setSelectedVendor]);
+
+  const cancelEditVendor = useCallback(() => {
+    setEditingVendor(null);
+    setEditVendorName('');
+    setEditVendorEmail('');
+    setEditVendorColor('');
+    console.log('❌ Édition annulée');
+  }, []);
+
+  // Fonctions pour la suppression des vendeuses
+  const handleDeleteVendor = useCallback((vendorId: string) => {
+    const vendorToDelete = vendorStats.find(v => v.id === vendorId);
+    if (!vendorToDelete) return;
+
+    // Supprimer la vendeuse de la liste
+    const updatedVendors = vendorStats.filter(vendor => vendor.id !== vendorId);
+    setVendorStats(updatedVendors);
+
+    // Si c'était la vendeuse sélectionnée, sélectionner la première disponible
+    if (selectedVendor?.id === vendorId) {
+      const newSelected = updatedVendors.length > 0 ? updatedVendors[0] : null;
+      setSelectedVendor(newSelected);
+    }
+
+    setDeleteConfirm(null);
+    console.log('🗑️ Vendeuse supprimée:', vendorToDelete.name);
+    alert(`🗑️ Vendeuse "${vendorToDelete.name}" supprimée avec succès !`);
+  }, [vendorStats, setVendorStats, selectedVendor, setSelectedVendor]);
+
+  // Fonctions couleurs disponibles pour l'édition
+  const getAvailableColorsForEdit = useCallback((excludeVendorId: string) => {
+    return VENDOR_COLORS.filter(color => 
+      !vendorStats.some(vendor => vendor.color === color && vendor.id !== excludeVendorId)
+    );
+  }, [vendorStats]);
+
+  const isColorUsedForEdit = useCallback((color: string, excludeVendorId: string) => {
+    return vendorStats.some(vendor => vendor.color === color && vendor.id !== excludeVendorId);
+  }, [vendorStats]);
+
+  // Composant sélecteur de couleurs pour l'édition
+  const EditColorSelector = ({ vendorId }: { vendorId: string }) => (
+    <div style={{ margin: '10px 0' }}>
+      <label style={{ 
+        display: 'block', 
+        marginBottom: '8px', 
+        fontWeight: 'bold',
+        color: '#495057'
+      }}>
+        <Palette size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+        Couleur
+      </label>
+      
+      <div style={{
+        background: '#fff3cd',
+        border: '1px solid #ffeaa7',
+        borderRadius: '4px',
+        padding: '6px',
+        marginBottom: '8px',
+        fontSize: '12px',
+        color: '#856404'
+      }}>
+        💡 Disponibles : {getAvailableColorsForEdit(vendorId).length}/{VENDOR_COLORS.length}
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(8, 1fr)',
+        gap: '4px',
+        maxWidth: '240px'
+      }}>
+        {VENDOR_COLORS.map((color) => {
+          const isUsed = isColorUsedForEdit(color, vendorId);
+          const isSelected = color === editVendorColor;
+          
+          return (
+            <button
+              key={color}
+              type="button"
+              onClick={() => {
+                if (!isUsed) {
+                  setEditVendorColor(color);
+                  console.log('🎨 Couleur modifiée:', color);
+                }
+              }}
+              disabled={isUsed}
+              style={{
+                width: '24px',
+                height: '24px',
+                backgroundColor: color,
+                border: isSelected ? '3px solid #333' : isUsed ? '2px solid #ff1744' : '1px solid #ddd',
+                borderRadius: '6px',
+                cursor: isUsed ? 'not-allowed' : 'pointer',
+                opacity: isUsed ? 0.4 : 1,
+                transition: 'all 0.2s ease',
+                position: 'relative',
+                transform: isSelected ? 'scale(1.2)' : 'scale(1)'
+              }}
+              title={isUsed ? `Couleur déjà utilisée` : `Choisir ${color}`}
+            >
+              {isSelected && (
+                <Check 
+                  size={12} 
+                  color="white" 
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.8))'
+                  }}
+                />
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+
   // Gestion des vendeuses
   const handleAddVendor = useCallback(() => {
     if (!newVendorName.trim()) {
@@ -225,26 +426,21 @@ export default function CaisseMyConfortApp() {
       return;
     }
 
+    if (!selectedColor) {
+      alert('⚠️ Veuillez sélectionner une couleur !');
+      return;
+    }
+
     // Générer un ID unique
     const newVendorId = `vendor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    // Couleurs disponibles (éviter les doublons)
-    const usedColors = vendorStats.map(v => v.color);
-    const availableColors = [
-      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
-      '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2'
-    ];
-    const freeColors = availableColors.filter(color => !usedColors.includes(color));
-    const assignedColor = freeColors.length > 0 ? freeColors[0] : availableColors[0];
-
-    // Créer la nouvelle vendeuse
+    // Créer la nouvelle vendeuse avec la couleur choisie
     const newVendor: Vendor = {
       id: newVendorId,
       name: newVendorName.trim(),
       dailySales: 0,
       totalSales: 0,
-      color: assignedColor
+      color: selectedColor
     };
 
     // Ajouter à la liste
@@ -253,14 +449,15 @@ export default function CaisseMyConfortApp() {
     // Reset du formulaire
     setNewVendorName('');
     setNewVendorEmail('');
+    setSelectedColor('');
     setShowAddVendorForm(false);
 
     // Sélectionner automatiquement la nouvelle vendeuse
     setSelectedVendor(newVendor);
 
-    console.log('✅ Nouvelle vendeuse ajoutée:', newVendor);
-    alert(`🎉 Vendeuse "${newVendor.name}" ajoutée avec succès !`);
-  }, [newVendorName, vendorStats, setVendorStats, setNewVendorName, setNewVendorEmail, setShowAddVendorForm, setSelectedVendor]);
+    console.log('✅ Nouvelle vendeuse ajoutée avec couleur:', newVendor);
+    alert(`🎉 Vendeuse "${newVendor.name}" ajoutée avec la couleur ${selectedColor} !`);
+  }, [newVendorName, selectedColor, setVendorStats, setNewVendorName, setNewVendorEmail, setSelectedColor, setShowAddVendorForm, setSelectedVendor]);
 
   const cancelAddVendor = useCallback(() => {
     setNewVendorName('');
@@ -462,32 +659,101 @@ export default function CaisseMyConfortApp() {
                       />
                     </div>
 
-                    <div style={{
-                      background: '#d1ecf1',
-                      border: '1px solid #bee5eb',
-                      borderRadius: '4px',
-                      padding: '10px',
-                      marginBottom: '15px',
-                      fontSize: '14px',
-                      color: '#0c5460'
-                    }}>
-                      💡 <strong>Couleur automatique :</strong> Une couleur libre sera automatiquement attribuée
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                        Couleur distinctive *
+                      </label>
+                      
+                      {/* Sélecteur de couleur */}
+                      <div style={{
+                        background: '#f8f9fa',
+                        border: '2px solid #ddd',
+                        borderRadius: '8px',
+                        padding: '12px'
+                      }}>
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(40px, 1fr))',
+                          gap: '8px',
+                          maxWidth: '400px'
+                        }}>
+                          {getAvailableColors().map((color) => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setSelectedColor(color)}
+                              style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '50%',
+                                background: color,
+                                border: selectedColor === color ? '3px solid #000' : '2px solid #fff',
+                                cursor: 'pointer',
+                                boxShadow: selectedColor === color 
+                                  ? '0 0 0 2px #007bff' 
+                                  : '0 2px 4px rgba(0,0,0,0.1)',
+                                transition: 'all 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                position: 'relative'
+                              }}
+                              title={`Couleur ${color}`}
+                            >
+                              {selectedColor === color && (
+                                <Check size={20} color="#fff" style={{ filter: 'drop-shadow(1px 1px 1px rgba(0,0,0,0.5))' }} />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                        
+                        {selectedColor && (
+                          <div style={{
+                            marginTop: '12px',
+                            padding: '8px 12px',
+                            background: selectedColor,
+                            color: '#fff',
+                            borderRadius: '6px',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            textShadow: '1px 1px 2px rgba(0,0,0,0.5)'
+                          }}>
+                            ✨ Couleur sélectionnée : {selectedColor}
+                          </div>
+                        )}
+                        
+                        {!selectedColor && (
+                          <div style={{
+                            marginTop: '12px',
+                            padding: '8px 12px',
+                            background: '#fff3cd',
+                            color: '#856404',
+                            border: '1px solid #ffeaa7',
+                            borderRadius: '6px',
+                            textAlign: 'center',
+                            fontSize: '14px'
+                          }}>
+                            <Palette size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                            Sélectionnez une couleur pour identifier facilement cette vendeuse
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         onClick={handleAddVendor}
-                        disabled={!newVendorName.trim()}
+                        disabled={!newVendorName.trim() || !selectedColor}
                         style={{
-                          background: newVendorName.trim() ? '#28a745' : '#6c757d',
+                          background: (newVendorName.trim() && selectedColor) ? '#28a745' : '#6c757d',
                           color: 'white',
                           border: 'none',
                           borderRadius: '6px',
                           padding: '12px 20px',
-                          cursor: newVendorName.trim() ? 'pointer' : 'not-allowed',
+                          cursor: (newVendorName.trim() && selectedColor) ? 'pointer' : 'not-allowed',
                           fontSize: '16px',
                           fontWeight: 'bold',
-                          opacity: newVendorName.trim() ? 1 : 0.5,
+                          opacity: (newVendorName.trim() && selectedColor) ? 1 : 0.5,
                           display: 'flex',
                           alignItems: 'center',
                           gap: '6px'
@@ -533,8 +799,8 @@ export default function CaisseMyConfortApp() {
                   
                   <div style={{
                     display: 'grid',
-                    gap: '10px',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))'
+                    gap: '15px',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))'
                   }}>
                     {vendorStats.map((vendor) => (
                       <div
@@ -542,45 +808,190 @@ export default function CaisseMyConfortApp() {
                         style={{
                           background: selectedVendor?.id === vendor.id ? '#e8f5e8' : '#f8f9fa',
                           border: selectedVendor?.id === vendor.id ? '2px solid #28a745' : '1px solid #ddd',
-                          borderRadius: '6px',
-                          padding: '12px',
-                          cursor: 'pointer',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          cursor: editingVendor === vendor.id ? 'default' : 'pointer',
                           transition: 'all 0.3s ease'
                         }}
-                        onClick={() => setSelectedVendor(vendor)}
+                        onClick={() => {
+                          if (editingVendor !== vendor.id) {
+                            setSelectedVendor(vendor);
+                          }
+                        }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                          <div
-                            style={{
-                              width: '16px',
-                              height: '16px',
-                              backgroundColor: vendor.color,
-                              borderRadius: '50%',
-                              marginRight: '8px',
-                              border: '2px solid #fff',
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                            }}
-                          />
-                          <strong style={{ color: '#495057' }}>{vendor.name}</strong>
-                        </div>
-                        
-                        <div style={{ fontSize: '14px', color: '#6c757d' }}>
-                          💰 Total: {vendor.dailySales.toFixed(2)}€
-                        </div>
-                        
-                        {selectedVendor?.id === vendor.id && (
-                          <div style={{
-                            marginTop: '8px',
-                            padding: '4px 8px',
-                            background: '#28a745',
-                            color: 'white',
-                            borderRadius: '4px',
-                            textAlign: 'center',
-                            fontSize: '12px',
-                            fontWeight: 'bold'
-                          }}>
-                            ✅ Sélectionnée
+                        {editingVendor === vendor.id ? (
+                          // Mode édition
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <h4 style={{ margin: '0 0 10px 0', color: '#007bff' }}>
+                              ✏️ Modification de {vendor.name}
+                            </h4>
+                            
+                            <div style={{ marginBottom: '10px' }}>
+                              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>
+                                Nom *
+                              </label>
+                              <input
+                                type="text"
+                                value={editVendorName}
+                                onChange={(e) => setEditVendorName(e.target.value)}
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '2px solid #007bff',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                                autoFocus
+                              />
+                            </div>
+                            
+                            <div style={{ marginBottom: '10px' }}>
+                              <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold', fontSize: '14px' }}>
+                                Email
+                              </label>
+                              <input
+                                type="email"
+                                value={editVendorEmail}
+                                onChange={(e) => setEditVendorEmail(e.target.value)}
+                                placeholder="email@example.com"
+                                style={{
+                                  width: '100%',
+                                  padding: '8px',
+                                  border: '2px solid #007bff',
+                                  borderRadius: '4px',
+                                  fontSize: '14px'
+                                }}
+                              />
+                            </div>
+
+                            <EditColorSelector vendorId={vendor.id} />
+
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '15px' }}>
+                              <button
+                                onClick={saveEditVendor}
+                                disabled={!editVendorName.trim() || !editVendorColor}
+                                style={{
+                                  background: (!editVendorName.trim() || !editVendorColor) ? '#6c757d' : '#28a745',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  padding: '8px 12px',
+                                  cursor: (!editVendorName.trim() || !editVendorColor) ? 'not-allowed' : 'pointer',
+                                  fontSize: '14px',
+                                  fontWeight: 'bold',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <Check size={14} />
+                                Sauvegarder
+                              </button>
+                              
+                              <button
+                                onClick={cancelEditVendor}
+                                style={{
+                                  background: '#6c757d',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  padding: '8px 12px',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                              >
+                                <X size={14} />
+                                Annuler
+                              </button>
+                            </div>
                           </div>
+                        ) : (
+                          // Mode affichage normal
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                              <div
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  backgroundColor: vendor.color,
+                                  borderRadius: '50%',
+                                  marginRight: '10px',
+                                  border: '2px solid #fff',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                }}
+                              />
+                              <strong style={{ color: '#495057', flex: 1 }}>{vendor.name}</strong>
+                              
+                              {/* Boutons d'actions */}
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    startEditVendor(vendor);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#007bff',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                  title="Modifier cette vendeuse"
+                                >
+                                  <Edit3 size={16} />
+                                </button>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteConfirm(vendor.id);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: '#dc3545',
+                                    cursor: 'pointer',
+                                    padding: '4px',
+                                    borderRadius: '4px',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                  }}
+                                  title="Supprimer cette vendeuse"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div style={{ fontSize: '14px', color: '#6c757d', marginBottom: '8px' }}>
+                              � {vendor.email || 'Pas d\'email'}
+                            </div>
+                            
+                            <div style={{ fontSize: '14px', color: '#495057', marginBottom: '8px' }}>
+                              �💰 Total: {vendor.totalSales.toFixed(2)}€ | 📊 Aujourd'hui: {vendor.dailySales.toFixed(2)}€
+                            </div>
+                            
+                            {selectedVendor?.id === vendor.id && (
+                              <div style={{
+                                padding: '6px 10px',
+                                background: vendor.color,
+                                color: 'white',
+                                borderRadius: '4px',
+                                textAlign: 'center',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                              }}>
+                                ✅ Vendeuse sélectionnée
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     ))}
@@ -596,14 +1007,104 @@ export default function CaisseMyConfortApp() {
                   textAlign: 'center'
                 }}>
                   <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>
-                    ✅ Fonctionnalité d'ajout activée !
+                    ✅ Fonctionnalités de gestion complètes !
                   </h4>
                   <p style={{ margin: '0', color: '#155724' }}>
-                    Vous pouvez maintenant ajouter de nouvelles vendeuses avec attribution automatique des couleurs.
+                    Vous pouvez maintenant ajouter, modifier et supprimer des vendeuses avec sélection de couleurs personnalisée.
                     <br />
-                    <strong>Prochaine étape :</strong> Sélecteur de couleurs personnalisé et modification des vendeuses.
+                    <strong>✨ Nouveau :</strong> Edition et suppression des vendeuses activées !
                   </p>
                 </div>
+
+                {/* Modal de confirmation de suppression */}
+                {deleteConfirm && (
+                  <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                  }}>
+                    <div style={{
+                      background: 'white',
+                      borderRadius: '8px',
+                      padding: '25px',
+                      maxWidth: '450px',
+                      margin: '20px',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                    }}>
+                      <h3 style={{ margin: '0 0 15px 0', color: '#dc3545', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Trash2 size={24} />
+                        Confirmer la suppression
+                      </h3>
+                      
+                      <p style={{ margin: '0 0 15px 0', color: '#495057', lineHeight: '1.5' }}>
+                        Êtes-vous sûr de vouloir supprimer la vendeuse{' '}
+                        <strong style={{ color: vendorStats.find(v => v.id === deleteConfirm)?.color }}>
+                          {vendorStats.find(v => v.id === deleteConfirm)?.name}
+                        </strong> ?
+                      </p>
+                      
+                      <div style={{
+                        background: '#fff3cd',
+                        border: '1px solid #ffeaa7',
+                        borderRadius: '4px',
+                        padding: '10px',
+                        margin: '0 0 20px 0',
+                        fontSize: '14px',
+                        color: '#856404'
+                      }}>
+                        ⚠️ <strong>Attention :</strong> Cette action est irréversible ! Toutes les données de vente associées seront conservées.
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={() => setDeleteConfirm(null)}
+                          style={{
+                            background: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '10px 16px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <X size={14} />
+                          Annuler
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDeleteVendor(deleteConfirm)}
+                          style={{
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '10px 16px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <Trash2 size={14} />
+                          Supprimer définitivement
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

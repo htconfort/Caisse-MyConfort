@@ -31,6 +31,7 @@ export interface Vendor {
   dailySales: number;
   totalSales: number;
   color: string;
+  email?: string;
 }
 
 export interface Sale {
