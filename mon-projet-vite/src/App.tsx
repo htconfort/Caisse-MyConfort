@@ -11,7 +11,7 @@ import {
   vendors, 
   STORAGE_KEYS 
 } from './data';
-import { useLocalStorage } from './hooks/useLocalStorage';
+import { useIndexedStorage } from './hooks/storage/useIndexedStorage';
 import { useSyncInvoices } from './hooks/useSyncInvoices';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
@@ -24,10 +24,10 @@ import './styles/invoices-tab.css';
 export default function CaisseMyConfortApp() {
   // États principaux
   const [activeTab, setActiveTab] = useState<TabType>('vendeuse');
-  const [selectedVendor, setSelectedVendor] = useLocalStorage<Vendor | null>(STORAGE_KEYS.VENDOR, null);
-  const [cart, setCart] = useLocalStorage<ExtendedCartItem[]>(STORAGE_KEYS.CART, []);
-  const [sales, setSales] = useLocalStorage<Sale[]>(STORAGE_KEYS.SALES, []);
-  const [vendorStats, setVendorStats] = useLocalStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
+  const [selectedVendor, setSelectedVendor] = useIndexedStorage<Vendor | null>(STORAGE_KEYS.VENDOR, null);
+  const [cart, setCart] = useIndexedStorage<ExtendedCartItem[]>(STORAGE_KEYS.CART, []);
+  const [sales, setSales] = useIndexedStorage<Sale[]>(STORAGE_KEYS.SALES, []);
+  const [vendorStats, setVendorStats] = useIndexedStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
   
   // Hook pour les factures
   const { stats: invoicesStats } = useSyncInvoices();
