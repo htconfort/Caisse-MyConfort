@@ -7,7 +7,7 @@ interface InvoiceCardProps {
   onStatusChange: (invoiceId: string, itemId: string, newStatus: InvoiceItem['status']) => void;
 }
 
-export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice, onStatusChange }) => {
+export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice, onStatusChange: _onStatusChange }) => {
   const getStatusBadge = (status: Invoice['status']) => {
     const statusConfig = {
       draft: { color: 'bg-gray-500', label: '📝 Brouillon' },

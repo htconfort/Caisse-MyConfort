@@ -8,7 +8,7 @@ interface CATabProps {
   vendorStats: Vendor[];
 }
 
-export const CATab: React.FC<CATabProps> = ({ sales, vendorStats }) => {
+export const CATab: React.FC<CATabProps> = ({ sales, vendorStats: _vendorStats }) => {
   // Fonction pour récupérer la couleur d'une vendeuse
   const getVendorColor = (vendorId: string): string => {
     const vendor = vendors.find(v => v.id === vendorId);

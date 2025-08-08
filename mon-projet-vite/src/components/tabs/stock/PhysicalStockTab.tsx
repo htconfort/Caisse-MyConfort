@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Package, Search, AlertTriangle, CheckCircle, Lock, Zap, Clock, RotateCcw, FileDown, Mail, Printer, Play } from 'lucide-react';
 import type { ProductCategory } from '../../../types';
 import { PinModal } from '../../ui/PinModal';
@@ -82,84 +82,222 @@ export const PhysicalStockTab: React.FC = () => {
     }
   };
 
-  // Fonction pour effectuer la RAZ
-  const handleRAZ = async () => {
-    try {
-      setRazLoading(true);
-      setRazStep('processing');
-      
-      console.log('🔄 Début de la RAZ (Remise À Zéro)...');
-      
-      // Effectuer la RAZ via le syncService
-      const razResult = await syncService.performRAZ();
-      
-      if (razResult.success) {
-        console.log('✅ RAZ effectuée avec succès');
-        setRazStep('completed');
-        
-        // Recharger le stock physique pour refléter la remise à zéro
-        loadPhysicalStock();
-        
-        // Fermer la modale après 3 secondes
-        setTimeout(() => {
-          setShowRazModal(false);
-          setRazStep('confirm');
-        }, 3000);
-      } else {
-        console.error('❌ Erreur lors de la RAZ:', razResult.error);
-        alert(`Erreur lors de la RAZ: ${razResult.error}`);
-        setRazStep('confirm');
-      }
-    } catch (error) {
-      console.error('❌ Erreur critique lors de la RAZ:', error);
-      alert('Erreur critique lors de la RAZ. Consultez les logs.');
-      setRazStep('confirm');
-    } finally {
-      setRazLoading(false);
-    }
-  };
+  // Fonction pour effectuer la RAZ (Remise À Zéro)
+  const performRAZ = useCallback(() => {
+    const confirmed = window.confirm(
+      '⚠️ ATTENTION : Cette action va remettre TOUT le stock physique à zéro.\n\n' +
+      'Cette action est irréversible.\n\n' +
+      'Voulez-vous vraiment continuer ?'
+    );
 
-  // Fonction pour initialiser le stock d'événement
-  const handleInitEvent = async () => {
-    try {
-      setInitLoading(true);
-      
-      console.log('🚀 Initialisation du stock d\'événement...');
-      
-      // Utiliser des données d'exemple pour l'initialisation (à personnaliser selon les besoins)
-      const stockData = [
-        { productName: 'Matelas Simmons 140x190', category: 'Matelas', quantity: 10 },
-        { productName: 'Sur-matelas Duo', category: 'Sur-matelas', quantity: 15 },
-        { productName: 'Couette 220x240', category: 'Couettes', quantity: 20 },
-        { productName: 'Oreiller Dual', category: 'Oreillers', quantity: 25 },
-        { productName: 'Plateau fixe', category: 'Plateau', quantity: 8 },
-        { productName: 'Protège-matelas', category: 'Accessoires', quantity: 30 }
-      ];
-      
-      // Initialiser le stock physique
-      const initResult = syncService.initializeEventStock(stockData);
-      
-      if (initResult) {
-        console.log('✅ Stock d\'événement initialisé avec succès');
-        
-        // Recharger le stock physique pour refléter l'initialisation
-        loadPhysicalStock();
-        
-        // Fermer la modale
-        setShowInitModal(false);
-        
-        alert('Stock physique initialisé avec succès !');
-      } else {
-        console.error('❌ Erreur lors de l\'initialisation du stock');
-        alert('Erreur lors de l\'initialisation du stock d\'événement.');
+    if (confirmed) {
+      const doubleConfirm = window.confirm(
+        '🔴 DERNIÈRE CONFIRMATION\n\n' +
+        'Vous allez EFFACER tout le stock physique.\n\n' +
+        'Êtes-vous ABSOLUMENT sûr ?'
+      );
+
+      if (doubleConfirm) {
+        try {
+          setRazLoading(true);
+          setRazStep('processing');
+          
+          console.log('🔄 Début de la RAZ (Remise À Zéro)...');
+          
+          // Remettre toutes les quantités à 0 dans les données locales
+          const resetStockData = physicalStockData.map(item => ({
+            ...item,
+            currentStock: 0,
+            status: 'out' as const
+          }));
+          
+          setPhysicalStockData(resetStockData);
+          
+          // Sauvegarder en localStorage pour persistence
+          const stockUpdate = resetStockData.reduce((acc, item) => {
+            acc[item.productName] = 0;
+            return acc;
+          }, {} as Record<string, number>);
+          
+          localStorage.setItem('physical-stock-quantities', JSON.stringify(stockUpdate));
+          
+          console.log('✅ RAZ effectuée avec succès');
+          setRazStep('completed');
+          
+          // Fermer la modale après 3 secondes
+          setTimeout(() => {
+            setShowRazModal(false);
+            setRazStep('confirm');
+          }, 3000);
+          
+          console.log('📊 RAZ Stock Physique:', {
+            timestamp: new Date().toISOString(),
+            productsReset: resetStockData.length,
+            action: 'RESET_ALL_PHYSICAL_STOCK'
+          });
+          
+        } catch (error) {
+          console.error('❌ Erreur critique lors de la RAZ:', error);
+          alert('Erreur critique lors de la RAZ. Consultez les logs.');
+          setRazStep('confirm');
+        } finally {
+          setRazLoading(false);
+        }
       }
-    } catch (error) {
-      console.error('❌ Erreur critique lors de l\'initialisation:', error);
-      alert('Erreur critique lors de l\'initialisation. Consultez les logs.');
-    } finally {
-      setInitLoading(false);
     }
-  };
+  }, [physicalStockData]);
+
+  // Fonction d'origine renommée pour compatibilité
+  const handleRAZ = performRAZ;
+
+  // Fonction d'initialisation du stock pour un événement
+  const initializeEventStock = useCallback(() => {
+    const eventTypes = [
+      'Salon de l\'Habitat',
+      'Foire Commerciale', 
+      'Événement Magasin',
+      'Présentation Client',
+      'Stock Personnalisé'
+    ];
+
+    const selectedEvent = window.prompt(
+      '🎪 INITIALISATION STOCK ÉVÉNEMENT\n\n' +
+      'Choisissez le type d\'événement :\n' +
+      eventTypes.map((type, index) => `${index + 1}. ${type}`).join('\n') + '\n\n' +
+      'Entrez le numéro (1-5) :'
+    );
+
+    const eventIndex = parseInt(selectedEvent || '0') - 1;
+    
+    if (eventIndex >= 0 && eventIndex < eventTypes.length) {
+      const eventType = eventTypes[eventIndex];
+      
+      // Quantités prédéfinies selon le type d'événement
+      const eventStockPresets: Record<string, Record<string, number>> = {
+        'Salon de l\'Habitat': {
+          'Matelas Simmons 140x190': 5,
+          'Sur-matelas Duo': 15,
+          'Couette 220x240': 20,
+          'Oreiller Dual': 25,
+          'Plateau fixe': 8,
+          'Protège-matelas': 30
+        },
+        'Foire Commerciale': {
+          'Matelas Simmons 140x190': 8,
+          'Sur-matelas Duo': 20,
+          'Couette 220x240': 25,
+          'Oreiller Dual': 35,
+          'Plateau fixe': 12,
+          'Protège-matelas': 40
+        },
+        'Événement Magasin': {
+          'Matelas Simmons 140x190': 3,
+          'Sur-matelas Duo': 10,
+          'Couette 220x240': 15,
+          'Oreiller Dual': 20,
+          'Plateau fixe': 5,
+          'Protège-matelas': 25
+        },
+        'Présentation Client': {
+          'Matelas Simmons 140x190': 1,
+          'Sur-matelas Duo': 5,
+          'Couette 220x240': 8,
+          'Oreiller Dual': 10,
+          'Plateau fixe': 2,
+          'Protège-matelas': 15
+        }
+      };
+
+      let targetQuantities: Record<string, number> = {};
+
+      if (eventIndex === 4) { // Stock Personnalisé
+        const customAmount = window.prompt(
+          '📦 STOCK PERSONNALISÉ\n\n' +
+          'Entrez la quantité de base pour tous les produits\n' +
+          '(cette quantité sera appliquée à tous les articles) :'
+        );
+        
+        const baseQuantity = parseInt(customAmount || '0');
+        
+        if (baseQuantity > 0) {
+          physicalStockData.forEach(item => {
+            targetQuantities[item.productName] = baseQuantity;
+          });
+        } else {
+          alert('❌ Quantité invalide. Opération annulée.');
+          return;
+        }
+      } else {
+        targetQuantities = eventStockPresets[eventType] || {};
+      }
+
+      // Confirmation
+      const productCount = Object.keys(targetQuantities).length;
+      const totalItems = Object.values(targetQuantities).reduce((sum, qty) => sum + qty, 0);
+      
+      const confirmed = window.confirm(
+        `🎪 INITIALISATION STOCK - ${eventType}\n\n` +
+        `Produits configurés : ${productCount}\n` +
+        `Quantité totale : ${totalItems} articles\n\n` +
+        'Voulez-vous appliquer cette configuration ?'
+      );
+
+      if (confirmed) {
+        try {
+          setInitLoading(true);
+          
+          // Appliquer les nouvelles quantités aux données existantes
+          const updatedStockData = physicalStockData.map(item => {
+            const newQuantity = targetQuantities[item.productName] || item.currentStock;
+            let status: 'ok' | 'low' | 'out' = 'ok';
+            if (newQuantity === 0) status = 'out';
+            else if (newQuantity <= item.minStock) status = 'low';
+            
+            return {
+              ...item,
+              currentStock: newQuantity,
+              status
+            };
+          });
+
+          setPhysicalStockData(updatedStockData);
+          
+          // Sauvegarder en localStorage
+          const stockUpdate = updatedStockData.reduce((acc, item) => {
+            acc[item.productName] = item.currentStock;
+            return acc;
+          }, {} as Record<string, number>);
+          
+          localStorage.setItem('physical-stock-quantities', JSON.stringify(stockUpdate));
+          
+          // Fermer la modale
+          setShowInitModal(false);
+          
+          // Notification de succès
+          alert(`✅ Stock initialisé pour "${eventType}" avec succès !\n\n${productCount} produits configurés`);
+          
+          console.log('🎪 Initialisation Stock Événement:', {
+            timestamp: new Date().toISOString(),
+            eventType,
+            productsConfigured: productCount,
+            totalItems,
+            action: 'INITIALIZE_EVENT_STOCK'
+          });
+          
+        } catch (error) {
+          console.error('❌ Erreur lors de l\'initialisation:', error);
+          alert('Erreur lors de l\'initialisation du stock.');
+        } finally {
+          setInitLoading(false);
+        }
+      }
+    } else {
+      alert('❌ Sélection invalide. Opération annulée.');
+    }
+  }, [physicalStockData]);
+
+  // Fonction d'origine renommée pour compatibilité
+  const handleInitEvent = initializeEventStock;
 
   // Filtrage des produits
   const filteredStock = useMemo(() => {

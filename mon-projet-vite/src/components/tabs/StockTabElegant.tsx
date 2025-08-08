@@ -8,7 +8,8 @@ import {
   BarChart3,
   Eye,
   EyeOff,
-  MoreHorizontal
+  MoreHorizontal,
+  LucideIcon
 } from 'lucide-react';
 import { GeneralStockTab, PhysicalStockTab, CompactStockTabsNav } from './stock';
 import '../../styles/stock-elegant.css';
@@ -18,7 +19,7 @@ type StockSubTab = 'general' | 'physical';
 interface SubTabInfo {
   id: StockSubTab;
   label: string;
-  icon: React.ComponentType<{ size: number; className?: string }>;
+  icon: LucideIcon;
   color: string;
   description: string;
   gradient: string;

@@ -13,7 +13,7 @@ interface StockOverviewProps {
   };
 }
 
-export const StockOverview: React.FC<StockOverviewProps> = ({ stockItems, loading, stats }) => {
+export const StockOverview: React.FC<StockOverviewProps> = ({ stockItems, loading, stats: _stats }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'category' | 'available' | 'reserved'>('name');

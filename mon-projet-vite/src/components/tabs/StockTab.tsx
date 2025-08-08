@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Archive, Package, Truck, Store, Database } from 'lucide-react';
+import { Archive, Package, Truck, Store, Database, LucideIcon } from 'lucide-react';
 import { GeneralStockTab, TrailerEntryTab, StandEntryTab } from './stock';
 import { PhysicalStockManager } from '../PhysicalStockManager';
 
@@ -8,7 +8,7 @@ type StockSubTab = 'general' | 'trailer' | 'stand' | 'physical';
 interface SubTabInfo {
   id: StockSubTab;
   label: string;
-  icon: React.ComponentType<{ size: number; style?: React.CSSProperties }>;
+  icon: LucideIcon;
   color: string;
   description: string;
 }
