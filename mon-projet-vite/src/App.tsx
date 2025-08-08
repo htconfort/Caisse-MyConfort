@@ -80,7 +80,7 @@ export default function CaisseMyConfortApp() {
   const [vendorStats, setVendorStats] = useIndexedStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
   
   // Hook pour les factures
-  const { invoices, stats: invoicesStats } = useSyncInvoices();
+  const { invoices, stats: invoicesStats, resetInvoices } = useSyncInvoices();
   
   // États UI
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('card');
@@ -108,6 +108,7 @@ export default function CaisseMyConfortApp() {
   const [resetOptions, setResetOptions] = useState({
     dailySales: true,
     cart: true,
+    invoices: true,
     selectedVendor: false,
     vendorStats: false,
     allData: false
@@ -393,6 +394,7 @@ export default function CaisseMyConfortApp() {
       setResetOptions({
         dailySales: true,
         cart: true,
+        invoices: true,
         selectedVendor: true,
         vendorStats: true,
         allData: true
@@ -401,6 +403,7 @@ export default function CaisseMyConfortApp() {
       setResetOptions({
         dailySales: false,
         cart: false,
+        invoices: false,
         selectedVendor: false,
         vendorStats: false,
         allData: false
@@ -484,6 +487,12 @@ export default function CaisseMyConfortApp() {
           console.log('✅ RAZ panier effectuée');
         }
 
+        // RAZ des factures N8N
+        if (resetOptions.invoices) {
+          resetInvoices();
+          console.log('✅ RAZ factures N8N effectuée');
+        }
+
         // RAZ vendeuse sélectionnée
         if (resetOptions.selectedVendor) {
           setSelectedVendor(null);
@@ -505,6 +514,7 @@ export default function CaisseMyConfortApp() {
         if (resetOptions.allData) {
           setSales([]);
           setCart([]);
+          resetInvoices();
           setSelectedVendor(null);
           const resetVendors = vendorStats.map(vendor => ({
             ...vendor,
@@ -523,6 +533,7 @@ export default function CaisseMyConfortApp() {
         setResetOptions({
           dailySales: true,
           cart: true,
+          invoices: true,
           selectedVendor: false,
           vendorStats: false,
           allData: false
@@ -540,13 +551,14 @@ export default function CaisseMyConfortApp() {
         setResetStep('options');
       }
     }, 2000);
-  }, [resetOptions, vendorStats, setVendorStats, setCart, setSelectedVendor, setSales, logRAZAction]);
+  }, [resetOptions, vendorStats, setVendorStats, setCart, setSelectedVendor, setSales, resetInvoices, logRAZAction]);
 
   const resetModalStates = useCallback(() => {
     setShowResetModal(false);
     setResetOptions({
       dailySales: true,
       cart: true,
+      invoices: true,
       selectedVendor: false,
       vendorStats: false,
       allData: false
@@ -908,6 +920,32 @@ export default function CaisseMyConfortApp() {
                           </div>
                         </label>
 
+                        {/* RAZ Factures N8N */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '2px solid #e9ecef',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.invoices ? '#e3f2fd' : '#f8f9fa'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.invoices}
+                            onChange={(e) => handleResetOption('invoices', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#495057' }}>📋 Factures N8N</strong>
+                            <br />
+                            <small style={{ color: '#6c757d' }}>
+                              Efface les factures synchronisées ({invoices.length} factures)
+                            </small>
+                          </div>
+                        </label>
+
                         {/* RAZ Vendeuse sélectionnée */}
                         <label style={{
                           display: 'flex',
@@ -988,7 +1026,7 @@ export default function CaisseMyConfortApp() {
                       </div>
 
                       {/* Aperçu des actions */}
-                      {(resetOptions.dailySales || resetOptions.cart || resetOptions.selectedVendor || resetOptions.vendorStats || resetOptions.allData) && (
+                      {(resetOptions.dailySales || resetOptions.cart || resetOptions.invoices || resetOptions.selectedVendor || resetOptions.vendorStats || resetOptions.allData) && (
                         <div style={{
                           background: '#fff3cd',
                           border: '1px solid #ffeaa7',
@@ -1002,6 +1040,7 @@ export default function CaisseMyConfortApp() {
                           <ul style={{ margin: 0, paddingLeft: '20px', color: '#856404' }}>
                             {resetOptions.dailySales && <li>Remise à zéro des ventes du jour</li>}
                             {resetOptions.cart && <li>Vidage du panier ({cart.length} articles)</li>}
+                            {resetOptions.invoices && <li>📋 Effacement des factures N8N ({invoices.length} factures)</li>}
                             {resetOptions.selectedVendor && <li>Désélection de la vendeuse active</li>}
                             {resetOptions.vendorStats && <li>Remise à zéro des statistiques vendeuses</li>}
                             {resetOptions.allData && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>🚨 SUPPRESSION COMPLÈTE DE TOUTES LES DONNÉES</li>}

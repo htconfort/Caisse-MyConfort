@@ -328,45 +328,44 @@ export const GeneralStockTab: React.FC = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b-2" style={{ borderColor: '#E5E7EB' }}>
-                  <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Statut</th>
-                  <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Produit</th>
-                  <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Catégorie</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock actuel</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock min</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Dernière MAJ</th>
+                  <th className="cell font-bold" style={{ color: '#000000' }}>Statut</th>
+                  <th className="cell font-bold" style={{ color: '#000000' }}>Produit</th>
+                  <th className="cell font-bold" style={{ color: '#000000' }}>Catégorie</th>
+                  <th className="cell cell--amount font-bold" style={{ color: '#000000' }}>Stock actuel</th>
+                  <th className="cell cell--amount font-bold" style={{ color: '#000000' }}>Stock min</th>
+                  <th className="cell cell--amount font-bold" style={{ color: '#000000' }}>Dernière MAJ</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredStock.map((item, index) => {
                   const StatusIcon = getStatusIcon(item.status);
                   const statusColor = getStatusColor(item.status);
-                  const productKey = `${item.productName}-${index}`;
                   
                   return (
                     <tr 
-                      key={productKey}
-                      className="border-b hover:bg-gray-50 transition-colors"
+                      key={item.productName + '|' + item.lastUpdated.getTime() + '|' + index}
+                      className="row-elegant"
                       style={{ borderColor: '#F3F4F6' }}
                     >
-                      <td className="py-3 px-4">
+                      <td className="cell">
                         <div className="flex items-center gap-2">
                           <StatusIcon size={20} style={{ color: statusColor }} />
-                          <span className="text-sm font-semibold" style={{ color: statusColor }}>
+                          <span className={`pill ${item.status === 'ok' ? 'pill--success' : item.status === 'low' ? 'pill--info' : 'pill--danger'}`}>
                             {item.status === 'ok' ? 'OK' : item.status === 'low' ? 'Faible' : 'Rupture'}
                           </span>
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold" style={{ color: '#000000' }}>
+                      <td className="cell">
+                        <div className="cell-title" style={{ color: '#000000' }}>
                           {item.productName}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm" style={{ color: '#6B7280' }}>
+                      <td className="cell">
+                        <span className="pill pill--neutral">
                           {item.category}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="cell cell--amount">
                         {isEditUnlocked ? (
                           <input
                             type="number"
@@ -406,13 +405,13 @@ export const GeneralStockTab: React.FC = () => {
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-medium" style={{ color: '#6B7280' }}>
+                      <td className="cell cell--amount">
+                        <span className="pill pill--brand">
                           {item.minStock}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-xs" style={{ color: '#6B7280' }}>
+                      <td className="cell cell--amount">
+                        <span className="cell-sub">
                           {new Date().toLocaleString('fr-FR')}
                         </span>
                       </td>

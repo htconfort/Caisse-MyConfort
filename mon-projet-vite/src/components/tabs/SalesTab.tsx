@@ -10,19 +10,30 @@ interface SalesTabProps {
   invoices: Invoice[];
 }
 
+// Format € solide
+const fmtEUR = (n: number) =>
+  new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
+
+// Libellé paiement
+const paymentLabel = (p: Sale['paymentMethod']) =>
+  p === 'card' ? 'Carte'
+  : p === 'cash' ? 'Espèces'
+  : p === 'check' ? 'Chèque'
+  : 'Virement';
+
 export function SalesTab({ sales, invoices }: SalesTabProps) {
-  // Fonction utilitaire pour récupérer la couleur d'une vendeuse
+  // Couleur vendeuse depuis ton data store
   const getVendorColor = (vendorId: string): string => {
     const vendor = vendors.find(v => v.id === vendorId);
-    return vendor?.color || '#6B7280'; // Couleur par défaut si vendeuse non trouvée
+    return vendor?.color || '#6B7280';
   };
 
-  // 🔧 NOUVEAU : Convertir les factures N8N en "ventes externes" pour l'historique
-  const invoicesAsSales = useMemo((): Sale[] => {
+  // Convertir factures N8N -> ventes externes
+  const invoicesAsSales = useMemo<Sale[]>(() => {
     return invoices.map((invoice) => ({
       id: `n8n-${invoice.id}`,
-      date: invoice.createdAt, // Objet Date requis
-      vendorId: invoice.vendorId || '1', // Par défaut Sylvie si pas de vendorId
+      date: invoice.createdAt,
+      vendorId: invoice.vendorId || '1',
       vendorName: invoice.vendorName || 'N8N',
       items: invoice.items.map(item => ({
         id: item.id,
@@ -30,352 +41,383 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
         category: item.category,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
-        price: item.unitPrice, // Propriété requise par ExtendedCartItem
+        price: item.unitPrice,
         totalPrice: item.totalPrice || item.unitPrice * item.quantity,
-        addedAt: invoice.createdAt // Objet Date requis par ExtendedCartItem
+        addedAt: invoice.createdAt
       })),
-      totalAmount: invoice.totalTTC || invoice.items.reduce((sum, item) => 
-        sum + (item.totalPrice || item.unitPrice * item.quantity), 0),
-      paymentMethod: 'card', // Utiliser un mode de paiement valide par défaut
+      totalAmount:
+        invoice.totalTTC ||
+        invoice.items.reduce((sum, it) => sum + (it.totalPrice || it.unitPrice * it.quantity), 0),
+      paymentMethod: 'card',
       canceled: false,
-      isExternal: true, // Flag pour distinguer les ventes externes
+      isExternal: true,
       clientName: invoice.clientName,
       invoiceNumber: invoice.number
     }));
   }, [invoices]);
 
-  // 🔧 FUSIONNER : ventes caisse + factures N8N converties
+  // Fusion & tri descendant
   const allSales = useMemo(() => {
-    return [...sales, ...invoicesAsSales].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
+    return [...sales, ...invoicesAsSales].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
   }, [sales, invoicesAsSales]);
 
-  // Calculs dérivés basés sur TOUTES les ventes (caisse + N8N)
+  // KPIs du jour
   const todaySales = useMemo(() => {
     const today = new Date().toDateString();
     return allSales
-      .filter(sale => new Date(sale.date).toDateString() === today && !sale.canceled)
-      .reduce((sum, sale) => sum + sale.totalAmount, 0);
+      .filter(s => new Date(s.date).toDateString() === today && !s.canceled)
+      .reduce((sum, s) => sum + s.totalAmount, 0);
   }, [allSales]);
 
   const todaySalesCount = useMemo(() => {
     const today = new Date().toDateString();
-    return allSales.filter(sale => new Date(sale.date).toDateString() === today && !sale.canceled).length;
+    return allSales.filter(s => new Date(s.date).toDateString() === today && !s.canceled).length;
   }, [allSales]);
 
-  const averageTicket = useMemo(() => {
-    return todaySalesCount > 0 ? todaySales / todaySalesCount : 0;
-  }, [todaySales, todaySalesCount]);
+  const averageTicket = useMemo(
+    () => (todaySalesCount > 0 ? todaySales / todaySalesCount : 0),
+    [todaySales, todaySalesCount]
+  );
 
+  // Export CSV
   const handleExportCSV = () => {
     if (allSales.length === 0) return;
-    
     const csvContent = convertToCSV(allSales);
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `ventes_complete_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ventes_complete_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const lastSale = allSales[0];
+
+  // Palette de couleurs sympathiques pour les blocs
+  const colors = {
+    kpis: {
+      ventesJour: { bg: 'linear-gradient(135deg, #E8F5E8 0%, #F0FDF4 100%)', border: '#10B981', text: '#064E3B' },
+      panierMoyen: { bg: 'linear-gradient(135deg, #EFF6FF 0%, #F0F9FF 100%)', border: '#3B82F6', text: '#1E3A8A' },
+      nombreVentes: { bg: 'linear-gradient(135deg, #FEF3E2 0%, #FFFBEB 100%)', border: '#F59E0B', text: '#92400E' }
+    },
+    derniereVente: {
+      bg: 'linear-gradient(135deg, #FDF2F8 0%, #FCF2F8 100%)',
+      border: '#EC4899',
+      accent: '#BE185D'
+    },
+    caisse: {
+      bg: 'linear-gradient(135deg, #F0F9FF 0%, #E0F2FE 100%)',
+      border: '#0EA5E9',
+      badge: '#0284C7'
+    },
+    facturier: {
+      bg: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)',
+      border: '#8B5CF6',
+      badge: '#7C3AED'
+    }
   };
 
   return (
     <div className="animate-fadeIn">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold" style={{ color: '#000000' }}>
-          Historique des ventes
-        </h2>
-        
+      {/* En-tête sticky + CTA */}
+      <div className="section-header flex justify-between items-center">
+        <h2 className="text-3xl font-bold vendor-black-text">Historique des ventes</h2>
         {allSales.length > 0 && (
           <button
             onClick={handleExportCSV}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-2 touch-feedback"
+            aria-label="Exporter les ventes au format CSV"
           >
-            <Download size={16} />
+            <Download size={18} />
             Exporter CSV
           </button>
         )}
       </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="card text-center">
-          <h3 className="text-sm font-semibold mb-2" style={{ color: '#000000' }}>
-            Ventes du jour
+
+      {/* KPIs (3 cards) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div 
+          className="card text-center"
+          style={{
+            background: colors.kpis.ventesJour.bg,
+            borderLeft: `4px solid ${colors.kpis.ventesJour.border}`,
+            borderTop: `1px solid ${colors.kpis.ventesJour.border}20`
+          }}
+        >
+          <h3 className="text-sm font-semibold mb-2" style={{ color: colors.kpis.ventesJour.text }}>
+            💰 Ventes du jour
           </h3>
-          <p className="text-2xl font-bold" style={{ color: '#000000' }}>
-            {todaySales.toFixed(2)}€
+          <p className="text-3xl font-bold" style={{ color: colors.kpis.ventesJour.text }}>
+            {fmtEUR(todaySales)}
           </p>
         </div>
-        
-        <div className="card text-center">
-          <h3 className="text-sm font-semibold mb-2" style={{ color: '#000000' }}>
-            Panier moyen
+        <div 
+          className="card text-center"
+          style={{
+            background: colors.kpis.panierMoyen.bg,
+            borderLeft: `4px solid ${colors.kpis.panierMoyen.border}`,
+            borderTop: `1px solid ${colors.kpis.panierMoyen.border}20`
+          }}
+        >
+          <h3 className="text-sm font-semibold mb-2" style={{ color: colors.kpis.panierMoyen.text }}>
+            🛒 Panier moyen
           </h3>
-          <p className="text-2xl font-bold" style={{ color: '#000000' }}>
-            {averageTicket.toFixed(2)}€
+          <p className="text-3xl font-bold" style={{ color: colors.kpis.panierMoyen.text }}>
+            {fmtEUR(averageTicket)}
           </p>
         </div>
-        
-        <div className="card text-center">
-          <h3 className="text-sm font-semibold mb-2" style={{ color: '#000000' }}>
-            Nombre de ventes
+        <div 
+          className="card text-center"
+          style={{
+            background: colors.kpis.nombreVentes.bg,
+            borderLeft: `4px solid ${colors.kpis.nombreVentes.border}`,
+            borderTop: `1px solid ${colors.kpis.nombreVentes.border}20`
+          }}
+        >
+          <h3 className="text-sm font-semibold mb-2" style={{ color: colors.kpis.nombreVentes.text }}>
+            📊 Nombre de ventes
           </h3>
-          <p className="text-2xl font-bold" style={{ color: '#000000' }}>
+          <p className="text-3xl font-bold" style={{ color: colors.kpis.nombreVentes.text }}>
             {todaySalesCount}
           </p>
         </div>
       </div>
 
-      {/* Bloc Dernière vente globale */}
-      {allSales.length > 0 && (
-        <div className="card mb-6" style={{ 
-          background: 'linear-gradient(135deg, #E8E3D3 0%, #F5F5F0 100%)',
-          borderLeft: '6px solid #8B7355'
-        }}>
-          <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: '#000000' }}>
+      {/* Dernière vente */}
+      {lastSale && (
+        <div
+          className="card mb-6"
+          style={{
+            background: colors.derniereVente.bg,
+            borderLeft: `6px solid ${colors.derniereVente.border}`,
+            borderTop: `2px solid ${colors.derniereVente.border}30`
+          }}
+        >
+          <h3 className="text-lg font-bold mb-4" style={{ color: colors.derniereVente.accent }}>
             🏆 Dernière vente enregistrée
           </h3>
-          
-          {(() => {
-            const lastSale = allSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-            const isFromCaisse = !lastSale.id?.toString().startsWith('n8n-');
-            
-            return (
-              <div className="flex items-center justify-between p-4 rounded-lg" style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                border: '2px solid #8B7355'
-              }}>
-                <div className="flex items-center gap-4">
-                  <div className="text-3xl">
-                    {isFromCaisse ? '📱' : '📋'}
-                  </div>
-                  <div>
-                    <p className="font-bold text-lg" style={{ color: '#000000' }}>
-                      {isFromCaisse ? 'Vente Caisse' : 'Vente Facturier'}
-                    </p>
-                    <p className="text-sm" style={{ color: '#666' }}>
-                      {lastSale.vendorName} • {new Date(lastSale.date).toLocaleString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold" style={{ color: '#000000' }}>
-                    {lastSale.totalAmount.toFixed(2)}€
-                  </p>
-                  <p className="text-sm" style={{ color: '#666' }}>
-                    {lastSale.items.reduce((sum, item) => sum + item.quantity, 0)} article(s)
-                  </p>
-                </div>
+          <div
+            className="flex justify-between items-center p-4 rounded-lg"
+            style={{ 
+              backgroundColor: 'rgba(255,255,255,0.7)', 
+              border: `2px solid ${colors.derniereVente.border}`,
+              boxShadow: `0 2px 8px ${colors.derniereVente.border}20`
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="text-3xl" aria-hidden>
+                {String(lastSale.id).startsWith('n8n-') ? '📋' : '📱'}
               </div>
-            );
-          })()}
+              <div>
+                <p className="text-xl font-bold" style={{ color: colors.derniereVente.accent }}>
+                  {String(lastSale.id).startsWith('n8n-') ? 'Vente Facturier' : 'Vente Caisse'}
+                </p>
+                <p className="text-sm" style={{ color: '#666' }}>
+                  {lastSale.vendorName} • {new Date(lastSale.date).toLocaleString('fr-FR')}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold" style={{ color: colors.derniereVente.accent }}>
+                {fmtEUR(lastSale.totalAmount)}
+              </p>
+              <p className="text-sm" style={{ color: '#666' }}>
+                {lastSale.items.reduce((s, it) => s + it.quantity, 0)} article(s)
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Section Ventes Caisse */}
-      <div className="card mb-6">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: '#000000' }}>
-          📱 Ventes Caisse (iPad)
-          <span className="text-sm font-normal px-2 py-1 rounded" style={{ 
-            backgroundColor: '#E8E3D3', 
-            color: '#000000' 
-          }}>
+      {/* Ventes Caisse */}
+      <div 
+        className="card mb-6"
+        style={{
+          background: colors.caisse.bg,
+          borderLeft: `6px solid ${colors.caisse.border}`,
+          borderTop: `2px solid ${colors.caisse.border}30`
+        }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-bold" style={{ color: colors.caisse.badge }}>
+            📱 Ventes Caisse (iPad)
+          </h3>
+          <span 
+            className="rounded-full text-xs font-semibold px-3 py-1"
+            style={{ 
+              background: `${colors.caisse.badge}20`, 
+              color: colors.caisse.badge,
+              border: `1px solid ${colors.caisse.badge}40`
+            }}
+          >
             {sales.filter(s => !s.canceled).length} vente{sales.filter(s => !s.canceled).length > 1 ? 's' : ''}
           </span>
-        </h3>
-        
+        </div>
+
         {sales.length === 0 ? (
           <div className="text-center py-8">
             <p style={{ color: '#666' }}>Aucune vente caisse enregistrée</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b" style={{ borderColor: '#E5E7EB' }}>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Date/Heure
-                  </th>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Vendeuse
-                  </th>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Articles
-                  </th>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Paiement
-                  </th>
-                  <th className="text-right py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Montant
-                  </th>
-                  <th className="text-center py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Statut
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sales
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .slice(0, 10)
-                  .map((sale, index) => (
-                    <tr 
-                      key={sale.id || index} 
-                      className="border-b relative" 
-                      style={{ 
-                        borderColor: '#F3F4F6',
-                        borderLeft: `6px solid ${getVendorColor(sale.vendorId)}`,
-                        backgroundColor: `${getVendorColor(sale.vendorId)}15`
-                      }}
-                    >
-                      <td className="py-2 px-3 text-sm" style={{ color: '#000000' }}>
-                        {new Date(sale.date).toLocaleDateString('fr-FR')} {new Date(sale.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="py-2 px-3 text-sm font-medium">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: getVendorColor(sale.vendorId) }}
-                          ></div>
-                          <span style={{ color: '#000000' }}>
-                            {sale.vendorName}
+          <div className="rounded-lg border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
+            <div className="table-scroll table-sticky">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: '#E5E7EB' }}>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Date/Heure</th>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Vendeuse</th>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Articles</th>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Paiement</th>
+                    <th className="text-right py-3 px-4 font-semibold vendor-black-text">Montant</th>
+                    <th className="text-center py-3 px-4 font-semibold vendor-black-text">Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sales
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, 10)
+                    .map((sale, idx) => (
+                      <tr
+                        key={(sale.id ? String(sale.id) : '') + '|' + new Date(sale.date).getTime() + '|' + idx}
+                        className="border-b"
+                        style={{
+                          borderColor: '#F3F4F6',
+                          borderLeft: `6px solid ${getVendorColor(sale.vendorId)}`,
+                          background: `${getVendorColor(sale.vendorId)}15`
+                        }}
+                      >
+                        <td className="py-3 px-4 vendor-black-text">
+                          {new Date(sale.date).toLocaleDateString('fr-FR')}{' '}
+                          {new Date(sale.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full" style={{ background: getVendorColor(sale.vendorId) }} />
+                            <span className="font-semibold vendor-black-text">{sale.vendorName}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 vendor-black-text">
+                          {sale.items.reduce((sum, it) => sum + it.quantity, 0)} article(s)
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-1 rounded text-xs" style={{ background: '#F3F4F6', color: '#374151' }}>
+                            {paymentLabel(sale.paymentMethod)}
                           </span>
-                        </div>
-                      </td>
-                      <td className="py-2 px-3 text-sm" style={{ color: '#000000' }}>
-                        {sale.items.reduce((sum, item) => sum + item.quantity, 0)} article(s)
-                      </td>
-                      <td className="py-2 px-3 text-sm">
-                        <span className="px-2 py-1 rounded text-xs" style={{ 
-                          backgroundColor: '#E8E3D3', 
-                          color: '#000000' 
-                        }}>
-                          {sale.paymentMethod === 'card' ? 'Carte' : 
-                           sale.paymentMethod === 'cash' ? 'Espèces' : 
-                           sale.paymentMethod === 'check' ? 'Chèque' : 'Virement'}
-                        </span>
-                      </td>
-                      <td className="py-2 px-3 text-sm text-right font-bold" style={{ color: '#000000' }}>
-                        {sale.totalAmount.toFixed(2)}€
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {sale.canceled ? (
-                          <span className="px-2 py-1 rounded text-xs" style={{ 
-                            backgroundColor: '#FEE2E2', 
-                            color: '#DC2626' 
-                          }}>
-                            Annulée
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 rounded text-xs" style={{ 
-                            backgroundColor: '#D1FAE5', 
-                            color: '#059669' 
-                          }}>
-                            Validée
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold vendor-black-text">
+                          {fmtEUR(sale.totalAmount)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {sale.canceled ? (
+                            <span className="px-2 py-1 rounded text-xs" style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                              Annulée
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded text-xs" style={{ background: '#D1FAE5', color: '#059669' }}>
+                              Validée
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Section Ventes Facturier */}
-      <div className="card">
-        <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: '#000000' }}>
-          📋 Ventes Facturier (N8N)
-          <span className="text-sm font-normal px-2 py-1 rounded" style={{ 
-            backgroundColor: '#E3F2FD', 
-            color: '#1976D2' 
-          }}>
+      {/* Ventes Facturier (N8N) */}
+      <div 
+        className="card"
+        style={{
+          background: colors.facturier.bg,
+          borderLeft: `6px solid ${colors.facturier.border}`,
+          borderTop: `2px solid ${colors.facturier.border}30`
+        }}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-lg font-bold" style={{ color: colors.facturier.badge }}>
+            📋 Ventes Facturier (N8N)
+          </h3>
+          <span 
+            className="rounded-full text-xs font-semibold px-3 py-1"
+            style={{ 
+              background: `${colors.facturier.badge}20`, 
+              color: colors.facturier.badge,
+              border: `1px solid ${colors.facturier.badge}40`
+            }}
+          >
             {invoicesAsSales.length} facture{invoicesAsSales.length > 1 ? 's' : ''}
           </span>
-        </h3>
-        
+        </div>
+
         {invoicesAsSales.length === 0 ? (
           <div className="text-center py-8">
             <p style={{ color: '#666' }}>Aucune facture N8N synchronisée</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b" style={{ borderColor: '#E5E7EB' }}>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Date/Heure
-                  </th>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Conseillère
-                  </th>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Client
-                  </th>
-                  <th className="text-left py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Facture N°
-                  </th>
-                  <th className="text-right py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Montant
-                  </th>
-                  <th className="text-center py-2 px-3 text-sm font-semibold" style={{ color: '#000000' }}>
-                    Source
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoicesAsSales
-                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                  .slice(0, 10)
-                  .map((invoice, index) => (
-                    <tr 
-                      key={invoice.id || index} 
-                      className="border-b relative" 
-                      style={{ 
-                        borderColor: '#F3F4F6',
-                        borderLeft: `6px solid ${getVendorColor(invoice.vendorId)}`,
-                        backgroundColor: `${getVendorColor(invoice.vendorId)}10`
-                      }}
-                    >
-                      <td className="py-2 px-3 text-sm" style={{ color: '#000000' }}>
-                        {new Date(invoice.date).toLocaleDateString('fr-FR')} {new Date(invoice.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                      <td className="py-2 px-3 text-sm font-medium">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: getVendorColor(invoice.vendorId) }}
-                          ></div>
-                          <span style={{ color: '#000000' }}>
-                            {invoice.vendorName}
+          <div className="rounded-lg border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
+            <div className="table-scroll table-sticky">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b" style={{ borderColor: '#E5E7EB' }}>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Date/Heure</th>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Conseillère</th>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Client</th>
+                    <th className="text-left py-3 px-4 font-semibold vendor-black-text">Facture N°</th>
+                    <th className="text-right py-3 px-4 font-semibold vendor-black-text">Montant</th>
+                    <th className="text-center py-3 px-4 font-semibold vendor-black-text">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoicesAsSales
+                    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                    .slice(0, 10)
+                    .map((invoice, idx) => (
+                      <tr
+                        key={String(invoice.id) + '|' + new Date(invoice.date).getTime() + '|' + idx}
+                        className="border-b"
+                        style={{
+                          borderColor: '#F3F4F6',
+                          borderLeft: `6px solid ${getVendorColor(invoice.vendorId)}`,
+                          background: `${getVendorColor(invoice.vendorId)}10`
+                        }}
+                      >
+                        <td className="py-3 px-4 vendor-black-text">
+                          {new Date(invoice.date).toLocaleDateString('fr-FR')}{' '}
+                          {new Date(invoice.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full" style={{ background: getVendorColor(invoice.vendorId) }} />
+                            <span className="font-semibold vendor-black-text">{invoice.vendorName}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 vendor-black-text">
+                          {invoice.items[0]?.name || 'Client N8N'}
+                        </td>
+                        <td className="py-3 px-4 font-mono" style={{ color: 'var(--secondary-blue)' }}>
+                          #{String(invoice.id).replace('n8n-', '')}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold vendor-black-text">
+                          {fmtEUR(invoice.totalAmount)}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="px-2 py-1 rounded text-xs" style={{ background: '#E3F2FD', color: '#1976D2' }}>
+                            Facturier
                           </span>
-                        </div>
-                      </td>
-                      <td className="py-2 px-3 text-sm" style={{ color: '#000000' }}>
-                        {invoice.items[0]?.name || 'Client N8N'}
-                      </td>
-                      <td className="py-2 px-3 text-sm font-mono" style={{ color: '#1976D2' }}>
-                        #{invoice.id?.toString().replace('n8n-', '')}
-                      </td>
-                      <td className="py-2 px-3 text-sm text-right font-bold" style={{ color: '#000000' }}>
-                        {invoice.totalAmount.toFixed(2)}€
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        <span className="px-2 py-1 rounded text-xs" style={{ 
-                          backgroundColor: '#E3F2FD', 
-                          color: '#1976D2' 
-                        }}>
-                          Facturier
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

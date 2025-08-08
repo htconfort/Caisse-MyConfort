@@ -29,7 +29,7 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Couettes', name: 'Couette 220x240', priceTTC: 300, autoCalculateHT: true },
   { category: 'Couettes', name: 'Couette 240 x 260', priceTTC: 350, autoCalculateHT: true },
   
-  // Oreillers (13) - Packs limités à Douceur, Panama et Papillon
+  // Oreillers (14) - Packs limités à Douceur, Panama et Papillon
   { category: 'Oreillers', name: 'Oreiller Douceur', priceTTC: 80, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Thalasso', priceTTC: 60, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Oreiller Dual', priceTTC: 60, autoCalculateHT: true },
@@ -39,6 +39,7 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Oreillers', name: 'Oreiller Voyage', priceTTC: 35, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 140', priceTTC: 140, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 160', priceTTC: 160, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack deux oreillers', priceTTC: 100, autoCalculateHT: true },
   
   // Plateaux (10)
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 70 x 190', priceTTC: 70, autoCalculateHT: true },

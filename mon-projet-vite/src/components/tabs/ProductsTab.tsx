@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { AlertCircle } from 'lucide-react';
 import type { 
   TabType, 
   Vendor, 
@@ -16,6 +15,7 @@ import {
 } from '../../utils';
 import { useDebounce } from '../../hooks/useDebounce';
 import { SearchBar } from '../ui/SearchBar';
+import { PriceInputModal } from '../ui/PriceInputModal';
 
 interface ProductsTabProps {
   selectedVendor: Vendor | null;
@@ -33,7 +33,17 @@ export function ProductsTab({
   setSearchTerm
 }: ProductsTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Tous'>('Matelas');
+  const [showPriceModal, setShowPriceModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<CatalogProduct | null>(null);
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Gestion du prix libre
+  const handlePriceConfirm = (product: CatalogProduct, price: number) => {
+    const productWithPrice = { ...product, priceTTC: price };
+    addToCart(productWithPrice);
+    setShowPriceModal(false);
+    setSelectedProduct(null);
+  };
 
   // Filtrage des produits
   const filteredProducts = useMemo(() => {
@@ -44,30 +54,6 @@ export function ProductsTab({
       return matchesCategory && matchesSearch;
     });
   }, [selectedCategory, debouncedSearchTerm]);
-
-  // Si pas de vendeuse sélectionnée
-  if (!selectedVendor) {
-    return (
-      <div className="max-w-2xl mx-auto text-center animate-fadeIn">
-        <div className="card">
-          <AlertCircle size={48} className="mx-auto mb-4" style={{ color: 'var(--warning-red)' }} />
-          <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--dark-green)' }}>
-            Vendeuse non sélectionnée
-          </h2>
-          <p className="mb-6" style={{ color: '#6B7280' }}>
-            Vous pouvez naviguer librement dans tous les onglets, mais pour ajouter des produits au panier, 
-            veuillez d'abord sélectionner une vendeuse.
-          </p>
-          <button
-            onClick={() => setActiveTab('vendeuse')}
-            className="btn-primary"
-          >
-            Sélectionner une vendeuse
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="animate-fadeIn">
@@ -132,8 +118,13 @@ export function ProductsTab({
           // const textColor = getTextColor(backgroundColor); // Supprimé car non utilisé
           const isSpecialCategory = backgroundColor !== 'white';
           
-          // Créer un dégradé spécifique à chaque catégorie (sauf oreillers)
-          const getGradientBackground = (category: string) => {
+          // Créer un dégradé spécifique à chaque catégorie avec cas spécial pour Pack oreillers
+          const getGradientBackground = (category: string, productName?: string) => {
+            // Cas spécial: Pack oreillers en rouge
+            if (category === 'Oreillers' && productName?.toLowerCase().includes('pack')) {
+              return '#DC2626'; // Fond rouge pour Pack oreillers
+            }
+            
             switch (category) {
               case 'Matelas':
                 return 'linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%)'; // Bleu
@@ -142,7 +133,7 @@ export function ProductsTab({
               case 'Couettes':
                 return 'linear-gradient(135deg, #8B5CF6 0%, #5B21B6 100%)'; // Violet
               case 'Oreillers':
-                return '#F2EFE2'; // Fond beige uni pour les oreillers
+                return '#F2EFE2'; // Fond beige uni pour les oreillers normaux
               case 'Plateau':
                 return '#000000'; // Fond noir pour les plateaux
               case 'Accessoires':
@@ -157,11 +148,24 @@ export function ProductsTab({
           return (
             <div
               key={`${product.name}-${index}`}
-              onClick={() => addToCart({...product, priceTTC: discountedPrice})}
-              className="touch-feedback cursor-pointer relative overflow-hidden transition-all hover:shadow-lg"
+              onClick={() => {
+                if (!selectedVendor) {
+                  setActiveTab('vendeuse'); // Rediriger vers l'onglet vendeuse
+                } else if (product.priceTTC === 0) {
+                  // Produit à prix libre - ouvrir le modal de saisie
+                  setSelectedProduct(product);
+                  setShowPriceModal(true);
+                } else if (product.priceTTC > 0) {
+                  // Produit avec prix fixe - ajouter directement
+                  addToCart({...product, priceTTC: discountedPrice});
+                }
+              }}
+              className={`touch-feedback relative overflow-hidden transition-all hover:shadow-lg ${
+                selectedVendor ? 'cursor-pointer' : 'cursor-not-allowed'
+              }`}
               style={{
-                background: getGradientBackground(product.category),
-                color: (product.category === 'Oreillers') ? '#000000' : 'white', // Texte noir pour oreillers, blanc pour les autres
+                background: getGradientBackground(product.category, product.name),
+                color: (product.category === 'Oreillers') ? (product.name.toLowerCase().includes('pack') ? '#FFFFFF' : '#000000') : 'white', // Texte blanc pour pack oreillers rouge, noir pour oreillers normaux, blanc pour les autres
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -172,8 +176,7 @@ export function ProductsTab({
                 maxHeight: '180px',
                 border: (product.category === 'Oreillers' || product.category === 'Sur-matelas' || product.category === 'Couettes' || product.category === 'Plateau' || product.category === 'Accessoires') ? '3px solid #000000' : '1px solid rgba(0,0,0,0.1)',
                 borderRadius: '8px',
-                opacity: product.priceTTC === 0 ? 0.5 : 1,
-                pointerEvents: product.priceTTC === 0 ? 'none' : 'auto',
+                opacity: product.priceTTC === 0 ? 0.5 : (!selectedVendor ? 0.7 : 1),
                 transform: 'scale(1)',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
               }}
@@ -246,7 +249,7 @@ export function ProductsTab({
                       {/* Affichage pour les oreillers normaux */}
                       {/* 1. Catégorie "Oreillers" ou "Pack oreillers" */}
                       <p style={{ 
-                        color: '#000000',
+                        color: product.name.toLowerCase().includes('pack') ? '#FFFFFF' : '#000000',
                         fontSize: '14px',
                         fontWeight: '600',
                         marginBottom: '8px',
@@ -255,9 +258,9 @@ export function ProductsTab({
                         {product.name.toLowerCase().includes('pack') ? 'Pack oreillers' : 'Oreillers'}
                       </p>
                       
-                      {/* 2. Nom spécifique de l'oreiller ou du pack - 28px - ROUGE */}
+                      {/* 2. Nom spécifique de l'oreiller ou du pack - 28px */}
                       <h3 style={{ 
-                        color: '#FF0000',
+                        color: product.name.toLowerCase().includes('pack') ? '#FFFFFF' : '#FF0000',
                         fontSize: '28px',
                         fontWeight: 'bold',
                         marginBottom: '8px',
@@ -276,7 +279,7 @@ export function ProductsTab({
                       
                       {/* 3. Prix */}
                       <p style={{ 
-                        color: '#000000',
+                        color: product.name.toLowerCase().includes('pack') ? '#FFFFFF' : '#000000',
                         fontSize: '20px',
                         fontWeight: 'bold',
                         lineHeight: '1',
@@ -402,6 +405,28 @@ export function ProductsTab({
                 }}>
                   ⚠️ Complémentaire
                 </p>
+              )}
+
+              {/* Indicateur vendeuse non sélectionnée */}
+              {!selectedVendor && product.priceTTC > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                  color: 'white',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  textAlign: 'center',
+                  zIndex: 10,
+                  border: '2px solid #F59E0B',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+                }}>
+                  👤 Sélectionner<br/>une vendeuse
+                </div>
               )}
             </div>
           );

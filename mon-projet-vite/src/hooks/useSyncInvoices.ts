@@ -101,6 +101,19 @@ export const useSyncInvoices = () => {
     );
   }, [invoices]);
 
+  // Réinitialiser les factures (pour RAZ)
+  const resetInvoices = useCallback(() => {
+    setInvoices([]);
+    setStats({
+      totalInvoices: 0,
+      pendingInvoices: 0,
+      partialInvoices: 0,
+      lastSyncTime: null,
+      syncStatus: 'idle'
+    });
+    console.log('🔄 Reset des factures N8N effectué');
+  }, []);
+
   // Effet pour la synchronisation initiale et automatique
   useEffect(() => {
     syncInvoices();
@@ -109,7 +122,7 @@ export const useSyncInvoices = () => {
     syncService.startAutoSync();
     
     // Écouter les événements de sync
-    const unsubscribe = syncService.addListener((data: any) => {
+    const unsubscribe = syncService.addListener((data: { type: string }) => {
       if (data.type === 'item_status_updated') {
         // Resynchroniser après une mise à jour
         syncInvoices();
@@ -128,6 +141,7 @@ export const useSyncInvoices = () => {
     loading,
     error,
     syncInvoices,
+    resetInvoices,
     updateItemStatus,
     filterInvoicesByStatus,
     searchInvoices
