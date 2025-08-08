@@ -135,9 +135,16 @@ class SyncService {
     // URL adaptée selon l'environnement
     const isDevelopment = import.meta.env.DEV;
     const forceApiTest = localStorage.getItem('n8n-test-mode') === 'true';
+    const forceProductionMode = localStorage.getItem('force-production-mode') === 'true';
     
+    // MODE PRODUCTION FORCÉ : utiliser directement les données de démo
+    if (forceProductionMode) {
+      this.baseUrl = '';
+      this.isOnline = false; // Forcer le mode offline pour utiliser les démos
+      console.log(`🏭 MODE PRODUCTION FORCÉ : Utilisation exclusive des données de démo`);
+    }
     // En développement, utiliser automatiquement les données N8N
-    if (isDevelopment) {
+    else if (isDevelopment) {
       // En développement : utiliser le proxy Vite pour N8N
       this.baseUrl = '/api/n8n';
       // Activer automatiquement le mode N8N en développement
@@ -147,14 +154,16 @@ class SyncService {
       this.baseUrl = 'https://n8n.srv765811.hstgr.cloud/webhook';
     }
     
-    console.log(`🔧 SyncService mode: ${isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
+    console.log(`🔧 SyncService mode: ${forceProductionMode ? 'PRODUCTION-DÉMO' : isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
     console.log(`🌐 Base URL: ${this.baseUrl}`);
-    console.log(`🧪 Mode N8N: ACTIVÉ automatiquement`);
+    console.log(`🧪 Mode N8N: ${forceProductionMode ? 'DÉSACTIVÉ (mode démo)' : 'ACTIVÉ automatiquement'}`);
     
     // Écouter les changements de connectivité
     window.addEventListener('online', () => {
-      this.isOnline = true;
-      this.startAutoSync();
+      if (!forceProductionMode) {
+        this.isOnline = true;
+        this.startAutoSync();
+      }
     });
     
     window.addEventListener('offline', () => {
@@ -168,6 +177,16 @@ class SyncService {
    */
   async getInvoices(): Promise<Invoice[]> {
     try {
+      // DÉBOGAGE URGENT : Vérifier le mode actuel
+      const forceProductionMode = localStorage.getItem('force-production-mode') === 'true';
+      console.log(`🚨 DEBUG URGENT - Mode production forcé: ${forceProductionMode}`);
+      
+      if (forceProductionMode) {
+        console.log(`🏭 MODE PRODUCTION FORCÉ DÉTECTÉ - Utilisation des données de démo`);
+        console.log(`⚡ POUR VOIR VOS VRAIES FACTURES N8N, tapez: localStorage.removeItem('force-production-mode')`);
+        return this.getDemoInvoices();
+      }
+
       if (!this.isOnline) {
         return this.getCachedInvoices();
       }
@@ -185,6 +204,7 @@ class SyncService {
         if (response.ok) {
           const data = await response.json();
           console.log(`✅ N8N connecté, ${data.count || 0} factures reçues`);
+          console.log(`🎯 VRAIES FACTURES N8N CHARGÉES - Clients: ${data.invoices?.slice(0,3).map((inv: any) => inv.client?.name).join(', ')}...`);
           const invoices = this.transformInvoicesData(data);
           
           // Mise en cache pour le mode offline
@@ -663,6 +683,28 @@ class SyncService {
 
   // ===== MÉTHODES PRIVÉES =====
 
+  /**
+   * Mappe les noms d'advisors N8N vers les vendorId système
+   */
+  private mapAdvisorToVendorId(advisor: string): string | undefined {
+    const advisorMap: Record<string, string> = {
+      'Sylvie': '1',
+      'Lucia': '3', 
+      'Cathy': '4',
+      'Sabrina': '6',
+      'Billy': '7',
+      'Bruno': '1', // Mapper Bruno vers Sylvie temporairement
+      'MYCONFORT': '1' // MYCONFORT par défaut vers Sylvie
+    };
+    
+    // Nettoyer les espaces
+    const cleanAdvisor = advisor?.trim();
+    const vendorId = advisorMap[cleanAdvisor];
+    
+    console.log(`🔄 Mapping advisor "${cleanAdvisor}" → vendorId "${vendorId}"`);
+    return vendorId;
+  }
+
   private transformInvoicesData(response: any): Invoice[] {
     // Gérer la réponse N8N qui contient { success: true, invoices: [...] }
     const rawData = response.invoices || response || [];
@@ -674,10 +716,13 @@ class SyncService {
     
     rawData.forEach((item: any) => {
       const invoiceNumber = item.invoiceNumber || item.number || `INV-${Date.now()}`;
+      const clientName = item.client?.name || item.clientName || 'Client inconnu';
+      // 🔧 CORRECTION CRITIQUE : Clé unique combinant numéro de facture ET nom du client
+      const uniqueKey = `${invoiceNumber}|||${clientName}`;
       
-      if (invoiceMap.has(invoiceNumber)) {
-        // Facture existante : fusionner les produits
-        const existing = invoiceMap.get(invoiceNumber);
+      if (invoiceMap.has(uniqueKey)) {
+        // Facture existante pour le MÊME client : fusionner les produits
+        const existing = invoiceMap.get(uniqueKey);
         const existingProducts = existing.products || [];
         const newProducts = item.products || [];
         
@@ -710,11 +755,11 @@ class SyncService {
           existing.lastUpdate = item.lastUpdate || existing.lastUpdate;
         }
         
-        console.log(`🔄 Fusion facture ${invoiceNumber}: ${allProducts.length} produits`);
+        console.log(`🔄 Fusion facture ${invoiceNumber} pour ${clientName}: ${allProducts.length} produits`);
       } else {
-        // Nouvelle facture
-        invoiceMap.set(invoiceNumber, { ...item });
-        console.log(`✅ Nouvelle facture ${invoiceNumber}: ${(item.products || []).length} produits`);
+        // Nouvelle facture (nouveau numéro OU nouveau client)
+        invoiceMap.set(uniqueKey, { ...item });
+        console.log(`✅ Nouvelle facture ${invoiceNumber} pour ${clientName}: ${(item.products || []).length} produits`);
       }
     });
     
@@ -767,7 +812,7 @@ class SyncService {
         dueDate: new Date(item.dueDate || item.due_date || Date.now()),
         createdAt: new Date(item.createdAt || item.created_at || Date.now()),
         updatedAt: new Date(item.lastUpdate || item.updated_at || Date.now()),
-        vendorId: item.advisor || item.vendor_id,
+        vendorId: this.mapAdvisorToVendorId(item.advisor) || item.vendor_id,
         vendorName: item.advisor || item.vendor_name,
         notes: item.notes || `Événement: ${item.eventLocation || 'Non spécifié'}`,
         // Extraction des détails de règlement depuis N8N - PASSER LE TOTAL CALCULÉ

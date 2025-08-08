@@ -1,32 +1,60 @@
 import React, { useMemo } from 'react';
 import { TrendingUp, DollarSign } from 'lucide-react';
 import type { Sale, Vendor } from '../../types';
+import type { Invoice } from '../../services/syncService';
 import { vendors } from '../../data';
 
 interface CATabProps {
   sales: Sale[];
   vendorStats: Vendor[];
+  invoices: Invoice[];
 }
 
-export const CATab: React.FC<CATabProps> = ({ sales, vendorStats: _vendorStats }) => {
+export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
   // Fonction pour récupérer la couleur d'une vendeuse
   const getVendorColor = (vendorId: string): string => {
     const vendor = vendors.find(v => v.id === vendorId);
     return vendor?.color || '#6B7280';
   };
 
-  // Calcul du CA total global
+  // 🔧 CORRECTION MAJEURE : Calcul du CA total incluant les factures N8N
   const totalCA = useMemo(() => {
-    return sales
+    // CA des ventes caisse (existant)
+    const salesCA = sales
       .filter(sale => !sale.canceled)
       .reduce((sum, sale) => sum + sale.totalAmount, 0);
-  }, [sales]);
+    
+    // 🎯 Debug des factures N8N
+    console.log(`🔍 DEBUG FACTURES N8N:
+    - Nombre total de factures: ${invoices.length}
+    - Première facture:`, invoices[0]);
+    
+    // 🎯 CA des factures N8N - TOUTES les factures
+    const invoicesCA = invoices.reduce((sum, invoice) => {
+      // Utiliser le total TTC ou calculer depuis les items
+      const invoiceTotal = invoice.totalTTC || 
+        invoice.items.reduce((itemSum, item) => itemSum + (item.totalPrice || item.unitPrice * item.quantity), 0);
+      
+      console.log(`    → Facture ${invoice.number} (${invoice.clientName}): ${invoiceTotal}€`);
+      return sum + invoiceTotal;
+    }, 0);
+    
+    // Total combiné
+    const combinedCA = salesCA + invoicesCA;
+    
+    console.log(`💰 CA INSTANTANÉ CALCULÉ:
+    - Ventes caisse: ${salesCA.toFixed(2)}€ (${sales.filter(s => !s.canceled).length} ventes)
+    - Factures N8N: ${invoicesCA.toFixed(2)}€ (${invoices.length} factures)
+    - TOTAL: ${combinedCA.toFixed(2)}€`);
+    
+    return combinedCA;
+  }, [sales, invoices]);
 
-  // Calcul du CA par vendeuse basé sur les ventes réelles
+  // 🔧 CORRECTION : CA par vendeuse incluant les factures N8N
   const vendorCAs = useMemo(() => {
     const caByVendor: Record<string, number> = {};
     
-    // Calculer le CA réel pour chaque vendeuse
+    // 1. Calculer le CA des ventes caisse pour chaque vendeuse
     sales
       .filter(sale => !sale.canceled)
       .forEach(sale => {
@@ -36,17 +64,43 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats: _vendorStats }
         caByVendor[sale.vendorId] += sale.totalAmount;
       });
 
-    // Mapper avec les données des vendeuses
-    return vendors.map(vendor => ({
+    // 2. 🎯 NOUVEAU : Ajouter le CA des factures N8N pour chaque vendeuse
+    invoices.forEach(invoice => {
+      if (invoice.vendorId) {
+        const invoiceTotal = invoice.totalTTC || 
+          invoice.items.reduce((sum, item) => sum + (item.totalPrice || item.unitPrice * item.quantity), 0);
+        
+        if (!caByVendor[invoice.vendorId]) {
+          caByVendor[invoice.vendorId] = 0;
+        }
+        caByVendor[invoice.vendorId] += invoiceTotal;
+        
+        console.log(`💰 Facture ${invoice.number} → Vendeuse ${invoice.vendorId} (${invoice.vendorName}): +${invoiceTotal}€`);
+      } else {
+        console.log(`⚠️ Facture ${invoice.number} sans vendorId (vendorName: ${invoice.vendorName})`);
+      }
+    });
+
+    // 3. Mapper avec les données des vendeuses
+    const result = vendors.map(vendor => ({
       ...vendor,
       realCA: caByVendor[vendor.id] || 0
     })).sort((a, b) => b.realCA - a.realCA); // Trier par CA décroissant
-  }, [sales]);
+    
+    console.log(`👥 CA PAR VENDEUSE:`, result.filter(v => v.realCA > 0));
+    
+    return result;
+  }, [sales, invoices]);
 
-  // Calcul du nombre total de ventes
+  // Calcul du nombre total de ventes (caisse + factures)
   const totalSalesCount = useMemo(() => {
-    return sales.filter(sale => !sale.canceled).length;
-  }, [sales]);
+    const salesCount = sales.filter(sale => !sale.canceled).length;
+    const invoicesCount = invoices.length; // TOUTES les factures comme dans le CA
+    
+    console.log(`📊 TRANSACTIONS TOTALES: ${salesCount} ventes caisse + ${invoicesCount} factures N8N = ${salesCount + invoicesCount} total`);
+    
+    return salesCount + invoicesCount;
+  }, [sales, invoices]);
 
   return (
     <div className="animate-fadeIn">

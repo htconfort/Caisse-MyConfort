@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { 
   TabType, 
   PaymentMethod, 
@@ -19,8 +19,10 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import { InvoicesTabElegant } from './components/InvoicesTabElegant';
 import { SuccessNotification, FloatingCart } from './components/ui';
-import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, Download, Shield, Clock, BarChart3, CheckCircle } from 'lucide-react';
+import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import './styles/invoices-tab.css';
+import './styles/print.css';
 
 // Styles pour les animations RAZ
 const razAnimationStyles = `
@@ -58,6 +60,9 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(styleSheet);
 }
 
+// Types pour la RAZ
+// Interface pour les données de RAZ (réservée pour usage futur)
+
 // Palette de couleurs pour les vendeuses
 const VENDOR_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
@@ -75,7 +80,7 @@ export default function CaisseMyConfortApp() {
   const [vendorStats, setVendorStats] = useIndexedStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
   
   // Hook pour les factures
-  const { stats: invoicesStats } = useSyncInvoices();
+  const { invoices, stats: invoicesStats } = useSyncInvoices();
   
   // États UI
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('card');
@@ -290,11 +295,6 @@ export default function CaisseMyConfortApp() {
   const getAvailableColors = useCallback(() => {
     return VENDOR_COLORS.filter(color => !isColorUsed(color));
   }, [isColorUsed]);
-
-  const getFirstAvailableColor = useCallback(() => {
-    const available = getAvailableColors();
-    return available.length > 0 ? available[0] : VENDOR_COLORS[0];
-  }, [getAvailableColors]);
 
   // Fonctions pour l'édition des vendeuses
   const startEditVendor = useCallback((vendor: Vendor) => {
@@ -742,7 +742,10 @@ export default function CaisseMyConfortApp() {
 
             {/* Onglet Ventes */}
             {activeTab === 'ventes' && (
-              <SalesTab sales={sales} />
+              <SalesTab 
+                sales={sales} 
+                invoices={invoices}
+              />
             )}
 
             {/* Onglet Diverses */}
@@ -772,238 +775,20 @@ export default function CaisseMyConfortApp() {
             {activeTab === 'ca' && (
               <CATab 
                 sales={sales} 
-                vendorStats={vendorStats} 
+                vendorStats={vendorStats}
+                invoices={invoices}
               />
             )}
 
-            {/* Onglet RAZ Avancé */}
+            {/* Onglet RAZ - Feuille de Caisse Professionnelle */}
             {activeTab === 'raz' && (
-              <div style={{
-                padding: '20px',
-                maxWidth: '900px',
-                margin: '0 auto',
-                fontFamily: 'Arial, sans-serif'
-              }}>
-                {/* En-tête du module RAZ */}
-                <div style={{
-                  background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
-                  color: 'white',
-                  padding: '25px',
-                  borderRadius: '12px',
-                  marginBottom: '25px',
-                  textAlign: 'center',
-                  boxShadow: '0 4px 15px rgba(238, 90, 36, 0.3)'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                    <RefreshCw size={32} style={{ marginRight: '12px' }} />
-                    <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold' }}>
-                      Système RAZ Avancé
-                    </h1>
-                  </div>
-                  <p style={{ margin: 0, fontSize: '16px', opacity: 0.9 }}>
-                    Remise à zéro sécurisée avec sauvegarde automatique
-                  </p>
-                </div>
-
-                {/* Statistiques actuelles */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '15px',
-                  marginBottom: '25px'
-                }}>
-                  <div style={{
-                    background: 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)',
-                    color: 'white',
-                    padding: '20px',
-                    borderRadius: '10px',
-                    textAlign: 'center'
-                  }}>
-                    <BarChart3 size={24} style={{ marginBottom: '8px' }} />
-                    <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>Ventes</h3>
-                    <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>{sales.length}</p>
-                  </div>
-                  
-                  <div style={{
-                    background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
-                    color: 'white',
-                    padding: '20px',
-                    borderRadius: '10px',
-                    textAlign: 'center'
-                  }}>
-                    <Shield size={24} style={{ marginBottom: '8px' }} />
-                    <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>Panier</h3>
-                    <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>{cart.length}</p>
-                  </div>
-                  
-                  <div style={{
-                    background: 'linear-gradient(135deg, #fdcb6e 0%, #e17055 100%)',
-                    color: 'white',
-                    padding: '20px',
-                    borderRadius: '10px',
-                    textAlign: 'center'
-                  }}>
-                    <Clock size={24} style={{ marginBottom: '8px' }} />
-                    <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>Vendeuses</h3>
-                    <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>{vendorStats.length}</p>
-                  </div>
-                </div>
-
-                {/* Bouton principal RAZ */}
-                <div style={{
-                  background: 'white',
-                  border: '2px solid #ddd',
-                  borderRadius: '12px',
-                  padding: '30px',
-                  textAlign: 'center',
-                  marginBottom: '25px'
-                }}>
-                  <AlertTriangle size={48} style={{ color: '#ff6b6b', marginBottom: '15px' }} />
-                  <h2 style={{ margin: '0 0 15px 0', color: '#2d3436' }}>
-                    Remise à Zéro du Système
-                  </h2>
-                  <p style={{ margin: '0 0 20px 0', color: '#636e72', lineHeight: '1.6' }}>
-                    Effectuez une remise à zéro personnalisée des données de la caisse.
-                    <br />
-                    <strong>⚠️ Action irréversible</strong> - Une sauvegarde est recommandée.
-                  </p>
-                  
-                  <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button
-                      onClick={exportDataBeforeReset}
-                      style={{
-                        background: 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '12px 24px',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        transition: 'transform 0.2s ease'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                    >
-                      <Download size={18} />
-                      Sauvegarder les données
-                    </button>
-                    
-                    <button
-                      onClick={() => setShowResetModal(true)}
-                      style={{
-                        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '12px 24px',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        transition: 'transform 0.2s ease'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                    >
-                      <RefreshCw size={18} />
-                      Démarrer la RAZ
-                    </button>
-                  </div>
-                </div>
-
-                {/* Guide d'utilisation */}
-                <div style={{
-                  background: '#f8f9fa',
-                  border: '1px solid #e9ecef',
-                  borderRadius: '10px',
-                  padding: '20px'
-                }}>
-                  <h3 style={{ margin: '0 0 15px 0', color: '#495057', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle size={20} />
-                    Guide d'utilisation
-                  </h3>
-                  
-                  <div style={{ display: 'grid', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ 
-                        background: '#28a745', 
-                        color: 'white', 
-                        borderRadius: '50%', 
-                        width: '24px', 
-                        height: '24px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontSize: '12px', 
-                        fontWeight: 'bold' 
-                      }}>1</span>
-                      <span style={{ color: '#495057' }}>
-                        <strong>Sauvegardez</strong> vos données avant toute opération
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ 
-                        background: '#007bff', 
-                        color: 'white', 
-                        borderRadius: '50%', 
-                        width: '24px', 
-                        height: '24px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontSize: '12px', 
-                        fontWeight: 'bold' 
-                      }}>2</span>
-                      <span style={{ color: '#495057' }}>
-                        <strong>Choisissez</strong> les éléments à remettre à zéro
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ 
-                        background: '#ffc107', 
-                        color: 'white', 
-                        borderRadius: '50%', 
-                        width: '24px', 
-                        height: '24px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontSize: '12px', 
-                        fontWeight: 'bold' 
-                      }}>3</span>
-                      <span style={{ color: '#495057' }}>
-                        <strong>Confirmez</strong> avec le mot de passe "RESET"
-                      </span>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ 
-                        background: '#dc3545', 
-                        color: 'white', 
-                        borderRadius: '50%', 
-                        width: '24px', 
-                        height: '24px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center', 
-                        fontSize: '12px', 
-                        fontWeight: 'bold' 
-                      }}>!</span>
-                      <span style={{ color: '#495057' }}>
-                        <strong>Action irréversible</strong> - Soyez certain de votre choix
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <FeuilleDeRAZPro 
+                sales={sales}
+                invoices={invoices}
+                vendorStats={vendorStats}
+                exportDataBeforeReset={exportDataBeforeReset}
+                executeRAZ={() => setShowResetModal(true)}
+              />
             )}
 
             {/* Modal RAZ Avancée */}
@@ -1859,8 +1644,9 @@ export default function CaisseMyConfortApp() {
               </div>
             )}
 
+
             {/* Fallback pour les onglets non définis */}
-            {!['vendeuse', 'produits', 'factures', 'stock', 'ventes', 'diverses', 'annulation', 'ca', 'gestion'].includes(activeTab) && (
+            {!['vendeuse', 'produits', 'factures', 'stock', 'ventes', 'diverses', 'annulation', 'ca', 'gestion', 'raz'].includes(activeTab) && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-md mx-auto">
                   <p className="text-4xl mb-4">🚧</p>
