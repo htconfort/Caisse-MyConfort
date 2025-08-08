@@ -19,7 +19,7 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import { InvoicesTabElegant } from './components/InvoicesTabElegant';
 import { SuccessNotification, FloatingCart } from './components/ui';
-import { Settings } from 'lucide-react';
+import { Settings, Plus, Save, X } from 'lucide-react';
 import './styles/invoices-tab.css';
 
 export default function CaisseMyConfortApp() {
@@ -40,6 +40,11 @@ export default function CaisseMyConfortApp() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+
+  // États pour l'ajout de vendeuses
+  const [showAddVendorForm, setShowAddVendorForm] = useState(false);
+  const [newVendorName, setNewVendorName] = useState('');
+  const [newVendorEmail, setNewVendorEmail] = useState('');
 
   // Mise à jour de l'heure
   useEffect(() => {
@@ -213,6 +218,56 @@ export default function CaisseMyConfortApp() {
     setMiscAmount('');
   }, [miscDescription, miscAmount, setCart]);
 
+  // Gestion des vendeuses
+  const handleAddVendor = useCallback(() => {
+    if (!newVendorName.trim()) {
+      alert('⚠️ Le nom de la vendeuse est obligatoire !');
+      return;
+    }
+
+    // Générer un ID unique
+    const newVendorId = `vendor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Couleurs disponibles (éviter les doublons)
+    const usedColors = vendorStats.map(v => v.color);
+    const availableColors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+      '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2'
+    ];
+    const freeColors = availableColors.filter(color => !usedColors.includes(color));
+    const assignedColor = freeColors.length > 0 ? freeColors[0] : availableColors[0];
+
+    // Créer la nouvelle vendeuse
+    const newVendor: Vendor = {
+      id: newVendorId,
+      name: newVendorName.trim(),
+      dailySales: 0,
+      totalSales: 0,
+      color: assignedColor
+    };
+
+    // Ajouter à la liste
+    setVendorStats(prev => [...prev, newVendor]);
+
+    // Reset du formulaire
+    setNewVendorName('');
+    setNewVendorEmail('');
+    setShowAddVendorForm(false);
+
+    // Sélectionner automatiquement la nouvelle vendeuse
+    setSelectedVendor(newVendor);
+
+    console.log('✅ Nouvelle vendeuse ajoutée:', newVendor);
+    alert(`🎉 Vendeuse "${newVendor.name}" ajoutée avec succès !`);
+  }, [newVendorName, vendorStats, setVendorStats, setNewVendorName, setNewVendorEmail, setShowAddVendorForm, setSelectedVendor]);
+
+  const cancelAddVendor = useCallback(() => {
+    setNewVendorName('');
+    setNewVendorEmail('');
+    setShowAddVendorForm(false);
+  }, [setNewVendorName, setNewVendorEmail, setShowAddVendorForm]);
+
   return (
     <div className="ipad-frame">
       <div className="h-screen flex flex-col gradient-bg">
@@ -312,25 +367,159 @@ export default function CaisseMyConfortApp() {
                 margin: '0 auto',
                 fontFamily: 'Arial, sans-serif'
               }}>
-                {/* En-tête */}
+                {/* En-tête avec bouton d'ajout */}
                 <div style={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
                   padding: '20px',
                   borderRadius: '8px',
                   marginBottom: '20px',
-                  textAlign: 'center'
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
                 }}>
-                  <h1 style={{ margin: 0, fontSize: '24px' }}>
-                    <Settings size={28} style={{ marginRight: '10px', verticalAlign: 'middle' }} />
-                    Gestion Simplifiée
-                  </h1>
-                  <p style={{ margin: '8px 0 0 0', opacity: 0.9 }}>
-                    Version temporaire - Fonctionnalités de base
-                  </p>
+                  <div>
+                    <h1 style={{ margin: 0, fontSize: '24px' }}>
+                      <Settings size={28} style={{ marginRight: '10px', verticalAlign: 'middle' }} />
+                      Gestion des Vendeuses
+                    </h1>
+                    <p style={{ margin: '8px 0 0 0', opacity: 0.9 }}>
+                      {vendorStats.length} vendeuse{vendorStats.length > 1 ? 's' : ''} enregistrée{vendorStats.length > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={() => setShowAddVendorForm(true)}
+                    style={{
+                      background: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      border: '2px solid rgba(255,255,255,0.3)',
+                      borderRadius: '8px',
+                      padding: '12px 20px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <Plus size={20} />
+                    Ajouter une vendeuse
+                  </button>
                 </div>
 
-                {/* Liste des vendeuses actuelles */}
+                {/* Formulaire d'ajout */}
+                {showAddVendorForm && (
+                  <div style={{
+                    background: '#e8f5e8',
+                    border: '2px solid #28a745',
+                    borderRadius: '8px',
+                    padding: '20px',
+                    marginBottom: '20px'
+                  }}>
+                    <h3 style={{ margin: '0 0 15px 0', color: '#155724' }}>
+                      ➕ Ajouter une nouvelle vendeuse
+                    </h3>
+                    
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                        Nom de la vendeuse *
+                      </label>
+                      <input
+                        type="text"
+                        value={newVendorName}
+                        onChange={(e) => setNewVendorName(e.target.value)}
+                        placeholder="Prénom Nom"
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #ddd',
+                          borderRadius: '6px',
+                          fontSize: '16px'
+                        }}
+                        autoFocus
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+                        Email (optionnel)
+                      </label>
+                      <input
+                        type="email"
+                        value={newVendorEmail}
+                        onChange={(e) => setNewVendorEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        style={{
+                          width: '100%',
+                          padding: '10px',
+                          border: '2px solid #ddd',
+                          borderRadius: '6px',
+                          fontSize: '16px'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{
+                      background: '#d1ecf1',
+                      border: '1px solid #bee5eb',
+                      borderRadius: '4px',
+                      padding: '10px',
+                      marginBottom: '15px',
+                      fontSize: '14px',
+                      color: '#0c5460'
+                    }}>
+                      💡 <strong>Couleur automatique :</strong> Une couleur libre sera automatiquement attribuée
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={handleAddVendor}
+                        disabled={!newVendorName.trim()}
+                        style={{
+                          background: newVendorName.trim() ? '#28a745' : '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '12px 20px',
+                          cursor: newVendorName.trim() ? 'pointer' : 'not-allowed',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          opacity: newVendorName.trim() ? 1 : 0.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Save size={16} />
+                        Enregistrer
+                      </button>
+                      
+                      <button
+                        onClick={cancelAddVendor}
+                        style={{
+                          background: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '12px 20px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <X size={16} />
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Liste des vendeuses existantes */}
                 <div style={{
                   background: 'white',
                   border: '1px solid #ddd',
@@ -339,7 +528,7 @@ export default function CaisseMyConfortApp() {
                   marginBottom: '20px'
                 }}>
                   <h3 style={{ margin: '0 0 15px 0', color: '#495057' }}>
-                    👥 Vendeuses actuelles ({vendors.length})
+                    👥 Vendeuses actuelles ({vendorStats.length})
                   </h3>
                   
                   <div style={{
@@ -347,7 +536,7 @@ export default function CaisseMyConfortApp() {
                     gap: '10px',
                     gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))'
                   }}>
-                    {vendors.map((vendor) => (
+                    {vendorStats.map((vendor) => (
                       <div
                         key={vendor.id}
                         style={{
@@ -398,21 +587,21 @@ export default function CaisseMyConfortApp() {
                   </div>
                 </div>
 
-                {/* Message temporaire */}
+                {/* Message de statut */}
                 <div style={{
-                  background: '#fff3cd',
-                  border: '1px solid #ffeaa7',
+                  background: '#d4edda',
+                  border: '1px solid #c3e6cb',
                   borderRadius: '8px',
                   padding: '15px',
                   textAlign: 'center'
                 }}>
-                  <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>
-                    🚧 Version Temporaire
+                  <h4 style={{ margin: '0 0 10px 0', color: '#155724' }}>
+                    ✅ Fonctionnalité d'ajout activée !
                   </h4>
-                  <p style={{ margin: '0', color: '#856404' }}>
-                    Cette version simplifiée permet de voir et sélectionner les vendeuses existantes.
+                  <p style={{ margin: '0', color: '#155724' }}>
+                    Vous pouvez maintenant ajouter de nouvelles vendeuses avec attribution automatique des couleurs.
                     <br />
-                    Les fonctionnalités d'ajout/suppression seront restaurées prochainement.
+                    <strong>Prochaine étape :</strong> Sélecteur de couleurs personnalisé et modification des vendeuses.
                   </p>
                 </div>
               </div>
