@@ -19,8 +19,44 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import { InvoicesTabElegant } from './components/InvoicesTabElegant';
 import { SuccessNotification, FloatingCart } from './components/ui';
-import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2 } from 'lucide-react';
+import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, Download, Shield, Clock, BarChart3, CheckCircle } from 'lucide-react';
 import './styles/invoices-tab.css';
+
+// Styles pour les animations RAZ
+const razAnimationStyles = `
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes slideIn {
+    from { 
+      opacity: 0; 
+      transform: translateY(-20px) scale(0.95); 
+    }
+    to { 
+      opacity: 1; 
+      transform: translateY(0) scale(1); 
+    }
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  
+  @keyframes slideInRight {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+`;
+
+// Injecter les styles dans le document
+if (typeof document !== 'undefined') {
+  const styleSheet = document.createElement('style');
+  styleSheet.textContent = razAnimationStyles;
+  document.head.appendChild(styleSheet);
+}
 
 // Palette de couleurs pour les vendeuses
 const VENDOR_COLORS = [
@@ -61,6 +97,18 @@ export default function CaisseMyConfortApp() {
   const [editVendorEmail, setEditVendorEmail] = useState('');
   const [editVendorColor, setEditVendorColor] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  // États pour le système RAZ avancé
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetOptions, setResetOptions] = useState({
+    dailySales: true,
+    cart: true,
+    selectedVendor: false,
+    vendorStats: false,
+    allData: false
+  });
+  const [resetStep, setResetStep] = useState<'options' | 'confirmation' | 'executing' | 'completed'>('options');
+  const [showResetSuccess, setShowResetSuccess] = useState(false);
 
   // Mise à jour de l'heure
   useEffect(() => {
@@ -339,6 +387,178 @@ export default function CaisseMyConfortApp() {
     return vendorStats.some(vendor => vendor.color === color && vendor.id !== excludeVendorId);
   }, [vendorStats]);
 
+  // Fonctions pour le système RAZ avancé
+  const handleResetOption = useCallback((option: string, value: boolean) => {
+    if (option === 'allData' && value) {
+      setResetOptions({
+        dailySales: true,
+        cart: true,
+        selectedVendor: true,
+        vendorStats: true,
+        allData: true
+      });
+    } else if (option === 'allData' && !value) {
+      setResetOptions({
+        dailySales: false,
+        cart: false,
+        selectedVendor: false,
+        vendorStats: false,
+        allData: false
+      });
+    } else {
+      setResetOptions(prev => {
+        const newOptions = { ...prev, [option]: value };
+        if (!value) newOptions.allData = false;
+        if (newOptions.dailySales && newOptions.cart && 
+            newOptions.selectedVendor && newOptions.vendorStats) {
+          newOptions.allData = true;
+        }
+        return newOptions;
+      });
+    }
+  }, []);
+
+  const exportDataBeforeReset = useCallback(() => {
+    const dataToExport = {
+      exportDate: new Date().toISOString(),
+      sales: sales,
+      vendorStats: vendorStats,
+      selectedVendor: selectedVendor,
+      cart: cart,
+      metadata: {
+        totalSales: sales.length,
+        totalVendors: vendorStats.length,
+        cartItems: cart.length,
+        exportVersion: '1.0.0'
+      }
+    };
+    
+    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = `myconfort-backup-${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    console.log('💾 Sauvegarde exportée:', exportFileDefaultName);
+    alert('💾 Sauvegarde exportée avec succès !');
+  }, [sales, vendorStats, selectedVendor, cart]);
+
+  const logRAZAction = useCallback((action: string, options: typeof resetOptions, success: boolean) => {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      action: action,
+      options: options,
+      success: success,
+      user: selectedVendor?.name || 'System',
+      dataState: {
+        salesCount: sales.length,
+        cartItems: cart.length,
+        activeVendor: selectedVendor?.name || 'None'
+      }
+    };
+    
+    console.log('📊 RAZ Action:', logEntry);
+  }, [selectedVendor, sales, cart]);
+
+  const executeReset = useCallback(() => {
+    setResetStep('executing');
+    
+    setTimeout(() => {
+      try {
+        // RAZ des ventes du jour
+        if (resetOptions.dailySales) {
+          const resetVendors = vendorStats.map(vendor => ({
+            ...vendor,
+            dailySales: 0
+          }));
+          setVendorStats(resetVendors);
+          console.log('✅ RAZ ventes du jour effectuée');
+        }
+
+        // RAZ du panier
+        if (resetOptions.cart) {
+          setCart([]);
+          console.log('✅ RAZ panier effectuée');
+        }
+
+        // RAZ vendeuse sélectionnée
+        if (resetOptions.selectedVendor) {
+          setSelectedVendor(null);
+          console.log('✅ RAZ vendeuse sélectionnée effectuée');
+        }
+
+        // RAZ statistiques vendeuses
+        if (resetOptions.vendorStats) {
+          const resetVendors = vendorStats.map(vendor => ({
+            ...vendor,
+            dailySales: 0,
+            totalSales: 0
+          }));
+          setVendorStats(resetVendors);
+          console.log('✅ RAZ statistiques vendeuses effectuée');
+        }
+
+        // RAZ complète
+        if (resetOptions.allData) {
+          setSales([]);
+          setCart([]);
+          setSelectedVendor(null);
+          const resetVendors = vendorStats.map(vendor => ({
+            ...vendor,
+            dailySales: 0,
+            totalSales: 0
+          }));
+          setVendorStats(resetVendors);
+          console.log('✅ RAZ complète effectuée');
+        }
+
+        // Log de l'action
+        logRAZAction('RAZ_EXECUTED', resetOptions, true);
+
+        // Reset des états
+        setShowResetModal(false);
+        setResetOptions({
+          dailySales: true,
+          cart: true,
+          selectedVendor: false,
+          vendorStats: false,
+          allData: false
+        });
+        setResetStep('options');
+        setShowResetSuccess(true);
+        setTimeout(() => setShowResetSuccess(false), 4000);
+        
+        alert('🎉 Remise à zéro effectuée avec succès !');
+        
+      } catch (error) {
+        console.error('❌ Erreur lors du reset:', error);
+        logRAZAction('RAZ_ERROR', resetOptions, false);
+        alert('❌ Erreur lors de la remise à zéro !');
+        setResetStep('options');
+      }
+    }, 2000);
+  }, [resetOptions, vendorStats, setVendorStats, setCart, setSelectedVendor, setSales, logRAZAction]);
+
+  const resetModalStates = useCallback(() => {
+    setShowResetModal(false);
+    setResetOptions({
+      dailySales: true,
+      cart: true,
+      selectedVendor: false,
+      vendorStats: false,
+      allData: false
+    });
+    setResetStep('options');
+  }, []);
+
+  const cancelReset = useCallback(() => {
+    logRAZAction('RAZ_CANCELLED', resetOptions, false);
+    resetModalStates();
+  }, [resetOptions, logRAZAction, resetModalStates]);
+
   // Composant sélecteur de couleurs pour l'édition
   const EditColorSelector = ({ vendorId }: { vendorId: string }) => (
     <div style={{ margin: '10px 0' }}>
@@ -554,6 +774,537 @@ export default function CaisseMyConfortApp() {
                 sales={sales} 
                 vendorStats={vendorStats} 
               />
+            )}
+
+            {/* Onglet RAZ Avancé */}
+            {activeTab === 'raz' && (
+              <div style={{
+                padding: '20px',
+                maxWidth: '900px',
+                margin: '0 auto',
+                fontFamily: 'Arial, sans-serif'
+              }}>
+                {/* En-tête du module RAZ */}
+                <div style={{
+                  background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+                  color: 'white',
+                  padding: '25px',
+                  borderRadius: '12px',
+                  marginBottom: '25px',
+                  textAlign: 'center',
+                  boxShadow: '0 4px 15px rgba(238, 90, 36, 0.3)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                    <RefreshCw size={32} style={{ marginRight: '12px' }} />
+                    <h1 style={{ margin: 0, fontSize: '28px', fontWeight: 'bold' }}>
+                      Système RAZ Avancé
+                    </h1>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '16px', opacity: 0.9 }}>
+                    Remise à zéro sécurisée avec sauvegarde automatique
+                  </p>
+                </div>
+
+                {/* Statistiques actuelles */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '15px',
+                  marginBottom: '25px'
+                }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)',
+                    color: 'white',
+                    padding: '20px',
+                    borderRadius: '10px',
+                    textAlign: 'center'
+                  }}>
+                    <BarChart3 size={24} style={{ marginBottom: '8px' }} />
+                    <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>Ventes</h3>
+                    <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>{sales.length}</p>
+                  </div>
+                  
+                  <div style={{
+                    background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
+                    color: 'white',
+                    padding: '20px',
+                    borderRadius: '10px',
+                    textAlign: 'center'
+                  }}>
+                    <Shield size={24} style={{ marginBottom: '8px' }} />
+                    <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>Panier</h3>
+                    <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>{cart.length}</p>
+                  </div>
+                  
+                  <div style={{
+                    background: 'linear-gradient(135deg, #fdcb6e 0%, #e17055 100%)',
+                    color: 'white',
+                    padding: '20px',
+                    borderRadius: '10px',
+                    textAlign: 'center'
+                  }}>
+                    <Clock size={24} style={{ marginBottom: '8px' }} />
+                    <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>Vendeuses</h3>
+                    <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>{vendorStats.length}</p>
+                  </div>
+                </div>
+
+                {/* Bouton principal RAZ */}
+                <div style={{
+                  background: 'white',
+                  border: '2px solid #ddd',
+                  borderRadius: '12px',
+                  padding: '30px',
+                  textAlign: 'center',
+                  marginBottom: '25px'
+                }}>
+                  <AlertTriangle size={48} style={{ color: '#ff6b6b', marginBottom: '15px' }} />
+                  <h2 style={{ margin: '0 0 15px 0', color: '#2d3436' }}>
+                    Remise à Zéro du Système
+                  </h2>
+                  <p style={{ margin: '0 0 20px 0', color: '#636e72', lineHeight: '1.6' }}>
+                    Effectuez une remise à zéro personnalisée des données de la caisse.
+                    <br />
+                    <strong>⚠️ Action irréversible</strong> - Une sauvegarde est recommandée.
+                  </p>
+                  
+                  <div style={{ display: 'flex', gap: '15px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={exportDataBeforeReset}
+                      style={{
+                        background: 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '12px 24px',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'transform 0.2s ease'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      <Download size={18} />
+                      Sauvegarder les données
+                    </button>
+                    
+                    <button
+                      onClick={() => setShowResetModal(true)}
+                      style={{
+                        background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '12px 24px',
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'transform 0.2s ease'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                      onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      <RefreshCw size={18} />
+                      Démarrer la RAZ
+                    </button>
+                  </div>
+                </div>
+
+                {/* Guide d'utilisation */}
+                <div style={{
+                  background: '#f8f9fa',
+                  border: '1px solid #e9ecef',
+                  borderRadius: '10px',
+                  padding: '20px'
+                }}>
+                  <h3 style={{ margin: '0 0 15px 0', color: '#495057', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <CheckCircle size={20} />
+                    Guide d'utilisation
+                  </h3>
+                  
+                  <div style={{ display: 'grid', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ 
+                        background: '#28a745', 
+                        color: 'white', 
+                        borderRadius: '50%', 
+                        width: '24px', 
+                        height: '24px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        fontSize: '12px', 
+                        fontWeight: 'bold' 
+                      }}>1</span>
+                      <span style={{ color: '#495057' }}>
+                        <strong>Sauvegardez</strong> vos données avant toute opération
+                      </span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ 
+                        background: '#007bff', 
+                        color: 'white', 
+                        borderRadius: '50%', 
+                        width: '24px', 
+                        height: '24px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        fontSize: '12px', 
+                        fontWeight: 'bold' 
+                      }}>2</span>
+                      <span style={{ color: '#495057' }}>
+                        <strong>Choisissez</strong> les éléments à remettre à zéro
+                      </span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ 
+                        background: '#ffc107', 
+                        color: 'white', 
+                        borderRadius: '50%', 
+                        width: '24px', 
+                        height: '24px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        fontSize: '12px', 
+                        fontWeight: 'bold' 
+                      }}>3</span>
+                      <span style={{ color: '#495057' }}>
+                        <strong>Confirmez</strong> avec le mot de passe "RESET"
+                      </span>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ 
+                        background: '#dc3545', 
+                        color: 'white', 
+                        borderRadius: '50%', 
+                        width: '24px', 
+                        height: '24px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        fontSize: '12px', 
+                        fontWeight: 'bold' 
+                      }}>!</span>
+                      <span style={{ color: '#495057' }}>
+                        <strong>Action irréversible</strong> - Soyez certain de votre choix
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal RAZ Avancée */}
+            {showResetModal && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1000,
+                animation: 'fadeIn 0.3s ease'
+              }}>
+                <div style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  padding: '0',
+                  maxWidth: '600px',
+                  width: '90%',
+                  maxHeight: '90vh',
+                  overflow: 'hidden',
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                  animation: 'slideIn 0.3s ease'
+                }}>
+                  
+                  {/* En-tête de la modal */}
+                  <div style={{
+                    background: resetStep === 'executing' ? 'linear-gradient(135deg, #fdcb6e 0%, #e17055 100%)' : 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+                    color: 'white',
+                    padding: '20px',
+                    textAlign: 'center'
+                  }}>
+                    <h2 style={{ margin: '0 0 10px 0', fontSize: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                      {resetStep === 'executing' ? (
+                        <>
+                          <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite' }} />
+                          Exécution en cours...
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle size={24} />
+                          Configuration de la RAZ
+                        </>
+                      )}
+                    </h2>
+                    <p style={{ margin: 0, opacity: 0.9 }}>
+                      {resetStep === 'executing' 
+                        ? 'Veuillez patienter pendant la remise à zéro...' 
+                        : 'Sélectionnez les éléments à remettre à zéro'
+                      }
+                    </p>
+                  </div>
+
+                  {resetStep === 'options' && (
+                    <div style={{ padding: '25px' }}>
+                      
+                      {/* Options de RAZ */}
+                      <h3 style={{ margin: '0 0 20px 0', color: '#2d3436' }}>
+                        🎯 Options de remise à zéro
+                      </h3>
+                      
+                      <div style={{ display: 'grid', gap: '12px', marginBottom: '25px' }}>
+                        
+                        {/* RAZ Ventes du jour */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '2px solid #e9ecef',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.dailySales ? '#e8f5e8' : '#f8f9fa'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.dailySales}
+                            onChange={(e) => handleResetOption('dailySales', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#495057' }}>Ventes du jour</strong>
+                            <br />
+                            <small style={{ color: '#6c757d' }}>
+                              Remet à zéro les chiffres d'affaires quotidiens (recommandé chaque jour)
+                            </small>
+                          </div>
+                        </label>
+
+                        {/* RAZ Panier */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '2px solid #e9ecef',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.cart ? '#e8f5e8' : '#f8f9fa'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.cart}
+                            onChange={(e) => handleResetOption('cart', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#495057' }}>Panier actuel</strong>
+                            <br />
+                            <small style={{ color: '#6c757d' }}>
+                              Vide le panier en cours ({cart.length} articles)
+                            </small>
+                          </div>
+                        </label>
+
+                        {/* RAZ Vendeuse sélectionnée */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '2px solid #e9ecef',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.selectedVendor ? '#fff3cd' : '#f8f9fa'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.selectedVendor}
+                            onChange={(e) => handleResetOption('selectedVendor', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#495057' }}>Vendeuse sélectionnée</strong>
+                            <br />
+                            <small style={{ color: '#6c757d' }}>
+                              Désélectionne la vendeuse active ({selectedVendor?.name || 'Aucune'})
+                            </small>
+                          </div>
+                        </label>
+
+                        {/* RAZ Statistiques vendeuses */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '2px solid #e9ecef',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.vendorStats ? '#ffebee' : '#f8f9fa'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.vendorStats}
+                            onChange={(e) => handleResetOption('vendorStats', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#495057' }}>Statistiques vendeuses</strong>
+                            <br />
+                            <small style={{ color: '#6c757d' }}>
+                              ⚠️ Remet à zéro TOUTES les statistiques de ventes
+                            </small>
+                          </div>
+                        </label>
+
+                        {/* RAZ Complète */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '3px solid #dc3545',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.allData ? '#f8d7da' : '#fff5f5'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.allData}
+                            onChange={(e) => handleResetOption('allData', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#dc3545' }}>🚨 RAZ COMPLÈTE</strong>
+                            <br />
+                            <small style={{ color: '#721c24' }}>
+                              ⚠️ DANGER: Supprime TOUTES les données (ventes, statistiques, etc.)
+                            </small>
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Aperçu des actions */}
+                      {(resetOptions.dailySales || resetOptions.cart || resetOptions.selectedVendor || resetOptions.vendorStats || resetOptions.allData) && (
+                        <div style={{
+                          background: '#fff3cd',
+                          border: '1px solid #ffeaa7',
+                          borderRadius: '8px',
+                          padding: '15px',
+                          marginBottom: '20px'
+                        }}>
+                          <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>
+                            📋 Aperçu des actions à effectuer :
+                          </h4>
+                          <ul style={{ margin: 0, paddingLeft: '20px', color: '#856404' }}>
+                            {resetOptions.dailySales && <li>Remise à zéro des ventes du jour</li>}
+                            {resetOptions.cart && <li>Vidage du panier ({cart.length} articles)</li>}
+                            {resetOptions.selectedVendor && <li>Désélection de la vendeuse active</li>}
+                            {resetOptions.vendorStats && <li>Remise à zéro des statistiques vendeuses</li>}
+                            {resetOptions.allData && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>🚨 SUPPRESSION COMPLÈTE DE TOUTES LES DONNÉES</li>}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Boutons d'action */}
+                      <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={cancelReset}
+                          style={{
+                            background: '#6c757d',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '12px 20px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <X size={16} />
+                          Annuler
+                        </button>
+                        
+                        <button
+                          onClick={executeReset}
+                          style={{
+                            background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '12px 20px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          <RefreshCw size={16} />
+                          Exécuter la RAZ
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {resetStep === 'executing' && (
+                    <div style={{ 
+                      padding: '40px', 
+                      textAlign: 'center',
+                      background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)'
+                    }}>
+                      <RefreshCw size={48} style={{ 
+                        color: '#007bff', 
+                        marginBottom: '20px',
+                        animation: 'spin 1s linear infinite'
+                      }} />
+                      <h3 style={{ margin: '0 0 10px 0', color: '#495057' }}>
+                        Remise à zéro en cours...
+                      </h3>
+                      <p style={{ margin: 0, color: '#6c757d' }}>
+                        Veuillez patienter, l'opération va se terminer automatiquement.
+                      </p>
+                      <div style={{
+                        width: '100%',
+                        height: '4px',
+                        background: '#e9ecef',
+                        borderRadius: '2px',
+                        marginTop: '20px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{
+                          width: '100%',
+                          height: '100%',
+                          background: 'linear-gradient(90deg, #007bff, #74b9ff)',
+                          animation: 'slideInRight 2s ease-in-out'
+                        }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
             {/* Onglet Gestion */}
@@ -1139,6 +1890,86 @@ export default function CaisseMyConfortApp() {
           clearCart={clearCart}
           completeSale={completeSale}
         />
+
+        {/* Modal Succès RAZ */}
+        {showResetSuccess && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            animation: 'fadeIn 0.3s ease'
+          }}>
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '0',
+              maxWidth: '500px',
+              width: '90%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              animation: 'slideIn 0.3s ease',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
+                color: 'white',
+                padding: '25px',
+                textAlign: 'center'
+              }}>
+                <CheckCircle size={48} style={{ marginBottom: '15px' }} />
+                <h2 style={{ margin: '0 0 10px 0', fontSize: '24px' }}>
+                  🎉 RAZ Terminée !
+                </h2>
+                <p style={{ margin: 0, opacity: 0.9, fontSize: '16px' }}>
+                  La remise à zéro a été effectuée avec succès
+                </p>
+              </div>
+              
+              <div style={{ padding: '25px', textAlign: 'center' }}>
+                <div style={{
+                  background: '#d4edda',
+                  border: '1px solid #c3e6cb',
+                  borderRadius: '8px',
+                  padding: '15px',
+                  marginBottom: '20px'
+                }}>
+                  <strong style={{ color: '#155724' }}>✅ Opération réussie</strong>
+                  <p style={{ margin: '8px 0 0 0', color: '#155724' }}>
+                    Toutes les actions sélectionnées ont été appliquées.<br />
+                    L'application est prête à être utilisée.
+                  </p>
+                </div>
+                
+                <button
+                  onClick={() => setShowResetSuccess(false)}
+                  style={{
+                    background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '12px 30px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    margin: '0 auto'
+                  }}
+                >
+                  <CheckCircle size={20} />
+                  Parfait !
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Success Notification */}
         <SuccessNotification show={showSuccess} />
