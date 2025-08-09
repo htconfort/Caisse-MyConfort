@@ -17,27 +17,44 @@ export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
     return vendor?.color || '#6B7280';
   };
 
-  // 🔧 CORRECTION MAJEURE : Calcul du CA total incluant les factures N8N
+  // 🎯 FONCTION UTILITAIRE : Vérifier si une date est aujourd'hui
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    const checkDate = new Date(date);
+    return checkDate.toDateString() === today.toDateString();
+  };
+
+  // 🔧 CORRECTION MAJEURE : Calcul du CA total incluant SEULEMENT les données du jour
   const totalCA = useMemo(() => {
-    // CA des ventes caisse (existant)
+    console.log(`📅 FILTRAGE CA INSTANT - Date d'aujourd'hui: ${new Date().toLocaleDateString('fr-FR')}`);
+    
+    // CA des ventes caisse du jour SEULEMENT
     const salesCA = sales
-      .filter(sale => !sale.canceled)
+      .filter(sale => !sale.canceled && isToday(sale.date))
       .reduce((sum, sale) => sum + sale.totalAmount, 0);
     
-    // 🎯 Debug des factures N8N
-    console.log(`🔍 DEBUG FACTURES N8N:
-    - Nombre total de factures: ${invoices.length}
-    - Première facture:`, invoices[0]);
+    console.log(`� VENTES CAISSE DU JOUR:
+    - Total ventes stockées: ${sales.length}
+    - Ventes non annulées: ${sales.filter(s => !s.canceled).length}
+    - Ventes d'aujourd'hui: ${sales.filter(s => !s.canceled && isToday(s.date)).length}
+    - CA ventes du jour: ${salesCA.toFixed(2)}€`);
     
-    // 🎯 CA des factures N8N - TOUTES les factures
-    const invoicesCA = invoices.reduce((sum, invoice) => {
-      // Utiliser le total TTC ou calculer depuis les items
-      const invoiceTotal = invoice.totalTTC || 
-        invoice.items.reduce((itemSum, item) => itemSum + (item.totalPrice || item.unitPrice * item.quantity), 0);
+    // 🎯 CA des factures N8N du jour SEULEMENT
+    const invoicesCA = invoices
+      .filter(invoice => isToday(invoice.createdAt))
+      .reduce((sum, invoice) => {
+        // Utiliser le total TTC ou calculer depuis les items
+        const invoiceTotal = invoice.totalTTC || 
+          invoice.items.reduce((itemSum, item) => itemSum + (item.totalPrice || item.unitPrice * item.quantity), 0);
+        
+        console.log(`    → Facture ${invoice.number} du ${new Date(invoice.createdAt).toLocaleDateString('fr-FR')} (${invoice.clientName}): ${invoiceTotal}€`);
+        return sum + invoiceTotal;
+      }, 0);
       
-      console.log(`    → Facture ${invoice.number} (${invoice.clientName}): ${invoiceTotal}€`);
-      return sum + invoiceTotal;
-    }, 0);
+    console.log(`📄 FACTURES N8N DU JOUR:
+    - Total factures stockées: ${invoices.length}
+    - Factures d'aujourd'hui: ${invoices.filter(i => isToday(i.createdAt)).length}
+    - CA factures du jour: ${invoicesCA.toFixed(2)}€`);
     
     // Total combiné
     const combinedCA = salesCA + invoicesCA;
@@ -50,36 +67,41 @@ export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
     return combinedCA;
   }, [sales, invoices]);
 
-  // 🔧 CORRECTION : CA par vendeuse incluant les factures N8N
+  // 🔧 CORRECTION : CA par vendeuse incluant SEULEMENT les données du jour
   const vendorCAs = useMemo(() => {
     const caByVendor: Record<string, number> = {};
     
-    // 1. Calculer le CA des ventes caisse pour chaque vendeuse
+    console.log(`👥 CALCUL CA PAR VENDEUSE - Filtrage par date du jour`);
+    
+    // 1. Calculer le CA des ventes caisse du jour pour chaque vendeuse
     sales
-      .filter(sale => !sale.canceled)
+      .filter(sale => !sale.canceled && isToday(sale.date))
       .forEach(sale => {
         if (!caByVendor[sale.vendorId]) {
           caByVendor[sale.vendorId] = 0;
         }
         caByVendor[sale.vendorId] += sale.totalAmount;
+        console.log(`    → Vente caisse ${sale.id} du ${new Date(sale.date).toLocaleDateString('fr-FR')} - ${sale.vendorName}: +${sale.totalAmount}€`);
       });
 
-    // 2. 🎯 NOUVEAU : Ajouter le CA des factures N8N pour chaque vendeuse
-    invoices.forEach(invoice => {
-      if (invoice.vendorId) {
-        const invoiceTotal = invoice.totalTTC || 
-          invoice.items.reduce((sum, item) => sum + (item.totalPrice || item.unitPrice * item.quantity), 0);
-        
-        if (!caByVendor[invoice.vendorId]) {
-          caByVendor[invoice.vendorId] = 0;
+    // 2. 🎯 Ajouter le CA des factures N8N du jour pour chaque vendeuse
+    invoices
+      .filter(invoice => isToday(invoice.createdAt))
+      .forEach(invoice => {
+        if (invoice.vendorId) {
+          const invoiceTotal = invoice.totalTTC || 
+            invoice.items.reduce((sum, item) => sum + (item.totalPrice || item.unitPrice * item.quantity), 0);
+          
+          if (!caByVendor[invoice.vendorId]) {
+            caByVendor[invoice.vendorId] = 0;
+          }
+          caByVendor[invoice.vendorId] += invoiceTotal;
+          
+          console.log(`    → Facture ${invoice.number} du ${new Date(invoice.createdAt).toLocaleDateString('fr-FR')} - ${invoice.vendorName}: +${invoiceTotal}€`);
+        } else {
+          console.log(`⚠️ Facture ${invoice.number} sans vendorId (vendorName: ${invoice.vendorName})`);
         }
-        caByVendor[invoice.vendorId] += invoiceTotal;
-        
-        console.log(`💰 Facture ${invoice.number} → Vendeuse ${invoice.vendorId} (${invoice.vendorName}): +${invoiceTotal}€`);
-      } else {
-        console.log(`⚠️ Facture ${invoice.number} sans vendorId (vendorName: ${invoice.vendorName})`);
-      }
-    });
+      });
 
     // 3. Mapper avec les données des vendeuses
     const result = vendors.map(vendor => ({
@@ -92,12 +114,14 @@ export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
     return result;
   }, [sales, invoices]);
 
-  // Calcul du nombre total de ventes (caisse + factures)
+  // Calcul du nombre total de ventes du jour (caisse + factures)
   const totalSalesCount = useMemo(() => {
-    const salesCount = sales.filter(sale => !sale.canceled).length;
-    const invoicesCount = invoices.length; // TOUTES les factures comme dans le CA
+    const salesCount = sales.filter(sale => !sale.canceled && isToday(sale.date)).length;
+    const invoicesCount = invoices.filter(invoice => isToday(invoice.createdAt)).length;
     
-    console.log(`📊 TRANSACTIONS TOTALES: ${salesCount} ventes caisse + ${invoicesCount} factures N8N = ${salesCount + invoicesCount} total`);
+    console.log(`📊 TRANSACTIONS DU JOUR: ${salesCount} ventes caisse + ${invoicesCount} factures N8N = ${salesCount + invoicesCount} total`);
+    
+    return salesCount + invoicesCount;
     
     return salesCount + invoicesCount;
   }, [sales, invoices]);
@@ -154,7 +178,7 @@ export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
             {vendorCAs.map((vendor, index) => {
               const percentage = totalCA > 0 ? (vendor.realCA / totalCA) * 100 : 0;
               const salesCount = sales.filter(sale => 
-                sale.vendorId === vendor.id && !sale.canceled
+                sale.vendorId === vendor.id && !sale.canceled && isToday(sale.date)
               ).length;
 
               return (
