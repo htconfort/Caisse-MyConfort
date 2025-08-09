@@ -2,6 +2,29 @@ import React, { useState, useMemo } from 'react';
 import { Printer, Mail, Download, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import type { Sale, Vendor } from '../types';
 import type { Invoice } from '../services/syncService';
+import WhatsAppIntegrated from './WhatsAppIntegrated';
+
+// Types pour WhatsApp
+interface ReportData {
+  date: string;
+  totalSales: number;
+  salesCount: number;
+  topVendor: string;
+  topVendorSales: number;
+  avgSale: number;
+  paymentBreakdown: {
+    [key: string]: number;
+  };
+}
+
+interface WhatsAppConfig {
+  managerNumber: string;
+  teamNumbers: string[];
+  autoSendEnabled: boolean;
+  sendTime: string;
+  includeImage: boolean;
+  businessNumber: string;
+}
 
 // ===== DONNÉES D'EXEMPLE RÈGLEMENTS À VENIR - À REMPLACER =====
 const reglementsAVenir = [
@@ -362,6 +385,52 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
               <div id="feuille-imprimable"><FeuilleImprimable calculs={calculs} /></div>
             </div>
           )}
+
+          {/* Section WhatsApp Business */}
+          <div style={{ 
+            background: 'white', 
+            borderRadius: '10px', 
+            marginTop: '30px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+            border: '2px solid #25d366'
+          }}>
+            <div style={{
+              background: 'linear-gradient(135deg, #25d366 0%, #075e54 100%)',
+              color: 'white',
+              padding: '15px 20px',
+              borderRadius: '8px 8px 0 0',
+              marginBottom: '0'
+            }}>
+              <h2 style={{ margin: 0, fontSize: '1.4em', fontWeight: 'bold' }}>
+                📱 WhatsApp Business - Envoi automatique
+              </h2>
+              <p style={{ margin: '5px 0 0 0', fontSize: '0.9em', opacity: 0.9 }}>
+                Rapports quotidiens et alertes objectifs via WhatsApp
+              </p>
+            </div>
+            
+            <WhatsAppIntegrated
+              currentData={calculs}
+              vendors={calculs.vendeusesAvecDetail.map(v => ({
+                id: v.id,
+                name: v.name,
+                dailySales: v.totalCalcule,
+                totalSales: v.totalCalcule
+              }))}
+              sales={sales.map(sale => ({
+                id: sale.id,
+                amount: sale.totalAmount,
+                vendor: sale.vendorName,
+                time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+              }))}
+              cart={[]}
+              onSendReport={(reportData: ReportData, config: WhatsAppConfig) => {
+                console.log('📱 Rapport WhatsApp envoyé:', reportData);
+                console.log('🔧 Configuration utilisée:', config);
+                // Ici vous pourrez ajouter une logique de callback si nécessaire
+              }}
+            />
+          </div>
         </div>
       </div>
 
