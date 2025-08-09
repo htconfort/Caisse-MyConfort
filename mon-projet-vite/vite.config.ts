@@ -4,6 +4,11 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __PRODUCTION_MODE__: true,
+    __DISABLE_DEMO_DATA__: true,
+    'import.meta.env.VITE_DEMO_MODE': JSON.stringify('false'),
+  },
   server: {
     port: 5173,
     host: true,
@@ -14,14 +19,14 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/n8n/, ''),
         secure: true,
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, _req, _res) => {
+        configure: (proxy) => {
+          proxy.on('error', (err) => {
             console.log('🔌 Proxy error:', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+          proxy.on('proxyReq', (_proxyReq, req) => {
             console.log('🔗 Proxy request:', req.method, req.url);
           });
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('✅ Proxy response:', proxyRes.statusCode, req.url);
           });
         }

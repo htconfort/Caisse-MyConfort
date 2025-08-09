@@ -6,6 +6,29 @@
 
 import type { InvoicePayload } from '../types';
 
+// Garde-fou global pour bloquer toute donnée de démo selon flags runtime/build
+function blockDemo(): boolean {
+  // Flags runtime
+  const w = (typeof window !== 'undefined' ? window : undefined) as unknown as {
+    PRODUCTION_MODE?: boolean;
+    DISABLE_ALL_DEMO_DATA?: boolean;
+    FORCE_EMPTY_INVOICES?: boolean;
+  } | undefined;
+  if (w && (w.PRODUCTION_MODE || w.DISABLE_ALL_DEMO_DATA || w.FORCE_EMPTY_INVOICES)) return true;
+
+  // Flags build-time (Vite define)
+  // @ts-expect-error: injected at build time via Vite define
+  if (typeof __PRODUCTION_MODE__ !== 'undefined' && __PRODUCTION_MODE__) return true;
+  // @ts-expect-error: injected at build time via Vite define
+  if (typeof __DISABLE_DEMO_DATA__ !== 'undefined' && __DISABLE_DEMO_DATA__) return true;
+
+  // Vars d'env
+  const viteEnv = (typeof import.meta !== 'undefined' ? (import.meta as unknown as { env?: Record<string, string> }).env : undefined);
+  if (viteEnv?.VITE_DEMO_MODE === 'false') return true;
+
+  return false;
+}
+
 /**
  * Fonction d'insertion idempotente locale pour éviter les doublons
  */
@@ -46,6 +69,11 @@ class ExternalInvoiceService {
       syncInterval: config.syncInterval || 30000, // 30 secondes par défaut
       ...config
     };
+
+    // Désactiver l'autoSync si on bloque la démo (en prod/non-localhost)
+    if (blockDemo()) {
+      this.config.autoSync = false;
+    }
 
     // Charger les factures depuis le localStorage au démarrage
     this.loadFromStorage();
@@ -111,6 +139,7 @@ class ExternalInvoiceService {
    * Obtenir toutes les factures externes
    */
   getAllInvoices(): InvoicePayload[] {
+    // En mode protégé (prod), ne retourner que ce qui est réellement stocké localement
     return [...this.invoices];
   }
 
@@ -167,6 +196,12 @@ class ExternalInvoiceService {
    */
   async syncWithAPI(): Promise<boolean> {
     try {
+      // En mode protégé, ne pas tenter de sync (ou ignorer silencieusement)
+      if (blockDemo()) {
+        console.warn('🏭 Production guard actif: synchronisation API ignorée');
+        return true;
+      }
+
       if (!this.config.apiEndpoint) {
         console.warn('⚠️ Aucun endpoint configuré pour la synchronisation');
         return false;
@@ -192,8 +227,8 @@ class ExternalInvoiceService {
         const result = this.receiveInvoiceBatch(data);
         console.log(`✅ Synchronisation terminée: ${result.success} factures`);
         return true;
-      } else if (data.invoices && Array.isArray(data.invoices)) {
-        const result = this.receiveInvoiceBatch(data.invoices);
+      } else if ((data as { invoices?: unknown[] }).invoices && Array.isArray((data as { invoices?: unknown[] }).invoices)) {
+        const result = this.receiveInvoiceBatch((data as { invoices: InvoicePayload[] }).invoices);
         console.log(`✅ Synchronisation terminée: ${result.success} factures`);
         return true;
       }
@@ -210,6 +245,10 @@ class ExternalInvoiceService {
    * Démarrer la synchronisation automatique
    */
   startAutoSync(): void {
+    if (blockDemo()) {
+      // Ne rien faire en production guard
+      return;
+    }
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
     }

@@ -9,6 +9,15 @@ import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { Sale, InvoicePayload } from '../types';
 import '../styles/invoices-compact.css';
 
+// Garde global de prod (déclarations)
+declare global {
+  interface Window {
+    PRODUCTION_MODE?: boolean;
+    DISABLE_ALL_DEMO_DATA?: boolean;
+    FORCE_EMPTY_INVOICES?: boolean;
+  }
+}
+
 interface CompactInvoicesDisplayProps {
   internalInvoices?: Sale[];  // Factures internes de l'app
   showExternalOnly?: boolean;
@@ -54,9 +63,32 @@ const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
   const [statusFilter, setStatusFilter] = useState('');
   const [periodFilter, setPeriodFilter] = useState('');
 
+  const productionGuard = (typeof window !== 'undefined') && (window.PRODUCTION_MODE || window.DISABLE_ALL_DEMO_DATA || window.FORCE_EMPTY_INVOICES);
+
   // Unification des factures internes et externes
   const unifiedInvoices: UnifiedInvoice[] = useMemo(() => {
     const unified: UnifiedInvoice[] = [];
+
+    if (productionGuard) {
+      // En production: n'afficher aucune facture externe issue de toute source démo
+      // On conserve les internes uniquement si demandé
+      if (!showExternalOnly) {
+        internalInvoices.forEach(sale => {
+          unified.push({
+            id: sale.id,
+            number: sale.id.substring(0, 8),
+            client: { name: sale.vendorName || 'Client interne', email: '', phone: '' },
+            date: sale.date.toISOString(),
+            products: { count: sale.items.length, firstProduct: sale.items[0]?.name || 'Aucun produit' },
+            status: sale.canceled ? 'unpaid' : 'paid',
+            amount: sale.totalAmount,
+            type: 'internal',
+            originalData: sale
+          });
+        });
+      }
+      return unified.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }
 
     // Ajouter les factures externes
     if (!showInternalOnly) {
@@ -107,7 +139,7 @@ const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
     }
 
     return unified.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [externalInvoices, internalInvoices, showExternalOnly, showInternalOnly]);
+  }, [externalInvoices, internalInvoices, showExternalOnly, showInternalOnly, productionGuard]);
 
   // Filtrage
   const filteredInvoices = useMemo(() => {
@@ -269,18 +301,18 @@ const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button
             onClick={syncWithAPI}
-            disabled={isLoading}
+            disabled={isLoading || productionGuard}
             style={{
               padding: '6px 12px',
               border: 'none',
               borderRadius: '8px',
-              background: isLoading ? '#ccc' : 'var(--brand)',
+              background: isLoading || productionGuard ? '#ccc' : 'var(--brand)',
               color: 'white',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
+              cursor: isLoading || productionGuard ? 'not-allowed' : 'pointer',
               fontSize: '12px'
             }}
           >
-            {isLoading ? '🔄 Sync...' : '🔄 Sync'}
+            {isLoading ? '🔄 Sync...' : (productionGuard ? '🔒 Sync désactivée' : '🔄 Sync')}
           </button>
           
           <span className="counter">

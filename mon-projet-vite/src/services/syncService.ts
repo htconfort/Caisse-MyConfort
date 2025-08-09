@@ -177,14 +177,14 @@ class SyncService {
    */
   async getInvoices(): Promise<Invoice[]> {
     try {
-      // DÉBOGAGE URGENT : Vérifier le mode actuel
       const forceProductionMode = localStorage.getItem('force-production-mode') === 'true';
-      console.log(`🚨 DEBUG URGENT - Mode production forcé: ${forceProductionMode}`);
-      
-      if (forceProductionMode) {
-        console.log(`🏭 MODE PRODUCTION FORCÉ DÉTECTÉ - Utilisation des données de démo`);
-        console.log(`⚡ POUR VOIR VOS VRAIES FACTURES N8N, tapez: localStorage.removeItem('force-production-mode')`);
-        return this.getDemoInvoices();
+      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const productionGuard = forceProductionMode || !isLocalhost;
+
+      if (productionGuard) {
+        // En production: ne jamais retourner les démos
+        const cached = this.getCachedInvoices();
+        return cached;
       }
 
       if (!this.isOnline) {
@@ -196,37 +196,25 @@ class SyncService {
       try {
         const response = await fetch(`${this.baseUrl}/sync/invoices`, {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         });
 
         if (response.ok) {
           const data = await response.json();
-          console.log(`✅ N8N connecté, ${data.count || 0} factures reçues`);
-          console.log(`🎯 VRAIES FACTURES N8N CHARGÉES - Clients: ${data.invoices?.slice(0,3).map((inv: any) => inv.client?.name).join(', ')}...`);
           const invoices = this.transformInvoicesData(data);
-          
-          // Mise en cache pour le mode offline
           this.cacheInvoices(invoices);
-          
-          // 🆕 NOUVEAU : Déduction automatique du stock pour les nouvelles factures
           await this.processNewInvoicesForStockDeduction(invoices);
-          
           return invoices;
         } else {
-          console.warn(`❌ N8N non disponible (${response.status}), utilisation des données de démo`);
-          return this.getDemoInvoices();
+          console.warn(`❌ N8N non disponible (${response.status}), aucun fallback démo en production`);
+          return this.getCachedInvoices();
         }
       } catch (networkError) {
-        console.warn('🔌 Erreur réseau N8N, utilisation des données de démo:', networkError);
-        return this.getDemoInvoices();
+        console.warn('🔌 Erreur réseau N8N, aucun fallback démo en production:', networkError);
+        return this.getCachedInvoices();
       }
-
     } catch (error) {
       console.error('❌ Erreur lors de la récupération des factures:', error);
-      
-      // Fallback vers le cache en cas d'erreur
       return this.getCachedInvoices();
     }
   }
@@ -1022,239 +1010,8 @@ class SyncService {
    * Génère des données de démo pour tester l'interface
    */
   private getDemoInvoices(): Invoice[] {
-    console.log('🧪 Chargement des données de démo avec remises et couleurs vendeuses');
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-    
-    return [
-      {
-        id: 'demo-inv-001',
-        number: 'FAC-2025-001',
-        clientName: 'Sophie Martin',
-        clientEmail: 'sophie.martin@email.com',
-        clientPhone: '06 12 34 56 78',
-        items: [
-          {
-            id: 'item-001',
-            productName: 'Matelas Memory Foam 160x200',
-            category: 'Matelas',
-            quantity: 1,
-            unitPrice: 899.00,
-            totalPrice: 899.00,
-            status: 'pending',
-            stockReserved: true
-          },
-          {
-            id: 'item-002', 
-            productName: 'Sommier tapissier 160x200',
-            category: 'Accessoires',
-            quantity: 1,
-            unitPrice: 299.00,
-            totalPrice: 299.00,
-            status: 'available',
-            stockReserved: false
-          }
-        ],
-        totalHT: 998.33,
-        totalTTC: 1198.00,
-        status: 'sent',
-        dueDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-        createdAt: yesterday,
-        updatedAt: now,
-        vendorId: 'vendor-sophie',
-        vendorName: 'Sophie Dubois',
-        notes: 'Livraison prévue la semaine prochaine',
-        paymentDetails: {
-          method: 'check',
-          status: 'partial',
-          totalAmount: 1198.00,
-          paidAmount: 400.00,
-          remainingAmount: 798.00,
-          checkDetails: {
-            totalChecks: 3,
-            checksReceived: 1,
-            checksRemaining: 2,
-            nextCheckDate: nextWeek,
-            checkAmounts: [400, 400, 398],
-            characteristics: '3 chèques : 400€ + 400€ + 398€'
-          },
-          paymentNotes: 'Premier chèque encaissé, 2 chèques à venir'
-        }
-      },
-      {
-        id: 'demo-inv-002',
-        number: 'FAC-2025-002',
-        clientName: 'Jean Dupont',
-        clientEmail: 'jean.dupont@email.com',
-        items: [
-          {
-            id: 'item-003',
-            productName: 'Couette 4 saisons 220x240',
-            category: 'Couettes',
-            quantity: 1,
-            unitPrice: 151.20, // Prix après remise 20%
-            totalPrice: 151.20,
-            status: 'delivered',
-            stockReserved: false,
-            // Ajout des champs de remise pour démonstration
-            originalPrice: 189.00, // Prix original
-            discountPercentage: 20, // 20% de remise
-            discountAmount: 37.80 // 189 - 151.20
-          },
-          {
-            id: 'item-004',
-            productName: 'Oreiller ergonomique x2',
-            category: 'Oreillers',
-            quantity: 2,
-            unitPrice: 47.20, // Prix unitaire après remise 20%
-            totalPrice: 94.40, // 2 * 47.20
-            status: 'delivered',
-            stockReserved: false,
-            // Ajout des champs de remise pour démonstration
-            originalPrice: 59.00, // Prix original unitaire
-            discountPercentage: 20, // 20% de remise
-            discountAmount: 23.60 // (59-47.20) * 2
-          }
-        ],
-        totalHT: 204.67,
-        totalTTC: 245.60,
-        status: 'paid',
-        dueDate: yesterday,
-        createdAt: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
-        updatedAt: now,
-        vendorId: 'vendor-marie',
-        vendorName: 'Marie Lefebvre',
-        notes: 'Client satisfait, livraison effectuée avec remises promotionnelles',
-        paymentDetails: {
-          method: 'card',
-          status: 'completed',
-          totalAmount: 245.60,
-          paidAmount: 245.60,
-          remainingAmount: 0,
-          transactionDetails: {
-            reference: 'CB-240125-001',
-            bankName: 'Crédit Agricole',
-            accountLast4: '1234'
-          },
-          paymentNotes: 'Paiement CB sans contact'
-        }
-      },
-      {
-        id: 'demo-inv-003',
-        number: 'FAC-2025-003',
-        clientName: 'Pierre & Anne Moreau',
-        clientEmail: 'contact@moreau-famille.fr',
-        clientPhone: '01 23 45 67 89',
-        items: [
-          {
-            id: 'item-005',
-            productName: 'Sur-matelas climatisé 140x190',
-            category: 'Sur-matelas',
-            quantity: 1,
-            unitPrice: 449.00,
-            totalPrice: 449.00,
-            status: 'available',
-            stockReserved: true
-          },
-          {
-            id: 'item-006',
-            productName: 'Protège-matelas imperméable',
-            category: 'Accessoires',
-            quantity: 1,
-            unitPrice: 39.00,
-            totalPrice: 39.00,
-            status: 'pending',
-            stockReserved: true
-          }
-        ],
-        totalHT: 406.67,
-        totalTTC: 488.00,
-        status: 'partial',
-        dueDate: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000),
-        createdAt: now,
-        updatedAt: now,
-        vendorId: 'vendor-lucie',
-        vendorName: 'Lucie Petit',
-        notes: 'Commande en cours de préparation',
-        paymentDetails: {
-          method: 'installments',
-          status: 'partial',
-          totalAmount: 488.00,
-          paidAmount: 200.00,
-          remainingAmount: 288.00,
-          installments: {
-            totalInstallments: 3,
-            completedInstallments: 1,
-            nextPaymentDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-            installmentAmount: 162.67
-          },
-          paymentNotes: 'Paiement en 3 fois : 200€ + 162,67€ + 125,33€'
-        }
-      },
-      {
-        id: 'demo-inv-004',
-        number: 'FAC-2025-004',
-        clientName: 'Billy Test Client',
-        clientEmail: 'billy.test@email.com',
-        clientPhone: '06 11 22 33 44',
-        items: [
-          {
-            id: 'item-007',
-            productName: 'MATELAS BAMBOU 160 x 200',
-            category: 'Matelas',
-            quantity: 1,
-            unitPrice: 1680.00, // Prix après remise 20%
-            totalPrice: 1680.00,
-            status: 'pending',
-            stockReserved: true,
-            // Ajout des champs de remise pour démonstration
-            originalPrice: 2100.00, // Prix original du catalogue
-            discountPercentage: 20, // 20% de remise
-            discountAmount: 420.00 // 2100 - 1680
-          },
-          {
-            id: 'item-008',
-            productName: 'SURMATELAS BAMBOU 160 x 200',
-            category: 'Sur-matelas',
-            quantity: 1,
-            unitPrice: 392.00, // Prix après remise 20%
-            totalPrice: 392.00,
-            status: 'available',
-            stockReserved: false,
-            // Ajout des champs de remise pour démonstration
-            originalPrice: 490.00, // Prix original du catalogue
-            discountPercentage: 20, // 20% de remise
-            discountAmount: 98.00 // 490 - 392
-          }
-        ],
-        totalHT: 1726.67,
-        totalTTC: 2072.00,
-        status: 'sent',
-        dueDate: new Date(now.getTime() + 45 * 24 * 60 * 60 * 1000),
-        createdAt: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000),
-        updatedAt: now,
-        vendorId: 'vendor-billy',
-        vendorName: 'Billy',
-        notes: 'Grosse commande avec remises exceptionnelles - Billy',
-        paymentDetails: {
-          method: 'check',
-          status: 'partial',
-          totalAmount: 2072.00,
-          paidAmount: 500.00,
-          remainingAmount: 1572.00,
-          checkDetails: {
-            totalChecks: 4,
-            checksReceived: 1,
-            checksRemaining: 3,
-            nextCheckDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
-            checkAmounts: [500, 500, 500, 72],
-            characteristics: '4 chèques : 500€ + 500€ + 500€ + 72€'
-          },
-          paymentNotes: 'Premier chèque encaissé, 3 chèques à venir pour Billy'
-        }
-      }
-    ];
+    // Neutralisé: ne plus fournir de données démo
+    return [];
   }
 }
 
