@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Printer, Mail, Download, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import type { Sale, Vendor } from '../types';
 import type { Invoice } from '../services/syncService';
+import { externalInvoiceService } from '../services/externalInvoiceService';
 import WhatsAppIntegrated from './WhatsAppIntegrated';
 
 // Types pour WhatsApp
@@ -350,6 +351,11 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   const effectuerRAZ = () => {
     if (window.confirm('⚠️ Cette action va supprimer toutes les données du jour.\nAvez-vous imprimé la feuille de caisse ?\n\nConfirmer la REMISE À ZÉRO ?')) {
+      // Nettoyer aussi les factures externes
+      externalInvoiceService.clearAllInvoices();
+      console.log('🧹 Factures externes nettoyées lors de la RAZ');
+      
+      // Exécuter la RAZ normale
       executeRAZ();
     }
   };

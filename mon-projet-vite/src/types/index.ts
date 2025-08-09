@@ -247,6 +247,121 @@ export * from '../hooks/useNotifications';
 
 // Nouveaux réexports IndexedDB - prêts pour les prochaines étapes
 // (Ces lignes seront décommentées au fur et à mesure)
+// ============================================================================
+// 📄 TYPES FACTURATION EXTERNE - Réception depuis systèmes externes
+// ============================================================================
+
+/**
+ * Item de facture reçu depuis un système externe (N8N, API, etc.)
+ */
+export interface InvoiceItem {
+  sku?: string;           // Code produit/SKU (optionnel)
+  name: string;           // Nom du produit
+  qty: number;            // Quantité
+  unitPriceHT: number;    // Prix unitaire HT
+  tvaRate: number;        // Taux de TVA (ex: 0.20 pour 20%)
+}
+
+/**
+ * Client pour facture externe
+ */
+export interface InvoiceClient {
+  name: string;           // Nom du client (obligatoire)
+  email?: string;         // Email du client
+  phone?: string;         // Téléphone du client
+  address?: string;       // Adresse du client
+  postalCode?: string;    // Code postal
+  city?: string;          // Ville
+  siret?: string;         // SIRET pour les entreprises
+}
+
+/**
+ * Totaux de facture
+ */
+export interface InvoiceTotals {
+  ht: number;             // Total HT
+  tva: number;            // Total TVA
+  ttc: number;            // Total TTC
+}
+
+/**
+ * Informations de paiement
+ */
+export interface InvoicePayment {
+  method?: string;        // Méthode de paiement
+  paid?: boolean;         // Facture payée ou non
+  paidAmount?: number;    // Montant payé
+  depositRate?: number;   // Taux d'acompte (ex: 0.30 pour 30%)
+}
+
+/**
+ * Canaux de distribution/origine
+ */
+export interface InvoiceChannels {
+  source?: string;        // Source de la facture (site web, boutique, etc.)
+  via?: string;           // Intermédiaire (N8N, API directe, etc.)
+}
+
+/**
+ * Payload complet de facture reçue depuis un système externe
+ * Structure normalisée pour éviter les doublons et faciliter l'intégration
+ */
+export interface InvoicePayload {
+  invoiceNumber: string;     // Numéro de facture (unique)
+  invoiceDate: string;       // Date de facture (format ISO 8601)
+  client: InvoiceClient;     // Informations client
+  items: InvoiceItem[];      // Items de la facture
+  totals: InvoiceTotals;     // Totaux calculés
+  payment?: InvoicePayment;  // Informations de paiement (optionnel)
+  channels?: InvoiceChannels; // Canaux de distribution (optionnel)
+  pdfBase64?: string;        // PDF de la facture en base64 (optionnel)
+  idempotencyKey: string;    // Clé d'idempotence (= invoiceNumber par défaut)
+}
+
+// ============================================================================
+// 🔧 FONCTIONS UTILITAIRES POUR INVOICES
+// ============================================================================
+
+/**
+ * Fonction d'insertion idempotente pour éviter les doublons
+ * Fusionne les données si la facture existe déjà
+ */
+export const upsertInvoice = (list: InvoicePayload[], incoming: InvoicePayload): InvoicePayload[] => {
+  const idx = list.findIndex(i => i.idempotencyKey === incoming.idempotencyKey);
+  if (idx === -1) {
+    // Nouvelle facture : ajouter en début de liste
+    return [incoming, ...list];
+  }
+  // Facture existante : fusionner les données
+  const merged = { ...list[idx], ...incoming };
+  const copy = [...list];
+  copy[idx] = merged;
+  return copy;
+};
+
+/**
+ * Conversion d'une InvoicePayload vers le format Invoice interne
+ */
+export const convertInvoicePayloadToInvoice = (payload: InvoicePayload): Partial<Sale> => {
+  return {
+    id: payload.idempotencyKey,
+    vendorId: 'external',
+    vendorName: 'Système Externe',
+    items: payload.items.map(item => ({
+      id: `${payload.invoiceNumber}-${item.sku || item.name}`,
+      name: item.name,
+      price: item.unitPriceHT * (1 + item.tvaRate), // Conversion en TTC
+      quantity: item.qty,
+      category: 'Externe',
+      addedAt: new Date()
+    })),
+    totalAmount: payload.totals.ttc,
+    paymentMethod: 'card', // Valeur par défaut
+    date: new Date(payload.invoiceDate),
+    canceled: false
+  };
+};
+
 // export * from '../db/schema';
 // export * from '../hooks/storage/useIndexedStorage';
 // export * from '../hooks/storage/useMyConfortDB';
