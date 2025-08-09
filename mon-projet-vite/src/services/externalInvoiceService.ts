@@ -284,4 +284,11 @@ export const externalInvoiceService = new ExternalInvoiceService({
   syncInterval: 30000 // 30 secondes
 });
 
+// Exposer le service dans la console pour les tests (mode développement)
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).externalInvoiceService = externalInvoiceService;
+  console.log('🔧 ExternalInvoiceService exposé dans window.externalInvoiceService pour les tests');
+}
+
 export default ExternalInvoiceService;

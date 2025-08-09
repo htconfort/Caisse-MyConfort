@@ -135,6 +135,58 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
           </h2>
           
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            {/* Bouton de test pour ajouter des factures factices */}
+            {import.meta.env.DEV && (
+              <button
+                onClick={() => {
+                  // Ajouter des factures de test
+                  const testInvoices = [
+                    {
+                      invoiceNumber: "TEST-001",
+                      invoiceDate: new Date().toISOString(),
+                      client: { name: "Client Test 1", email: "test1@email.com", phone: "06 12 34 56 78" },
+                      items: [{ sku: "TEST", name: "Matelas Test", qty: 1, unitPriceHT: 1000, tvaRate: 0.20 }],
+                      totals: { ht: 1000, tva: 200, ttc: 1200 },
+                      payment: { method: "Carte", paid: true, paidAmount: 1200 },
+                      channels: { source: "Test", via: "Manuel" },
+                      idempotencyKey: "TEST-001"
+                    },
+                    {
+                      invoiceNumber: "TEST-002",
+                      invoiceDate: new Date().toISOString(),
+                      client: { name: "Client Test 2", email: "test2@email.com", phone: "06 98 76 54 32" },
+                      items: [{ sku: "TEST2", name: "Sommier Test", qty: 1, unitPriceHT: 800, tvaRate: 0.20 }],
+                      totals: { ht: 800, tva: 160, ttc: 960 },
+                      payment: { method: "Chèque", paid: false, paidAmount: 0 },
+                      channels: { source: "Test", via: "Manuel" },
+                      idempotencyKey: "TEST-002"
+                    }
+                  ];
+                  
+                  testInvoices.forEach(invoice => {
+                    const w = window as any;
+                    if (w.externalInvoiceService) {
+                      w.externalInvoiceService.receiveInvoice(invoice);
+                    }
+                  });
+                  
+                  // Forcer le rechargement
+                  window.location.reload();
+                }}
+                style={{
+                  background: '#f59e0b',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                🧪 Ajouter Test Data
+              </button>
+            )}
+            
             <button
               onClick={handleSyncAll}
               disabled={isLoading}
@@ -145,10 +197,38 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
                 padding: '0.5rem 1rem',
                 borderRadius: '8px',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
-                fontSize: '0.9rem'
+                fontSize: '0.9rem',
+                marginRight: '0.5rem'
               }}
             >
               {isLoading ? '🔄 Sync...' : '🔄 Synchroniser tout'}
+            </button>
+            
+            {/* Bouton de diagnostic */}
+            <button
+              onClick={() => {
+                console.log('🔍 DIAGNOSTIC FACTURES EXTERNES:');
+                console.log('Nombre de factures externes:', externalInvoices.length);
+                console.log('Factures externes:', externalInvoices);
+                if (externalInvoices.length > 0) {
+                  console.log('Exemple de facture:', externalInvoices[0]);
+                  console.log('Client:', externalInvoices[0].client);
+                  console.log('Items:', externalInvoices[0].items);
+                  console.log('Totaux:', externalInvoices[0].totals);
+                }
+                alert(`${externalInvoices.length} factures externes trouvées. Voir console pour détails.`);
+              }}
+              style={{
+                background: '#17a2b8',
+                border: 'none',
+                color: 'white',
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              🔍 Diagnostic
             </button>
           </div>
         </div>

@@ -17,7 +17,7 @@ import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
 import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
 import { StockTabElegant } from './components/tabs/StockTabElegant';
-import { InvoicesTabElegant } from './components/InvoicesTabElegant';
+import InvoicesTabCompact from './components/InvoicesTabCompact';
 import { SuccessNotification, FloatingCart } from './components/ui';
 import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
 import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
@@ -744,7 +744,7 @@ export default function CaisseMyConfortApp() {
 
             {/* Onglet Factures */}
             {activeTab === 'factures' && (
-              <InvoicesTabElegant />
+              <InvoicesTabCompact sales={sales} />
             )}
 
             {/* Onglet Stock */}
