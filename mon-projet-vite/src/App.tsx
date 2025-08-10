@@ -19,7 +19,8 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import InvoicesTabCompact from './components/InvoicesTabCompact';
 import { SuccessNotification, FloatingCart } from './components/ui';
-import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
+import { GuideUtilisation } from './components/GuideUtilisation';
+import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle, Book, Users } from 'lucide-react';
 import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import './styles/invoices-tab.css';
 import './styles/print.css';
@@ -96,6 +97,9 @@ export default function CaisseMyConfortApp() {
   const [newVendorName, setNewVendorName] = useState('');
   const [newVendorEmail, setNewVendorEmail] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
+  
+  // État pour les sous-onglets de gestion
+  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide'>('vendeuses');
 
   // États pour l'édition et la suppression des vendeuses
   const [editingVendor, setEditingVendor] = useState<string | null>(null);
@@ -1152,52 +1156,148 @@ export default function CaisseMyConfortApp() {
             {activeTab === 'gestion' && (
               <div style={{
                 padding: '20px',
-                maxWidth: '800px',
+                maxWidth: '1000px',
                 margin: '0 auto',
                 fontFamily: 'Arial, sans-serif'
               }}>
-                {/* En-tête avec bouton d'ajout */}
+                {/* En-tête principal */}
                 <div style={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   color: 'white',
                   padding: '20px',
                   borderRadius: '8px',
                   marginBottom: '20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
+                  textAlign: 'center'
                 }}>
-                  <div>
-                    <h1 style={{ margin: 0, fontSize: '24px' }}>
-                      <Settings size={28} style={{ marginRight: '10px', verticalAlign: 'middle' }} />
-                      Gestion des Vendeuses
-                    </h1>
-                    <p style={{ margin: '8px 0 0 0', opacity: 0.9 }}>
-                      {vendorStats.length} vendeuse{vendorStats.length > 1 ? 's' : ''} enregistrée{vendorStats.length > 1 ? 's' : ''}
-                    </p>
-                  </div>
-                  
+                  <h1 style={{ margin: 0, fontSize: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                    <Settings size={32} />
+                    Gestion & Documentation
+                  </h1>
+                  <p style={{ margin: '8px 0 0 0', opacity: 0.9, fontSize: '16px' }}>
+                    Administration des vendeuses et guide d'utilisation complet
+                  </p>
+                </div>
+
+                {/* Navigation sous-onglets */}
+                <div style={{
+                  display: 'flex',
+                  background: 'white',
+                  border: '1px solid #ddd',
+                  borderRadius: '8px',
+                  overflow: 'hidden',
+                  marginBottom: '20px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}>
                   <button
-                    onClick={() => setShowAddVendorForm(true)}
+                    onClick={() => setGestionActiveTab('vendeuses')}
                     style={{
-                      background: 'rgba(255,255,255,0.2)',
-                      color: 'white',
-                      border: '2px solid rgba(255,255,255,0.3)',
-                      borderRadius: '8px',
-                      padding: '12px 20px',
-                      cursor: 'pointer',
+                      flex: 1,
+                      padding: '15px 20px',
+                      border: 'none',
+                      background: gestionActiveTab === 'vendeuses' ? '#667eea' : 'white',
+                      color: gestionActiveTab === 'vendeuses' ? 'white' : '#495057',
                       fontSize: '16px',
                       fontWeight: 'bold',
-                      transition: 'all 0.3s ease',
+                      cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px'
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
                     }}
                   >
-                    <Plus size={20} />
-                    Ajouter une vendeuse
+                    <Users size={20} />
+                    Gestion des Vendeuses
+                    <span style={{
+                      background: gestionActiveTab === 'vendeuses' ? 'rgba(255,255,255,0.2)' : '#667eea',
+                      color: gestionActiveTab === 'vendeuses' ? 'white' : 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      {vendorStats.length}
+                    </span>
+                  </button>
+                  
+                  <button
+                    onClick={() => setGestionActiveTab('guide')}
+                    style={{
+                      flex: 1,
+                      padding: '15px 20px',
+                      border: 'none',
+                      background: gestionActiveTab === 'guide' ? '#1e3a8a' : 'white',
+                      color: gestionActiveTab === 'guide' ? 'white' : '#495057',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <Book size={20} />
+                    Guide d'Utilisation
+                    <span style={{
+                      background: gestionActiveTab === 'guide' ? 'rgba(255,255,255,0.2)' : '#1e3a8a',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      ✨
+                    </span>
                   </button>
                 </div>
+
+                {/* Contenu des sous-onglets */}
+                {gestionActiveTab === 'vendeuses' && (
+                  <div>
+                    {/* En-tête gestion vendeuses */}
+                    <div style={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      padding: '20px',
+                      borderRadius: '8px',
+                      marginBottom: '20px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <h2 style={{ margin: 0, fontSize: '20px' }}>
+                          <Users size={24} style={{ marginRight: '10px', verticalAlign: 'middle' }} />
+                          Gestion des Vendeuses
+                        </h2>
+                        <p style={{ margin: '8px 0 0 0', opacity: 0.9 }}>
+                          {vendorStats.length} vendeuse{vendorStats.length > 1 ? 's' : ''} enregistrée{vendorStats.length > 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={() => setShowAddVendorForm(true)}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          color: 'white',
+                          border: '2px solid rgba(255,255,255,0.3)',
+                          borderRadius: '8px',
+                          padding: '12px 20px',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          transition: 'all 0.3s ease',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <Plus size={20} />
+                        Ajouter une vendeuse
+                      </button>
+                    </div>
 
                 {/* Formulaire d'ajout */}
                 {showAddVendorForm && (
@@ -1696,6 +1796,13 @@ export default function CaisseMyConfortApp() {
                       </div>
                     </div>
                   </div>
+                )}
+                  </div>
+                )}
+                
+                {/* Section Guide d'utilisation */}
+                {gestionActiveTab === 'guide' && (
+                  <GuideUtilisation />
                 )}
               </div>
             )}
