@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { TrendingUp, DollarSign } from 'lucide-react';
 import type { Sale, Vendor } from '../../types';
 import type { Invoice } from '@/services/syncService';
-import { vendors } from '../../data';
 
 interface CATabProps {
   sales: Sale[];
@@ -10,15 +9,15 @@ interface CATabProps {
   invoices: Invoice[];
 }
 
-export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
+export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) => {
   // Fonction pour récupérer la couleur d'une vendeuse
   const getVendorColor = (vendorId: string): string => {
-    const vendor = vendors.find(v => v.id === vendorId);
+    const vendor = vendorStats.find(v => v.id === vendorId);
     return vendor?.color || '#6B7280';
   };
 
   // 🎯 FONCTION UTILITAIRE : Vérifier si une date est aujourd'hui
-  const isToday = (date: Date): boolean => {
+  const isToday = (date: Date | string): boolean => {
     const today = new Date();
     const checkDate = new Date(date);
     return checkDate.toDateString() === today.toDateString();
@@ -104,7 +103,7 @@ export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
       });
 
     // 3. Mapper avec les données des vendeuses
-    const result = vendors.map(vendor => ({
+    const result = vendorStats.map(vendor => ({
       ...vendor,
       realCA: caByVendor[vendor.id] || 0
     })).sort((a, b) => b.realCA - a.realCA); // Trier par CA décroissant
@@ -112,7 +111,7 @@ export const CATab: React.FC<CATabProps> = ({ sales, invoices }) => {
     console.log(`👥 CA PAR VENDEUSE:`, result.filter(v => v.realCA > 0));
     
     return result;
-  }, [sales, invoices]);
+  }, [sales, invoices, vendorStats]);
 
   // Calcul du nombre total de ventes du jour (caisse + factures)
   const totalSalesCount = useMemo(() => {

@@ -189,6 +189,10 @@ export interface SessionDB {
   note?: string;             // remarque ouverture/fermeture
   metadata?: Record<string, unknown>; // infos additionnelles
   totals?: { card: number; cash: number; cheque: number }; // totaux lors de la clôture
+  // Nouveaux champs événement
+  eventName?: string;        // Nom de l'événement (saisi le premier jour)
+  eventStart?: number;       // Timestamp du premier jour (00:00)
+  eventEnd?: number;         // Timestamp du dernier jour (00:00)
 }
 
 // ============================================================================

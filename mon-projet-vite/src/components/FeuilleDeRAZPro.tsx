@@ -4,7 +4,7 @@ import type { Sale, Vendor } from '../types';
 import type { Invoice } from '@/services/syncService';
 import { externalInvoiceService } from '../services/externalInvoiceService';
 import WhatsAppIntegrated from './WhatsAppIntegrated';
-import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper } from '@/services/sessionService';
+import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper } from '@/services/sessionService';
 import type { SessionDB } from '@/types';
 
 // Types pour WhatsApp
@@ -59,11 +59,43 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
   const [sessLoading, setSessLoading] = useState(true);
+  // Champs événement (saisis le premier jour)
+  const [eventName, setEventName] = useState('');
+  const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
+  const [eventEnd, setEventEnd] = useState('');     // yyyy-mm-dd
+
+  const toInputDate = (ms?: number) => {
+    if (!ms) return '';
+    const d = new Date(ms);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const endOfDay = (ms: number) => {
+    const d = new Date(ms);
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  };
+
+  const isTodayFirstDayOf = (openedAt?: number) => {
+    if (!openedAt) return false;
+    const o = new Date(openedAt); o.setHours(0,0,0,0);
+    const t = new Date(); t.setHours(0,0,0,0);
+    return o.getTime() === t.getTime();
+  };
 
   const refreshSession = useCallback(async () => {
     try {
       const s = await getCurrentSessionHelper();
       setSession(s);
+      // Hydrater les champs événement depuis la session
+      if (s) {
+        setEventName(s.eventName ?? '');
+        setEventStart(toInputDate(s.eventStart));
+        setEventEnd(toInputDate(s.eventEnd));
+      }
     } finally {
       setSessLoading(false);
     }
@@ -75,15 +107,36 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   const openSession = useCallback(async () => {
     try {
-      await ensureSessionHelper('system'); // pas de currentVendor ici → "system"
+      // Passer les infos d'événement si fournies
+      await ensureSessionHelper({ openedBy: 'system', eventName: eventName || undefined, eventStart: eventStart || undefined, eventEnd: eventEnd || undefined });
       await refreshSession();
     } catch (e) {
       console.error('Erreur ouverture session:', e);
       alert("Erreur lors de l'ouverture de la session");
     }
-  }, [refreshSession]);
+  }, [eventName, eventStart, eventEnd, refreshSession]);
+
+  const onSaveEventFirstDay = useCallback(async () => {
+    try {
+      await updateCurrentSessionEventHelper({ eventName: eventName || undefined, eventStart: eventStart || undefined, eventEnd: eventEnd || undefined });
+      await refreshSession();
+      alert('Détails de l\'événement enregistrés.');
+    } catch (e) {
+      console.error('Erreur mise à jour événement:', e);
+      const msg = e instanceof Error ? e.message : 'Erreur lors de l\'enregistrement de l\'événement';
+      alert(msg);
+    }
+  }, [eventName, eventStart, eventEnd, refreshSession]);
 
   const closeSession = useCallback(async () => {
+    // Empêcher la clôture si le dernier jour n'est pas passé
+    if (session?.eventEnd) {
+      const now = Date.now();
+      if (now < endOfDay(session.eventEnd)) {
+        alert(`La session ne peut pas être clôturée avant la fin de l'événement (dernier jour: ${new Date(session.eventEnd).toLocaleDateString('fr-FR')}).`);
+        return;
+      }
+    }
     const ok = window.confirm('Clôturer la session de caisse en cours ?');
     if (!ok) return;
     try {
@@ -92,9 +145,10 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       await refreshSession();
     } catch (e) {
       console.error('Erreur fermeture session:', e);
-      alert('Erreur lors de la fermeture de la session');
+      const msg = e instanceof Error ? e.message : 'Erreur lors de la fermeture de la session';
+      alert(msg);
     }
-  }, [refreshSession]);
+  }, [session, refreshSession]);
 
   // ===== CALCULS =====
   const calculs = useMemo(() => {
@@ -199,6 +253,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     vendeusesActives: number; vendeusesAvecDetail: VendeusesAvecDetail[];
     totalReglementsAVenir: number; nbClientsAttente: number; nbChequesTotal: number;
   }) => {
+    const eventLine = session?.eventName
+      ? `<p style="margin:2px 0 6px; font-weight:700;">ÉVÉNEMENT : ${session.eventName}${session.eventStart && session.eventEnd ? ` (du ${new Date(session.eventStart).toLocaleDateString('fr-FR')} au ${new Date(session.eventEnd).toLocaleDateString('fr-FR')})` : ''}</p>`
+      : '';
     return `
 <!DOCTYPE html>
 <html>
@@ -242,6 +299,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   <div style="text-align:center; margin-bottom:8px; padding-bottom:6px; border-bottom: 1.5px solid #000;">
     <h1 style="letter-spacing:2px; margin:0;">MYCONFORT</h1>
     <h2 style="margin:4px 0 2px;">FEUILLE DE CAISSE</h2>
+    ${eventLine}
     <p style="margin:0; font-weight:700;">${
       new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' }).toUpperCase()
     }</p>
@@ -371,6 +429,13 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const envoyerEmail = () => {
     const dateJour = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
     let contenuEmail = `MYCONFORT - FEUILLE DE CAISSE\n${dateJour.toUpperCase()}\n\n`;
+    if (session?.eventName) {
+      contenuEmail += `ÉVÉNEMENT : ${session.eventName}`;
+      if (session.eventStart && session.eventEnd) {
+        contenuEmail += ` (du ${new Date(session.eventStart).toLocaleDateString('fr-FR')} au ${new Date(session.eventEnd).toLocaleDateString('fr-FR')})`;
+      }
+      contenuEmail += `\n\n`;
+    }
     contenuEmail += `RÉSUMÉ DU JOUR :\n- Chiffre d'affaires : ${calculs.caTotal.toFixed(2)} €\n- Nombre de ventes : ${calculs.nbVentesTotal}\n- Ticket moyen : ${calculs.ticketMoyen.toFixed(2)} €\n- Vendeuses actives : ${calculs.vendeusesActives}\n\n`;
     contenuEmail += `DÉTAIL PAR VENDEUSE :\n`;
     calculs.vendeusesAvecDetail.filter(v => v.totalCalcule>0).sort((a,b)=>b.totalCalcule-a.totalCalcule).forEach(v=>{
@@ -387,7 +452,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     });
     contenuEmail += `Rapport généré automatiquement le ${new Date().toLocaleString('fr-FR')}\nMyConfort - Système de caisse`;
     const sujet = `MyConfort - Feuille de caisse du ${new Date().toLocaleDateString('fr-FR')}`;
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(contenuEmail)}`;
+    const to = 'myconfort66@gmail.com';
+    const mailtoUrl = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(sujet)}&body=${encodeURIComponent(contenuEmail)}`;
     window.location.href = mailtoUrl;
   };
 
@@ -420,22 +486,51 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             {sessLoading ? (
               <div style={{ color: '#991B1B', fontWeight: 600 }}>Chargement de la session...</div>
             ) : !session ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
                   <div style={{ color: '#991B1B', fontWeight: 700, fontSize: 16 }}>Aucune session de caisse ouverte</div>
                   <div style={{ color: '#7F1D1D' }}>Ouvrez une session pour enregistrer les ventes du jour.</div>
                 </div>
-                <button onClick={openSession} style={{ ...btn('#16A34A'), minWidth: 200 }}>
-                  <PlayCircle size={20} /> Ouvrir la session
-                </button>
+                {/* Champs événement (facultatifs) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px', gap: 10 }}>
+                  <input placeholder="Nom de l'événement (ex: Foire de Perpignan)" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
+                  <input type="date" placeholder="Début" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
+                  <input type="date" placeholder="Fin" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button onClick={openSession} style={{ ...btn('#16A34A'), minWidth: 200 }}>
+                    <PlayCircle size={20} /> Ouvrir la session
+                  </button>
+                </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <div>
-                  <div style={{ color: '#065F46', fontWeight: 700, fontSize: 16 }}>Session ouverte</div>
-                  <div style={{ color: '#7F1D1D' }}>Depuis {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div>
+                    <div style={{ color: '#065F46', fontWeight: 700, fontSize: 16 }}>Session ouverte</div>
+                    <div style={{ color: '#7F1D1D' }}>Depuis {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                    {session.eventName && (
+                      <div style={{ marginTop: 6, color: '#7F1D1D', fontWeight: 600 }}>
+                        Événement : {session.eventName}
+                        {session.eventStart && session.eventEnd && (
+                          <span> (du {new Date(session.eventStart).toLocaleDateString('fr-FR')} au {new Date(session.eventEnd).toLocaleDateString('fr-FR')})</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ color: '#991B1B', fontWeight: 600 }}>Gestion de session en bas de page</div>
                 </div>
-                <div style={{ color: '#991B1B', fontWeight: 600 }}>Gestion de session en bas de page</div>
+                {/* Si premier jour: permettre de fixer/modifier l'événement */}
+                {isTodayFirstDayOf(session.openedAt) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px auto', gap: 10, alignItems: 'center' }}>
+                    <input placeholder="Nom de l'événement" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
+                    <input type="date" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
+                    <input type="date" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
+                    <button onClick={onSaveEventFirstDay} style={btn('#16A34A')}>
+                      Enregistrer l'événement
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -455,7 +550,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           {modeApercu && (
             <div style={{ background: '#fff', padding: 20, borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', border: '2px dashed #477A0C' }}>
               <h2 style={{ textAlign: 'center', color: '#477A0C', marginBottom: 16 }}>📄 APERÇU DE LA FEUILLE DE CAISSE</h2>
-              <div id="feuille-imprimable"><FeuilleImprimable calculs={calculs} /></div>
+              <div id="feuille-imprimable"><FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} /></div>
             </div>
           )}
 
@@ -516,8 +611,16 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                 <div>
                   <div style={{ color: '#065F46', fontWeight: 700, fontSize: 16 }}>Session ouverte</div>
                   <div style={{ color: '#7F1D1D' }}>Ouverte à {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                  {session.eventName && (
+                    <div style={{ marginTop: 6, color: '#7F1D1D', fontWeight: 600 }}>
+                      Événement : {session.eventName}
+                      {session.eventStart && session.eventEnd && (
+                        <span> (du {new Date(session.eventStart).toLocaleDateString('fr-FR')} au {new Date(session.eventEnd).toLocaleDateString('fr-FR')})</span>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <button onClick={closeSession} style={{ ...btn('#DC2626'), minWidth: 220 }}>
+                <button onClick={closeSession} style={{ ...btn('#DC2626'), minWidth: 220 }} disabled={Boolean(session.eventEnd && Date.now() < endOfDay(session.eventEnd))} title={session?.eventEnd && Date.now() < endOfDay(session.eventEnd) ? `Clôture autorisée à partir du ${new Date(session.eventEnd).toLocaleDateString('fr-FR')}` : undefined}>
                   <XCircle size={20} /> Clôturer la session
                 </button>
               </div>
@@ -528,7 +631,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
       {/* Version imprimable */}
       <div className="print-only">
-        <FeuilleImprimable calculs={calculs} />
+        <FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} />
       </div>
 
       {/* Styles impression (séparation écran/print) */}
@@ -573,6 +676,14 @@ const btn = (bg: string, white = true, color?: string) => ({
   gap: 10
 });
 
+const inputStyle: React.CSSProperties = {
+  padding: '10px 12px',
+  border: '1px solid #e5e7eb',
+  borderRadius: 8,
+  outline: 'none',
+  fontSize: '0.95em'
+};
+
 interface FeuilleImprimableProps {
   calculs: {
     parPaiement: { carte: number; especes: number; cheque: number; mixte: number; };
@@ -580,9 +691,10 @@ interface FeuilleImprimableProps {
     vendeusesActives: number; vendeusesAvecDetail: VendeusesAvecDetail[];
     totalReglementsAVenir: number; nbClientsAttente: number; nbChequesTotal: number;
   };
+  event?: { name?: string; start?: number; end?: number };
 }
 
-function FeuilleImprimable({ calculs }: FeuilleImprimableProps) {
+function FeuilleImprimable({ calculs, event }: FeuilleImprimableProps) {
   return (
     <div style={{
       backgroundColor: '#fff', color: '#000', padding: '8mm',
@@ -593,6 +705,14 @@ function FeuilleImprimable({ calculs }: FeuilleImprimableProps) {
       <div className="print-section" style={{ textAlign: 'center', marginBottom: 8, paddingBottom: 6, borderBottom: '1.5px solid #000' }}>
         <h1 style={{ margin: 0, fontSize: '22pt', fontWeight: 700, letterSpacing: '2px' }}>MYCONFORT</h1>
         <h2 style={{ margin: '4px 0 2px', fontSize: '16pt', fontWeight: 700 }}>FEUILLE DE CAISSE</h2>
+        {event?.name && (
+          <p style={{ margin: '2px 0 6px', fontWeight: 700 }}>
+            ÉVÉNEMENT : {event.name}
+            {event.start && event.end && (
+              <span> (du {new Date(event.start).toLocaleDateString('fr-FR')} au {new Date(event.end).toLocaleDateString('fr-FR')})</span>
+            )}
+          </p>
+        )}
         <p style={{ margin: 0, fontWeight: 700 }}>
           {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()}
         </p>

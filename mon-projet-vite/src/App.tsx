@@ -123,7 +123,10 @@ export default function CaisseMyConfortApp() {
     return () => clearInterval(timer);
   }, []);
 
-  // Note: la session est gérée exclusivement dans l'onglet RAZ désormais.
+  // Assurer une session ouverte côté app (sécurise même si main.tsx l'a déjà fait)
+  useEffect(() => {
+    void sessionService.ensureSession('app');
+  }, []);
 
   // Calculs dérivés
   const cartTotal = useMemo(() => 
@@ -1787,9 +1790,6 @@ export default function CaisseMyConfortApp() {
                 
                 <button
                   onClick={() => setShowResetSuccess(false)}
-                  style={{
-                    background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
-                    color: 'white',
                   style={{
                     background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
                     color: 'white',

@@ -347,10 +347,28 @@ export class MyConfortDB extends Dexie {
   }
 
   /** Ouvre une session si aucune n'est ouverte. Retourne la session courante. */
-  async openSession(openedByOrOpts?: string | { openedBy?: string; note?: string }): Promise<SessionDB> {
-    const { openedBy, note } = typeof openedByOrOpts === 'object' && openedByOrOpts !== null
-      ? { openedBy: openedByOrOpts.openedBy, note: openedByOrOpts.note }
-      : { openedBy: openedByOrOpts as string | undefined, note: undefined };
+  async openSession(
+    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
+  ): Promise<SessionDB> {
+    const { openedBy, note, eventName, eventStart, eventEnd } =
+      typeof openedByOrOpts === 'object' && openedByOrOpts !== null
+        ? {
+            openedBy: openedByOrOpts.openedBy,
+            note: openedByOrOpts.note,
+            eventName: openedByOrOpts.eventName,
+            eventStart: openedByOrOpts.eventStart,
+            eventEnd: openedByOrOpts.eventEnd,
+          }
+        : { openedBy: openedByOrOpts as string | undefined, note: undefined, eventName: undefined, eventStart: undefined, eventEnd: undefined };
+
+    // Normalisation dates (début/fin de journée)
+    const toStartOfDay = (v?: number | Date | string) => {
+      if (v === undefined || v === null) return undefined;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return undefined;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
 
     return this.transaction('rw', this.sessions, async () => {
       const existing = await this.sessions.where('status').equals('open').first();
@@ -361,7 +379,10 @@ export class MyConfortDB extends Dexie {
         status: 'open',
         openedAt: now,
         openedBy,
-        ...(note ? { note } : {})
+        ...(note ? { note } : {}),
+        ...(eventName ? { eventName } : {}),
+        ...(toStartOfDay(eventStart) ? { eventStart: toStartOfDay(eventStart) } : {}),
+        ...(toStartOfDay(eventEnd) ? { eventEnd: toStartOfDay(eventEnd) } : {}),
       };
       await this.sessions.add(newSession);
       // Mémoriser pour debug / UI
@@ -372,10 +393,27 @@ export class MyConfortDB extends Dexie {
   }
 
   /** Version sûre: évite toute double session ouverte, ferme les doublons au besoin */
-  async openSessionSafe(openedByOrOpts?: string | { openedBy?: string; note?: string }): Promise<SessionDB> {
-    const { openedBy, note } = typeof openedByOrOpts === 'object' && openedByOrOpts !== null
-      ? { openedBy: openedByOrOpts.openedBy, note: openedByOrOpts.note }
-      : { openedBy: openedByOrOpts as string | undefined, note: undefined };
+  async openSessionSafe(
+    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
+  ): Promise<SessionDB> {
+    const { openedBy, note, eventName, eventStart, eventEnd } =
+      typeof openedByOrOpts === 'object' && openedByOrOpts !== null
+        ? {
+            openedBy: openedByOrOpts.openedBy,
+            note: openedByOrOpts.note,
+            eventName: openedByOrOpts.eventName,
+            eventStart: openedByOrOpts.eventStart,
+            eventEnd: openedByOrOpts.eventEnd,
+          }
+        : { openedBy: openedByOrOpts as string | undefined, note: undefined, eventName: undefined, eventStart: undefined, eventEnd: undefined };
+
+    const toStartOfDay = (v?: number | Date | string) => {
+      if (v === undefined || v === null) return undefined;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return undefined;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
 
     return this.transaction('rw', this.sessions, this.settings, async () => {
       const openOnes = await this.sessions.where('status').equals('open').toArray();
@@ -395,14 +433,17 @@ export class MyConfortDB extends Dexie {
         await this.settings.put({ key: 'current_session_id', value: keep.id, lastUpdate: Date.now(), version: '1.0' });
         return keep;
       }
-      // Aucune ouverte: en créer une nouvelle
+      // Aucune ouverte: en créer une nouvelle (avec éventuels champs d'événement)
       const now = Date.now();
       const newSession: SessionDB = {
         id: `session-${new Date(now).toISOString()}`,
         status: 'open',
         openedAt: now,
         openedBy,
-        ...(note ? { note } : {})
+        ...(note ? { note } : {}),
+        ...(eventName ? { eventName } : {}),
+        ...(toStartOfDay(eventStart) ? { eventStart: toStartOfDay(eventStart) } : {}),
+        ...(toStartOfDay(eventEnd) ? { eventEnd: toStartOfDay(eventEnd) } : {}),
       };
       await this.sessions.add(newSession);
       await this.settings.put({ key: 'current_session_id', value: newSession.id, lastUpdate: now, version: '1.0' });
@@ -412,19 +453,45 @@ export class MyConfortDB extends Dexie {
   }
 
   /** Ferme la session ouverte courante (si trouvée) */
-  async closeSession(args?: { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } } | { card: number; cash: number; cheque: number }): Promise<void> {
-    const { closedBy, note, totals } = ((): { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } } => {
+  async closeSession(
+    args?: { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } } | { card: number; cash: number; cheque: number }
+  ): Promise<void> {
+    type Totals = { card: number; cash: number; cheque: number };
+    const isTotals = (x: unknown): x is Totals =>
+      typeof x === 'object' && x !== null &&
+      'card' in (x as Record<string, unknown>) &&
+      'cash' in (x as Record<string, unknown>) &&
+      'cheque' in (x as Record<string, unknown>);
+
+    const { closedBy, note, totals } = ((): { closedBy?: string; note?: string; totals?: Totals } => {
       if (!args) return {};
-      if ('card' in (args as any)) {
-        const t = args as { card: number; cash: number; cheque: number };
+      if (isTotals(args)) {
+        const t = args as Totals;
         return { totals: { card: t.card, cash: t.cash, cheque: t.cheque } };
       }
-      return args as { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } };
+      return args as { closedBy?: string; note?: string; totals?: Totals };
     })();
+
+    // Helper fin de journée
+    const endOfDay = (startMs: number) => {
+      const d = new Date(startMs);
+      d.setHours(23, 59, 59, 999);
+      return d.getTime();
+    };
 
     return this.transaction('rw', this.sessions, async () => {
       const current = await this.sessions.where('status').equals('open').first();
       if (!current) return;
+
+      // Bloquer la clôture si un événement est en cours et que le dernier jour n'est pas passé
+      if (current.eventEnd) {
+        const now = Date.now();
+        const eod = endOfDay(current.eventEnd);
+        if (now < eod) {
+          throw new Error(`La session ne peut pas être clôturée avant la fin de l'événement (dernier jour: ${new Date(current.eventEnd).toLocaleDateString('fr-FR')}).`);
+        }
+      }
+
       const closedAt = Date.now();
       await this.sessions.update(current.id, { status: 'closed', closedAt, ...(closedBy ? { closedBy } : {}), ...(note ? { note } : {}), ...(totals ? { totals } : {}) });
       await this.settings.put({ key: 'current_session_id', value: null as unknown as string, lastUpdate: closedAt, version: '1.0' });
@@ -433,10 +500,40 @@ export class MyConfortDB extends Dexie {
   }
 
   /** Retourne la session courante si ouverte, sinon l'ouvre */
-  async ensureSession(openedBy?: string): Promise<SessionDB> {
+  async ensureSession(openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
     const current = await this.getCurrentSession();
     if (current) return current;
-    return this.openSession(openedBy);
+    return this.openSession(openedByOrOpts);
+  }
+
+  /** Met à jour l'événement (nom + dates) sur la session ouverte, uniquement le premier jour */
+  async updateCurrentSessionEvent(args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
+    const toStartOfDay = (v?: number | Date | string) => {
+      if (v === undefined || v === null) return undefined;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return undefined;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+    return this.transaction('rw', this.sessions, async () => {
+      const current = await this.sessions.where('status').equals('open').first();
+      if (!current) throw new Error('Aucune session ouverte.');
+      // Vérifier si aujourd'hui est le premier jour de la session
+      const openedStart = new Date(current.openedAt); openedStart.setHours(0,0,0,0);
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      if (openedStart.getTime() !== todayStart.getTime()) {
+        throw new Error("Les détails d'événement ne peuvent être modifiés que le premier jour de la session.");
+      }
+      const patch: Partial<SessionDB> = {};
+      if (args.eventName !== undefined) patch.eventName = args.eventName.trim();
+      const s = toStartOfDay(args.eventStart);
+      const e = toStartOfDay(args.eventEnd);
+      if (s !== undefined) patch.eventStart = s;
+      if (e !== undefined) patch.eventEnd = e;
+      await this.sessions.update(current.id, patch);
+      const updated = await this.sessions.get(current.id);
+      return updated as SessionDB;
+    });
   }
 
   // ============================================================================
