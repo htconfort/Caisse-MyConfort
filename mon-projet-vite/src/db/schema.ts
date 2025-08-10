@@ -63,7 +63,7 @@ export class MyConfortDB extends Dexie {
   cache!: Table<CacheEntry>;
 
   constructor() {
-    super('MyConfortCaisse');
+    super('MyConfortCaisseV2');
     
     // ========================================================================
     // 🗂️ DÉFINITION DES SCHÉMAS AVEC INDEX OPTIMISÉS
@@ -73,29 +73,29 @@ export class MyConfortDB extends Dexie {
       // 🛒 VENTES - Index optimisés pour dashboard et rapports
       sales: '++id, saleId, vendorId, date, year, month, dayOfYear, totalAmount, paymentMethod, canceled, [vendorId+year], [vendorId+month], [year+month]',
       
-      // 👥 VENDEUSES - Index pour stats et performance
-      vendors: '++id, name, lastSaleDate, totalSales, dailySales, lastUpdate',
+      // 👥 VENDEUSES - Index pour stats et performance (clé primaire string fournie par l\'app)
+      vendors: 'id, name, lastSaleDate, totalSales, dailySales, lastUpdate',
       
       // 🛍️ ITEMS PANIER - Relations et analytics produits
       cartItems: '++id, itemId, saleId, category, name, addedAt, [saleId+category], [category+addedAt]',
       
-      // 📦 STOCK - Gestion stock physique/général
-      stock: '++id, category, productName, generalStock, physicalStock, minStock, lastUpdate, [category+lastUpdate]',
+      // 📦 STOCK - Gestion stock physique/général (clé primaire string = productId)
+      stock: 'id, category, productName, generalStock, physicalStock, minStock, lastUpdate, [category+lastUpdate]',
       
       // 📊 MOUVEMENTS STOCK - Traçabilité complète
       stockMovements: '++id, productId, type, vendorId, saleId, timestamp, [productId+timestamp], [type+timestamp], [vendorId+timestamp]',
       
-      // 📈 ANALYTICS VENDEURS - Dashboard temps réel
-      vendorAnalytics: '++[vendorId+period+date], vendorId, period, date, salesCount, totalAmount',
+      // 📈 ANALYTICS VENDEURS - Dashboard temps réel (pas d'auto-incrément sur clé composée)
+      vendorAnalytics: '++id, [vendorId+period+date], vendorId, period, date, salesCount, totalAmount',
       
-      // 📊 ANALYTICS PRODUITS - Performance produits
-      productAnalytics: '++[productId+period+date], productId, category, period, date, salesCount, totalRevenue',
+      // 📊 ANALYTICS PRODUITS - Performance produits (pas d'auto-incrément sur clé composée)
+      productAnalytics: '++id, [productId+period+date], productId, category, period, date, salesCount, totalRevenue',
       
-      // ⚙️ SYSTÈME - Configuration et paramètres
-      settings: '++key, lastUpdate, version',
+      // ⚙️ SYSTÈME - Configuration et paramètres (clé string type KV)
+      settings: 'key, lastUpdate, version',
       
-      // 💾 CACHE - Cache applicatif avec expiration
-      cache: '++key, expiry, tags'
+      // 💾 CACHE - Cache applicatif avec expiration (clé string type KV) + multiEntry sur tags
+      cache: 'key, expiry, *tags'
     });
 
     // ========================================================================
@@ -475,18 +475,29 @@ db.open().then(() => {
 // 🛠️ UTILITAIRES DE CONVERSION - Helpers pour vos composants
 // ============================================================================
 
+/** Parse any date-like input to a valid Date without using `any` */
+const toDateSafe = (input: unknown): Date => {
+  if (input instanceof Date) return input;
+  if (typeof input === 'string' || typeof input === 'number') {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  }
+  return new Date(0);
+};
+
 /** Convertir Sale → SaleDB */
 export const saleToSaleDB = (sale: Sale): Omit<SaleDB, 'id'> => {
-  const date = sale.date;
+  const d = toDateSafe(sale.date);
+  const safe = isNaN(d.getTime()) ? new Date(0) : d;
   return {
     ...sale,
     saleId: sale.id,     // Garder l'ID original comme saleId
-    date: date.getTime(),
-    dateString: date.toISOString(),
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    dayOfYear: Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000)
-  };
+    date: safe.getTime(),
+    dateString: safe.toISOString(),
+    year: safe.getFullYear(),
+    month: safe.getMonth() + 1,
+    dayOfYear: Math.floor((safe.getTime() - new Date(safe.getFullYear(), 0, 0).getTime()) / 86400000)
+  } as Omit<SaleDB, 'id'>;
 };
 
 /** Convertir SaleDB → Sale */
@@ -495,7 +506,7 @@ export const saleDBToSale = (saleDB: SaleDB): Sale => {
     ...saleDB,
     id: saleDB.saleId,   // Restaurer l'ID original
     date: new Date(saleDB.date)
-  };
+  } as unknown as Sale;
 };
 
 /** Convertir ExtendedCartItem → CartItemDB */
@@ -514,5 +525,5 @@ export const cartItemDBToCartItem = (itemDB: CartItemDB): ExtendedCartItem => {
     ...itemDB,
     id: itemDB.itemId,   // Restaurer l'ID original
     addedAt: new Date(itemDB.addedAt)
-  };
+  } as unknown as ExtendedCartItem;
 };

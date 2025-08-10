@@ -41,7 +41,8 @@ export interface Sale {
   items: ExtendedCartItem[];
   totalAmount: number;
   paymentMethod: PaymentMethod;
-  date: Date;
+  // Autoriser Date ou string pour tolérer des données non normalisées reçues
+  date: Date | string;
   canceled: boolean;
 }
 

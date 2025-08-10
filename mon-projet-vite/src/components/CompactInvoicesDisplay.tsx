@@ -45,6 +45,17 @@ interface UnifiedInvoice {
   originalData: Sale | InvoicePayload;
 }
 
+// Normalisation sûre des dates venant de sources hétérogènes
+function toSafeDate(input: unknown): Date {
+  if (input instanceof Date) return input;
+  if (typeof input === 'number') return new Date(input);
+  if (typeof input === 'string') {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? new Date() : d;
+  }
+  return new Date();
+}
+
 const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
   internalInvoices = [],
   showExternalOnly = false,
@@ -74,11 +85,12 @@ const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
       // On conserve les internes uniquement si demandé
       if (!showExternalOnly) {
         internalInvoices.forEach(sale => {
+          const d = toSafeDate(sale.date);
           unified.push({
             id: sale.id,
             number: sale.id.substring(0, 8),
             client: { name: sale.vendorName || 'Client interne', email: '', phone: '' },
-            date: sale.date.toISOString(),
+            date: d.toISOString(),
             products: { count: sale.items.length, firstProduct: sale.items[0]?.name || 'Aucun produit' },
             status: sale.canceled ? 'unpaid' : 'paid',
             amount: sale.totalAmount,
@@ -117,6 +129,7 @@ const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
     // Ajouter les factures internes
     if (!showExternalOnly) {
       internalInvoices.forEach(sale => {
+        const d = toSafeDate(sale.date);
         unified.push({
           id: sale.id,
           number: sale.id.substring(0, 8), // Tronquer l'ID pour affichage
@@ -125,7 +138,7 @@ const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
             email: '',
             phone: ''
           },
-          date: sale.date.toISOString(),
+          date: d.toISOString(),
           products: {
             count: sale.items.length,
             firstProduct: sale.items[0]?.name || 'Aucun produit'

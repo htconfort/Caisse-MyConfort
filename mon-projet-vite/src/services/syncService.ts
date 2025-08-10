@@ -12,7 +12,7 @@ export interface PhysicalStock {
   reservedStock: number;
   availableStock: number;
   lastUpdated: Date;
-  minStockAlert: number;
+  minStock: number;
 }
 
 // Interface pour les mouvements de stock
@@ -127,6 +127,8 @@ class SyncService {
   private syncInterval: number | null = null;
   private listeners: Array<(data: any) => void> = [];
   private lastProcessedInvoices: Set<string> = new Set(); // Pour éviter le double traitement
+  // Fusible: arrêter le polling après 404
+  private stopPolling: boolean = false;
 
   constructor() {
     // Charger les factures déjà traitées
@@ -154,7 +156,7 @@ class SyncService {
       this.baseUrl = 'https://n8n.srv765811.hstgr.cloud/webhook';
     }
     
-    console.log(`🔧 SyncService mode: ${forceProductionMode ? 'PRODUCTION-DÉMO' : isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
+    console.log(`🛠️ SyncService mode: ${forceProductionMode ? 'PRODUCTION-DÉMO' : isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
     console.log(`🌐 Base URL: ${this.baseUrl}`);
     console.log(`🧪 Mode N8N: ${forceProductionMode ? 'DÉSACTIVÉ (mode démo)' : 'ACTIVÉ automatiquement'}`);
     
@@ -162,6 +164,7 @@ class SyncService {
     window.addEventListener('online', () => {
       if (!forceProductionMode) {
         this.isOnline = true;
+        this.stopPolling = false;
         this.startAutoSync();
       }
     });
@@ -184,11 +187,11 @@ class SyncService {
       if (productionGuard) {
         // En production: ne jamais retourner les démos
         const cached = this.getCachedInvoices();
-        return cached;
+        return cached.map(inv => this.normalizeInvoiceDates(inv));
       }
 
-      if (!this.isOnline) {
-        return this.getCachedInvoices();
+      if (!this.isOnline || this.stopPolling) {
+        return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
       }
 
       console.log(`🔗 Récupération des factures depuis N8N: ${this.baseUrl}/sync/invoices`);
@@ -199,24 +202,41 @@ class SyncService {
           headers: { 'Content-Type': 'application/json' },
         });
 
+        if (response.status === 404) {
+          console.warn('⚠️ N8N a renvoyé 404. Arrêt du polling jusqu\'au prochain online.');
+          this.stopPolling = true;
+          this.stopAutoSync();
+          return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
+        }
+
         if (response.ok) {
           const data = await response.json();
-          const invoices = this.transformInvoicesData(data);
+          const invoices = this.transformInvoicesData(data).map(inv => this.normalizeInvoiceDates(inv));
           this.cacheInvoices(invoices);
           await this.processNewInvoicesForStockDeduction(invoices);
           return invoices;
         } else {
           console.warn(`❌ N8N non disponible (${response.status}), aucun fallback démo en production`);
-          return this.getCachedInvoices();
+          return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
         }
       } catch (networkError) {
         console.warn('🔌 Erreur réseau N8N, aucun fallback démo en production:', networkError);
-        return this.getCachedInvoices();
+        return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
       }
     } catch (error) {
       console.error('❌ Erreur lors de la récupération des factures:', error);
-      return this.getCachedInvoices();
+      return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
     }
+  }
+
+  /** Normalise les champs date d'une facture en objets Date */
+  private normalizeInvoiceDates(inv: Invoice): Invoice {
+    return {
+      ...inv,
+      dueDate: new Date(inv.dueDate),
+      createdAt: new Date(inv.createdAt),
+      updatedAt: new Date(inv.updatedAt),
+    };
   }
 
   /**
@@ -329,7 +349,7 @@ class SyncService {
   startAutoSync(intervalMs: number = 30000): void {
     this.stopAutoSync();
     
-    if (this.isOnline) {
+    if (this.isOnline && !this.stopPolling) {
       this.syncInterval = window.setInterval(() => {
         this.getInvoices().then(() => {
           localStorage.setItem('lastSyncTime', new Date().toISOString());
