@@ -13,7 +13,8 @@ import type {
   VendorAnalytics,
   ProductAnalytics,
   SystemSettings,
-  CacheEntry
+  CacheEntry,
+  SessionDB
 } from '../types';
 
 /**
@@ -62,6 +63,9 @@ export class MyConfortDB extends Dexie {
   /** Cache applicatif avec expiration */
   cache!: Table<CacheEntry>;
 
+  /** Sessions de caisse */
+  sessions!: Table<SessionDB>;
+
   constructor() {
     super('MyConfortCaisseV2');
     
@@ -96,6 +100,11 @@ export class MyConfortDB extends Dexie {
       
       // 💾 CACHE - Cache applicatif avec expiration (clé string type KV) + multiEntry sur tags
       cache: 'key, expiry, *tags'
+    });
+
+    // Nouvelle version: ajout des sessions de caisse
+    this.version(2).stores({
+      sessions: 'id, status, openedAt, closedAt, openedBy'
     });
 
     // ========================================================================
@@ -329,6 +338,108 @@ export class MyConfortDB extends Dexie {
   }
 
   // ============================================================================
+  // 🧾 GESTION DES SESSIONS DE CAISSE
+  // ============================================================================
+
+  /** Retourne la session ouverte courante (s'il y en a une) */
+  async getCurrentSession(): Promise<SessionDB | undefined> {
+    return this.sessions.where('status').equals('open').first();
+  }
+
+  /** Ouvre une session si aucune n'est ouverte. Retourne la session courante. */
+  async openSession(openedByOrOpts?: string | { openedBy?: string; note?: string }): Promise<SessionDB> {
+    const { openedBy, note } = typeof openedByOrOpts === 'object' && openedByOrOpts !== null
+      ? { openedBy: openedByOrOpts.openedBy, note: openedByOrOpts.note }
+      : { openedBy: openedByOrOpts as string | undefined, note: undefined };
+
+    return this.transaction('rw', this.sessions, async () => {
+      const existing = await this.sessions.where('status').equals('open').first();
+      if (existing) return existing;
+      const now = Date.now();
+      const newSession: SessionDB = {
+        id: `session-${new Date(now).toISOString()}`,
+        status: 'open',
+        openedAt: now,
+        openedBy,
+        ...(note ? { note } : {})
+      };
+      await this.sessions.add(newSession);
+      // Mémoriser pour debug / UI
+      await this.settings.put({ key: 'current_session_id', value: newSession.id, lastUpdate: now, version: '1.0' });
+      console.log(`🔐 Session ouverte: ${newSession.id}`);
+      return newSession;
+    });
+  }
+
+  /** Version sûre: évite toute double session ouverte, ferme les doublons au besoin */
+  async openSessionSafe(openedByOrOpts?: string | { openedBy?: string; note?: string }): Promise<SessionDB> {
+    const { openedBy, note } = typeof openedByOrOpts === 'object' && openedByOrOpts !== null
+      ? { openedBy: openedByOrOpts.openedBy, note: openedByOrOpts.note }
+      : { openedBy: openedByOrOpts as string | undefined, note: undefined };
+
+    return this.transaction('rw', this.sessions, this.settings, async () => {
+      const openOnes = await this.sessions.where('status').equals('open').toArray();
+      if (openOnes.length >= 1) {
+        // Garder la plus récente et fermer les doublons éventuels
+        const sorted = openOnes.sort((a, b) => (b.openedAt || 0) - (a.openedAt || 0));
+        const keep = sorted[0];
+        const dupes = sorted.slice(1);
+        if (dupes.length) {
+          const closedAt = Date.now();
+          for (const d of dupes) {
+            await this.sessions.update(d.id, { status: 'closed', closedAt, note: `${(d as SessionDB).note ?? ''} (auto-closed duplicate)` });
+          }
+          console.warn(`⚠️ ${dupes.length} session(s) en double auto-fermée(s)`);
+        }
+        // Mettre à jour le pointeur UI
+        await this.settings.put({ key: 'current_session_id', value: keep.id, lastUpdate: Date.now(), version: '1.0' });
+        return keep;
+      }
+      // Aucune ouverte: en créer une nouvelle
+      const now = Date.now();
+      const newSession: SessionDB = {
+        id: `session-${new Date(now).toISOString()}`,
+        status: 'open',
+        openedAt: now,
+        openedBy,
+        ...(note ? { note } : {})
+      };
+      await this.sessions.add(newSession);
+      await this.settings.put({ key: 'current_session_id', value: newSession.id, lastUpdate: now, version: '1.0' });
+      console.log(`🔐 Session ouverte (safe): ${newSession.id}`);
+      return newSession;
+    });
+  }
+
+  /** Ferme la session ouverte courante (si trouvée) */
+  async closeSession(args?: { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } } | { card: number; cash: number; cheque: number }): Promise<void> {
+    const { closedBy, note, totals } = ((): { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } } => {
+      if (!args) return {};
+      if ('card' in (args as any)) {
+        const t = args as { card: number; cash: number; cheque: number };
+        return { totals: { card: t.card, cash: t.cash, cheque: t.cheque } };
+      }
+      return args as { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } };
+    })();
+
+    return this.transaction('rw', this.sessions, async () => {
+      const current = await this.sessions.where('status').equals('open').first();
+      if (!current) return;
+      const closedAt = Date.now();
+      await this.sessions.update(current.id, { status: 'closed', closedAt, ...(closedBy ? { closedBy } : {}), ...(note ? { note } : {}), ...(totals ? { totals } : {}) });
+      await this.settings.put({ key: 'current_session_id', value: null as unknown as string, lastUpdate: closedAt, version: '1.0' });
+      console.log(`🔒 Session fermée: ${current.id}`);
+    });
+  }
+
+  /** Retourne la session courante si ouverte, sinon l'ouvre */
+  async ensureSession(openedBy?: string): Promise<SessionDB> {
+    const current = await this.getCurrentSession();
+    if (current) return current;
+    return this.openSession(openedBy);
+  }
+
+  // ============================================================================
   // 🔄 MIGRATION DEPUIS LOCALSTORAGE
   // ============================================================================
 
@@ -460,16 +571,32 @@ export class MyConfortDB extends Dexie {
 // 🎯 INSTANCE SINGLETON - Utilisation globale
 // ============================================================================
 
-/** Instance unique de la base de données MyConfort */
-export const db = new MyConfortDB();
+declare global {
+  interface Window {
+    __MYCONFORT_DB__?: MyConfortDB;
+  }
+}
+
+/** Instance unique de la base de données MyConfort (singleton via window) */
+export const db: MyConfortDB =
+  window.__MYCONFORT_DB__ ?? (window.__MYCONFORT_DB__ = new MyConfortDB());
+
+console.debug('DB singleton loaded from:', import.meta.url);
 
 // Nettoyage automatique du cache au démarrage (Dexie v4+)
-db.open().then(() => {
-  console.log('MyConfort Database is ready');
+if (!db.isOpen()) {
+  db.open()
+    .then(() => {
+      console.log('MyConfort Database is ready');
+      db.cleanExpiredCache();
+    })
+    .catch((error) => {
+      console.error('Failed to open database:', error);
+    });
+} else {
+  console.log('MyConfort Database is ready (already open)');
   db.cleanExpiredCache();
-}).catch((error) => {
-  console.error('Failed to open database:', error);
-});
+}
 
 // ============================================================================
 // 🛠️ UTILITAIRES DE CONVERSION - Helpers pour vos composants

@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Invoice } from '../services/syncService';
+import type { Invoice } from '@/services/syncService';
 
 interface StatusBadgeProps {
   status: Invoice['status'];

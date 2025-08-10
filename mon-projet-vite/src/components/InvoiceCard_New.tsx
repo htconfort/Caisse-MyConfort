@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Invoice, InvoiceItem, PaymentDetails } from '../services/syncService';
+import type { Invoice, InvoiceItem, PaymentDetails } from '@/services/syncService';
 import { getVendorInvoiceStyles, getVendorHeaderStyles, getVendorNameStyles, getVendorColorInfo } from '../utils/vendorColors';
 
 interface InvoiceCardProps {

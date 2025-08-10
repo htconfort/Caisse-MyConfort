@@ -6,7 +6,7 @@ import { InvoiceCard } from './InvoiceCard';
 import { StockOverview } from './StockOverview';
 import { SyncStatus } from './SyncStatus';
 import { NotificationCenter } from './NotificationCenter';
-import type { Invoice } from '../services/syncService';
+import type { Invoice } from '@/services/syncService';
 import '../styles/invoices-tab.css';
 
 export const InvoicesTab: React.FC = () => {

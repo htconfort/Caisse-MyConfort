@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { StockItem } from '../services/syncService';
+import type { StockItem } from '@/services/syncService';
 
 interface StockOverviewProps {
   stockItems: StockItem[];

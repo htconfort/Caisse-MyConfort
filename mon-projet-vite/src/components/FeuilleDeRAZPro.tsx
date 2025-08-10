@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
-import { Printer, Mail, Download, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { Printer, Mail, Download, Eye, EyeOff, RefreshCw, PlayCircle, XCircle } from 'lucide-react';
 import type { Sale, Vendor } from '../types';
-import type { Invoice } from '../services/syncService';
+import type { Invoice } from '@/services/syncService';
 import { externalInvoiceService } from '../services/externalInvoiceService';
 import WhatsAppIntegrated from './WhatsAppIntegrated';
+import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper } from '@/services/sessionService';
+import type { SessionDB } from '@/types';
 
 // Types pour WhatsApp
 interface ReportData {
@@ -53,6 +55,46 @@ interface VendeusesAvecDetail extends Vendor {
 
 function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, executeRAZ }: FeuilleDeRAZProProps) {
   const [modeApercu, setModeApercu] = useState(false);
+
+  // ===== SESSION (uniquement dans l'onglet RAZ) =====
+  const [session, setSession] = useState<SessionDB | undefined>();
+  const [sessLoading, setSessLoading] = useState(true);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const s = await getCurrentSessionHelper();
+      setSession(s);
+    } finally {
+      setSessLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSession();
+  }, [refreshSession]);
+
+  const openSession = useCallback(async () => {
+    try {
+      await ensureSessionHelper('system'); // pas de currentVendor ici → "system"
+      await refreshSession();
+    } catch (e) {
+      console.error('Erreur ouverture session:', e);
+      alert("Erreur lors de l'ouverture de la session");
+    }
+  }, [refreshSession]);
+
+  const closeSession = useCallback(async () => {
+    const ok = window.confirm('Clôturer la session de caisse en cours ?');
+    if (!ok) return;
+    try {
+      const totals = await computeTodayTotalsFromDB();
+      await closeCurrentSessionHelper({ closedBy: 'system', totals });
+      await refreshSession();
+    } catch (e) {
+      console.error('Erreur fermeture session:', e);
+      alert('Erreur lors de la fermeture de la session');
+    }
+  }, [refreshSession]);
 
   // ===== CALCULS =====
   const calculs = useMemo(() => {
@@ -373,6 +415,31 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             </p>
           </div>
 
+          {/* Session - ouverture/statut (haut de page) */}
+          <div style={{ background: '#fff', border: '2px solid #DC2626', borderRadius: 10, padding: 16, marginBottom: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+            {sessLoading ? (
+              <div style={{ color: '#991B1B', fontWeight: 600 }}>Chargement de la session...</div>
+            ) : !session ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ color: '#991B1B', fontWeight: 700, fontSize: 16 }}>Aucune session de caisse ouverte</div>
+                  <div style={{ color: '#7F1D1D' }}>Ouvrez une session pour enregistrer les ventes du jour.</div>
+                </div>
+                <button onClick={openSession} style={{ ...btn('#16A34A'), minWidth: 200 }}>
+                  <PlayCircle size={20} /> Ouvrir la session
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ color: '#065F46', fontWeight: 700, fontSize: 16 }}>Session ouverte</div>
+                  <div style={{ color: '#7F1D1D' }}>Depuis {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <div style={{ color: '#991B1B', fontWeight: 600 }}>Gestion de session en bas de page</div>
+              </div>
+            )}
+          </div>
+
           {/* Boutons */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15, marginBottom: 30 }}>
             <button onClick={() => setModeApercu(!modeApercu)} style={btn(modeApercu ? '#89BBFE' : '#14281D', true)}>
@@ -436,6 +503,25 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                 // Ici vous pourrez ajouter une logique de callback si nécessaire
               }}
             />
+          </div>
+
+          {/* Session - clôture (bas de page) */}
+          <div style={{ background: '#fff', border: '2px solid #DC2626', borderRadius: 10, padding: 16, marginTop: 24, boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+            {sessLoading ? (
+              <div style={{ color: '#991B1B', fontWeight: 600 }}>Chargement de la session...</div>
+            ) : !session ? (
+              <div style={{ color: '#991B1B' }}>Aucune session n'est ouverte actuellement.</div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <div>
+                  <div style={{ color: '#065F46', fontWeight: 700, fontSize: 16 }}>Session ouverte</div>
+                  <div style={{ color: '#7F1D1D' }}>Ouverte à {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+                <button onClick={closeSession} style={{ ...btn('#DC2626'), minWidth: 220 }}>
+                  <XCircle size={20} /> Clôturer la session
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

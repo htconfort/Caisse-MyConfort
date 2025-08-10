@@ -3,7 +3,7 @@ import { useSyncInvoices } from '../hooks/useSyncInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { SyncStatus } from './SyncStatus';
 import { NotificationCenter } from './NotificationCenter';
-import type { Invoice, PaymentDetails } from '../services/syncService';
+import type { Invoice, PaymentDetails } from '@/services/syncService';
 import { getVendorColorInfo } from '../utils/vendorColors';
 import { getVendorThemeColors } from '../utils/colorUtils';
 import '../styles/invoices-elegant.css';

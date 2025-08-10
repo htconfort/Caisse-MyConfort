@@ -1,45 +1,45 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
+import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: {
-      '@': new URL('./src', import.meta.url).pathname
-    }
-  },
-  define: {
-    __PRODUCTION_MODE__: true,
-    __DISABLE_DEMO_DATA__: true,
-    'import.meta.env.VITE_DEMO_MODE': JSON.stringify('false'),
-  },
-  server: {
-    port: 5173,
-    host: true,
-    open: true,
-    proxy: {
-      '/api/n8n': {
-        target: 'https://n8n.srv765811.hstgr.cloud/webhook',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/n8n/, ''),
-        secure: true,
-        configure: (proxy) => {
-          proxy.on('error', (err) => {
-            console.log('🔌 Proxy error:', err);
-          });
-          proxy.on('proxyReq', (_proxyReq, req) => {
-            console.log('🔗 Proxy request:', req.method, req.url);
-          });
-          proxy.on('proxyRes', (proxyRes, req) => {
-            console.log('✅ Proxy response:', proxyRes.statusCode, req.url);
-          });
-        }
+export default defineConfig(({ mode }) => {
+  // Use current working directory as root for env loading
+  const root = process.cwd()
+  const env = loadEnv(mode, root, '')
+  const isDev = mode === 'development'
+
+  const n8nEnabled = env.VITE_N8N_ENABLED === 'true'
+  const n8nTarget = env.VITE_N8N_TARGET || 'http://localhost:5678'
+
+  return {
+    plugins: [react()],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url))
       }
+    },
+    define: {
+      __APP_ENV__: JSON.stringify(env.VITE_ENV)
+    },
+    server: {
+      port: 5173,
+      host: true,
+      open: true,
+      proxy: n8nEnabled && isDev
+        ? {
+            '/api/n8n': {
+              target: n8nTarget,
+              changeOrigin: true,
+              rewrite: (path) => path.replace(/^\/api\/n8n/, ''),
+              secure: false
+            }
+          }
+        : undefined
+    },
+    build: {
+      outDir: 'dist',
+      sourcemap: true
     }
-  },
-  build: {
-    outDir: 'dist',
-    sourcemap: true
   }
 })

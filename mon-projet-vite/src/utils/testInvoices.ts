@@ -1,4 +1,4 @@
-import type { Invoice, PaymentDetails } from '../services/syncService';
+import type { Invoice, PaymentDetails } from '@/services/syncService';
 
 // Fonction pour générer des détails de paiement selon la méthode
 const generatePaymentDetails = (

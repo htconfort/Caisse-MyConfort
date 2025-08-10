@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Download } from 'lucide-react';
 import type { Sale } from '../../types';
-import type { Invoice } from '../../services/syncService';
+import type { Invoice } from '@/services/syncService';
 import { convertToCSV } from '../../utils';
 import { vendors } from '../../data';
 

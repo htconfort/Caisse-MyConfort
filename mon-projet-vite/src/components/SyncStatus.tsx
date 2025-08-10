@@ -1,5 +1,5 @@
 import React from 'react';
-import type { SyncStats } from '../services/syncService';
+import type { SyncStats } from '@/services/syncService';
 
 interface SyncStatusProps {
   stats: SyncStats;

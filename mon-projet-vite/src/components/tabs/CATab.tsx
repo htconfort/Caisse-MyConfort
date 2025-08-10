@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { TrendingUp, DollarSign } from 'lucide-react';
 import type { Sale, Vendor } from '../../types';
-import type { Invoice } from '../../services/syncService';
+import type { Invoice } from '@/services/syncService';
 import { vendors } from '../../data';
 
 interface CATabProps {

@@ -2,8 +2,8 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Package, Search, AlertTriangle, CheckCircle, Lock, Zap, Clock, RotateCcw, FileDown, Mail, Printer, Play } from 'lucide-react';
 import type { ProductCategory } from '../../../types';
 import { PinModal } from '../../ui/PinModal';
-import { syncService } from '../../../services/syncService';
-import type { PhysicalStock } from '../../../services/syncService';
+import { syncService } from '@/services';
+import type { PhysicalStock } from '@/services';
 import '../../../styles/general-stock-compact.css';
 
 interface PhysicalStockItem extends PhysicalStock {
@@ -213,94 +213,48 @@ export const PhysicalStockTab: React.FC = () => {
       if (eventIndex === 4) { // Stock Personnalisé
         const customAmount = window.prompt(
           '📦 STOCK PERSONNALISÉ\n\n' +
-          'Entrez la quantité de base pour tous les produits\n' +
-          '(cette quantité sera appliquée à tous les articles) :'
+          'Entrez une quantité de base (ex: 5) qui servira à définir les niveaux pour chaque produit:',
+          '5'
         );
-        
-        const baseQuantity = parseInt(customAmount || '0');
-        
-        if (baseQuantity > 0) {
-          physicalStockData.forEach(item => {
-            targetQuantities[item.productName] = baseQuantity;
-          });
-        } else {
-          alert('❌ Quantité invalide. Opération annulée.');
-          return;
-        }
+        const base = Number(customAmount ?? '0');
+        const safeBase = Number.isFinite(base) && base >= 0 ? base : 0;
+        targetQuantities = {
+          'Matelas Simmons 140x190': safeBase,
+          'Sur-matelas Duo': safeBase * 3,
+          'Couette 220x240': safeBase * 4,
+          'Oreiller Dual': safeBase * 5,
+          'Plateau fixe': Math.max(1, Math.round(safeBase / 2)),
+          'Protège-matelas': safeBase * 6
+        };
       } else {
-        targetQuantities = eventStockPresets[eventType] || {};
+        targetQuantities = eventStockPresets[eventType];
       }
 
-      // Confirmation
-      const productCount = Object.keys(targetQuantities).length;
-      const totalItems = Object.values(targetQuantities).reduce((sum, qty) => sum + qty, 0);
+      // Appliquer les quantités cibles
+      const updated = physicalStockData.map(item => {
+        const q = targetQuantities[item.productName];
+        return typeof q === 'number'
+          ? { ...item, currentStock: q, status: q === 0 ? 'out' : (q <= item.minStock ? 'low' : 'ok') }
+          : item;
+      });
+
+      setPhysicalStockData(updated);
       
-      const confirmed = window.confirm(
-        `🎪 INITIALISATION STOCK - ${eventType}\n\n` +
-        `Produits configurés : ${productCount}\n` +
-        `Quantité totale : ${totalItems} articles\n\n` +
-        'Voulez-vous appliquer cette configuration ?'
-      );
+      // Persister en localStorage (même clé que RAZ pour cohérence)
+      const persisted = updated.reduce((acc, item) => {
+        acc[item.productName] = item.currentStock;
+        return acc;
+      }, {} as Record<string, number>);
+      localStorage.setItem('physical-stock-quantities', JSON.stringify(persisted));
 
-      if (confirmed) {
-        try {
-          setInitLoading(true);
-          
-          // Appliquer les nouvelles quantités aux données existantes
-          const updatedStockData = physicalStockData.map(item => {
-            const newQuantity = targetQuantities[item.productName] || item.currentStock;
-            let status: 'ok' | 'low' | 'out' = 'ok';
-            if (newQuantity === 0) status = 'out';
-            else if (newQuantity <= item.minStock) status = 'low';
-            
-            return {
-              ...item,
-              currentStock: newQuantity,
-              status
-            };
-          });
-
-          setPhysicalStockData(updatedStockData);
-          
-          // Sauvegarder en localStorage
-          const stockUpdate = updatedStockData.reduce((acc, item) => {
-            acc[item.productName] = item.currentStock;
-            return acc;
-          }, {} as Record<string, number>);
-          
-          localStorage.setItem('physical-stock-quantities', JSON.stringify(stockUpdate));
-          
-          // Fermer la modale
-          setShowInitModal(false);
-          
-          // Notification de succès
-          alert(`✅ Stock initialisé pour "${eventType}" avec succès !\n\n${productCount} produits configurés`);
-          
-          console.log('🎪 Initialisation Stock Événement:', {
-            timestamp: new Date().toISOString(),
-            eventType,
-            productsConfigured: productCount,
-            totalItems,
-            action: 'INITIALIZE_EVENT_STOCK'
-          });
-          
-        } catch (error) {
-          console.error('❌ Erreur lors de l\'initialisation:', error);
-          alert('Erreur lors de l\'initialisation du stock.');
-        } finally {
-          setInitLoading(false);
-        }
-      }
+      console.log(`🎪 Initialisation "${eventType}" appliquée`);
+      alert(`Initialisation "${eventType}" appliquée avec succès.`);
     } else {
-      alert('❌ Sélection invalide. Opération annulée.');
+      alert('Type d\'événement invalide.');
     }
   }, [physicalStockData]);
 
-  // Fonction d'origine renommée pour compatibilité
-  const handleInitEvent = initializeEventStock;
-
-  // Filtrage des produits
-  const filteredStock = useMemo(() => {
+  const filteredStockData = useMemo(() => {
     return physicalStockData.filter(item => {
       const matchesSearch = item.productName.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'Tous' || item.category === selectedCategory;
@@ -308,541 +262,235 @@ export const PhysicalStockTab: React.FC = () => {
     });
   }, [physicalStockData, searchTerm, selectedCategory]);
 
-  // Statistiques de stock
-  const stockStats = useMemo(() => {
-    const totalItems = physicalStockData.length;
-    const outOfStock = physicalStockData.filter(item => item.status === 'out').length;
-    const lowStock = physicalStockData.filter(item => item.status === 'low').length;
-    const okStock = physicalStockData.filter(item => item.status === 'ok').length;
-
-    return { totalItems, outOfStock, lowStock, okStock };
-  }, [physicalStockData]);
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'out': return '#DC2626';
-      case 'low': return '#F59E0B';
-      case 'ok': return '#16A34A';
-      default: return '#6B7280';
+  const handleEditUnlock = (pin: string) => {
+    if (pin === '0000') {
+      setIsEditUnlocked(true);
+      setShowPinModal(false);
+      alert('Accès au mode édition : ✅');
+    } else {
+      alert('Code PIN incorrect. Accès refusé.');
     }
   };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'out': return AlertTriangle;
-      case 'low': return AlertTriangle;
-      case 'ok': return CheckCircle;
-      default: return Package;
-    }
-  };
-
-  const categories: (ProductCategory | 'Tous')[] = ['Tous', 'Matelas', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Accessoires'];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="flex items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          <span className="text-lg text-gray-600">Chargement du stock physique...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <>
-      {/* Header principal avec titre élégant et bouton d'édition */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2" style={{ 
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            letterSpacing: '-0.025em'
-          }}>
-            Stock physique
-          </h1>
-          <div className="flex items-center gap-3">
-            <p className="text-lg text-gray-600 font-medium">
-              Stock réel avec déductions automatiques N8N et ventes locales
-            </p>
-            <div className="flex items-center gap-2 px-3 py-1 bg-purple-100 rounded-full">
-              <Zap size={14} className="text-purple-600" />
-              <span className="text-sm font-medium text-purple-600">Synchronisé</span>
-            </div>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Gestion du Stock Physique</h1>
+      
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700">
+          Rechercher un produit
+        </label>
+        <div className="mt-1 relative">
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            placeholder="Nom du produit..."
+          />
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" aria-hidden="true" />
           </div>
         </div>
+      </div>
+      
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700">
+          Catégorie
+        </label>
+        <select
+          value={selectedCategory}
+          onChange={e => setSelectedCategory(e.target.value as ProductCategory)}
+          className="mt-1 block w-full pl-3 pr-10 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+        >
+          <option value="Tous">Toutes les catégories</option>
+          <option value="literie">Literie</option>
+          <option value="mobilier">Mobilier</option>
+          <option value="decoration">Décoration</option>
+          <option value="electromenager">Électroménager</option>
+        </select>
+      </div>
+      
+      <div className="mb-4">
+        <button
+          onClick={() => setShowRazModal(true)}
+          className="mr-2 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+        >
+          <RotateCcw className="h-5 w-5 mr-2" aria-hidden="true" />
+          Remise À Zéro du Stock
+        </button>
         
-        {/* Boutons d'action */}
-        <div className="flex items-center gap-3">
-          {/* Bouton d'initialisation d'événement */}
-          <button
-            onClick={() => setShowInitModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all hover:shadow-lg"
-            style={{
-              borderColor: '#16A34A',
-              backgroundColor: '#F0FDF4',
-              color: '#16A34A'
-            }}
-          >
-            <Play size={16} />
-            <span className="font-semibold">Nouvel événement</span>
-          </button>
-          
-          {/* Bouton RAZ (Remise À Zéro) */}
-          <button
-            onClick={() => setShowRazModal(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all hover:shadow-lg"
-            style={{
-              borderColor: '#DC2626',
-              backgroundColor: '#FEF2F2',
-              color: '#DC2626'
-            }}
-          >
-            <RotateCcw size={16} />
-            <span className="font-semibold">RAZ Stock</span>
-          </button>
-          
-          {/* Bouton de verrouillage/déverrouillage de l'édition */}
-          {isEditUnlocked ? (
-            <button
-              onClick={() => setIsEditUnlocked(false)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all hover:shadow-lg"
-              style={{
-                borderColor: '#DC2626',
-                backgroundColor: '#FEF2F2',
-                color: '#DC2626'
-              }}
-            >
-              <Lock size={16} />
-              <span className="font-semibold">Verrouiller l'édition</span>
-            </button>
+        <button
+          onClick={() => setShowInitModal(true)}
+          className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+        >
+          <Play className="h-5 w-5 mr-2" aria-hidden="true" />
+          Initialiser Stock Événement
+        </button>
+      </div>
+      
+      {loading ? (
+        <div className="text-center py-4">
+          <svg className="animate-spin h-5 w-5 mx-auto text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4zm16 0a8 8 0 01-8 8v-8h8z"></path>
+          </svg>
+          <p className="text-sm text-gray-500">Chargement des données...</p>
+        </div>
+      ) : (
+        <div>
+          {filteredStockData.length === 0 ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-gray-500">Aucun produit trouvé.</p>
+            </div>
           ) : (
-            <button
-              onClick={() => setShowPinModal(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all hover:shadow-lg"
-              style={{
-                borderColor: '#16A34A',
-                backgroundColor: '#F0FDF4',
-                color: '#16A34A'
-              }}
-            >
-              <Lock size={16} />
-              <span className="font-semibold">Déverrouiller l'édition</span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredStockData.map(item => (
+                <div key={item.productName} className="bg-white shadow rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold">{item.productName}</h2>
+                      <p className="text-sm text-gray-500">{item.category}</p>
+                    </div>
+                    <div>
+                      {item.status === 'ok' && (
+                        <CheckCircle className="h-6 w-6 text-green-500" aria-hidden="true" />
+                      )}
+                      {item.status === 'low' && (
+                        <AlertTriangle className="h-6 w-6 text-yellow-500" aria-hidden="true" />
+                      )}
+                      {item.status === 'out' && (
+                        <Lock className="h-6 w-6 text-red-500" aria-hidden="true" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-2xl font-bold">{item.currentStock}</span> /{' '}
+                    <span className="text-sm text-gray-400">Min: {item.minStock}</span>
+                  </div>
+                  <div className="mt-4 flex">
+                    <button
+                      onClick={() => updatePhysicalStock(item.productName, item.category, item.currentStock + 1)}
+                      className="flex-1 bg-indigo-600 text-white rounded-md px-4 py-2 mr-2 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      <Zap className="h-5 w-5 mr-2" aria-hidden="true" />
+                      Ajouter 1
+                    </button>
+                    <button
+                      onClick={() => updatePhysicalStock(item.productName, item.category, item.currentStock - 1)}
+                      className="flex-1 bg-red-600 text-white rounded-md px-4 py-2 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      <FileDown className="h-5 w-5 mr-2" aria-hidden="true" />
+                      Retirer 1
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-      </div>
-
-      {/* Ligne compacte : Statistiques + Recherche + Filtres */}
-      <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm mb-6">
-        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
-          
-          {/* Statistiques compactes sur la gauche - Police doublée et très contrastée */}
-          <div className="flex items-center gap-6 flex-wrap">
-            {/* Références totales - Marron */}
-            <div className="stat-item-compact flex items-center gap-3">
-              <div className="p-2 rounded-lg" style={{ backgroundColor: '#FDF6E3' }}>
-                <span className="text-2xl">📦</span>
-              </div>
-              <div>
-                <div className="text-2xl font-black" style={{ color: '#654321', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{stockStats.totalItems}</div>
-                <div className="text-sm font-bold" style={{ color: '#654321' }}>Références</div>
-              </div>
-            </div>
-
-            {/* Stock OK - Vert */}
-            <div className="stat-item-compact flex items-center gap-3">
-              <div className="p-2 rounded-lg" style={{ backgroundColor: '#F0FDF4' }}>
-                <span className="text-2xl">✅</span>
-              </div>
-              <div>
-                <div className="text-2xl font-black" style={{ color: '#15803D', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{stockStats.okStock}</div>
-                <div className="text-sm font-bold" style={{ color: '#15803D' }}>Stock OK</div>
-              </div>
-            </div>
-
-            {/* Stock faible - Orange */}
-            <div className="stat-item-compact flex items-center gap-3">
-              <div className="p-2 rounded-lg" style={{ backgroundColor: '#FFFBEB' }}>
-                <span className="text-2xl">⚠️</span>
-              </div>
-              <div>
-                <div className="text-2xl font-black" style={{ color: '#EA580C', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{stockStats.lowStock}</div>
-                <div className="text-sm font-bold" style={{ color: '#EA580C' }}>Stock faible</div>
-              </div>
-            </div>
-
-            {/* Rupture - Rouge */}
-            <div className="stat-item-compact flex items-center gap-3">
-              <div className="p-2 rounded-lg" style={{ backgroundColor: '#FEF2F2' }}>
-                <span className="text-2xl">🚨</span>
-              </div>
-              <div>
-                <div className="text-2xl font-black" style={{ color: '#B91C1C', textShadow: '0 1px 2px rgba(0,0,0,0.3)' }}>{stockStats.outOfStock}</div>
-                <div className="text-sm font-bold" style={{ color: '#B91C1C' }}>Rupture</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Séparateur vertical */}
-          <div className="hidden lg:block w-px h-12 bg-gray-200"></div>
-
-          {/* Recherche et filtres compacts sur la droite */}
-          <div className="flex flex-1 gap-3 min-w-0">
-            {/* Recherche */}
-            <div className="flex-1 min-w-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2" size={16} style={{ color: '#6B7280' }} />
-                <input
-                  type="text"
-                  placeholder="Rechercher un produit..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 border rounded-lg text-sm"
-                  style={{ borderColor: '#D1D5DB' }}
-                />
-              </div>
-            </div>
-
-            {/* Filtre par catégorie */}
-            <div className="w-40">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value as ProductCategory | 'Tous')}
-                className="w-full px-3 py-2 border rounded-lg text-sm"
-                style={{ borderColor: '#D1D5DB' }}
-              >
-                {categories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Bouton de rechargement */}
-            <button
-              onClick={loadPhysicalStock}
-              className="flex items-center gap-2 px-3 py-2 border rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              style={{ borderColor: '#D1D5DB' }}
-              title="Recharger le stock physique"
-            >
-              <Clock size={16} className="text-gray-600" />
-              <span className="hidden sm:inline">Actualiser</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Liste des produits */}
-      <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-bold" style={{ color: '#000000' }}>
-            Stock physique en temps réel ({filteredStock.length} produits)
-          </h3>
-          <div className="flex items-center gap-2 text-sm" style={{ color: '#6B7280' }}>
-            <Package size={16} />
-            <span>💡 Stock déduit automatiquement des factures N8N et ventes locales</span>
-          </div>
-        </div>
-
-        {filteredStock.length === 0 ? (
-          <div className="text-center py-8">
-            <Package size={48} style={{ color: '#D1D5DB', margin: '0 auto 16px' }} />
-            <p className="text-lg" style={{ color: '#000000' }}>
-              Aucun produit trouvé
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2" style={{ borderColor: '#E5E7EB' }}>
-                  <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Statut</th>
-                  <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Produit</th>
-                  <th className="text-left py-3 px-4 font-bold" style={{ color: '#000000' }}>Catégorie</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock actuel</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock réservé</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Stock disponible</th>
-                  <th className="text-center py-3 px-4 font-bold" style={{ color: '#000000' }}>Dernière MAJ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStock.map((item, index) => {
-                  const StatusIcon = getStatusIcon(item.status);
-                  const statusColor = getStatusColor(item.status);
-                  const productKey = `${item.productName}-${index}`;
-                  
-                  return (
-                    <tr 
-                      key={productKey}
-                      className="border-b hover:bg-gray-50 transition-colors"
-                      style={{ borderColor: '#F3F4F6' }}
-                    >
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <StatusIcon size={20} style={{ color: statusColor }} />
-                          <span className="text-sm font-semibold" style={{ color: statusColor }}>
-                            {item.status === 'ok' ? 'OK' : item.status === 'low' ? 'Faible' : 'Rupture'}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold" style={{ color: '#000000' }}>
-                          {item.productName}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-sm" style={{ color: '#6B7280' }}>
-                          {item.category}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        {isEditUnlocked ? (
-                          <input
-                            type="number"
-                            min="0"
-                            value={item.currentStock}
-                            onChange={(e) => updatePhysicalStock(item.productName, item.category, parseInt(e.target.value) || 0)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'ArrowUp') {
-                                e.preventDefault();
-                                updatePhysicalStock(item.productName, item.category, item.currentStock + 1);
-                              } else if (e.key === 'ArrowDown') {
-                                e.preventDefault();
-                                updatePhysicalStock(item.productName, item.category, Math.max(0, item.currentStock - 1));
-                              }
-                            }}
-                            className="w-20 px-2 py-1 text-center font-bold text-lg border rounded transition-all hover:shadow-md focus:shadow-lg focus:outline-none focus:ring-2"
-                            style={{ 
-                              color: statusColor,
-                              borderColor: statusColor,
-                              backgroundColor: item.status === 'out' ? '#FEF2F2' : 
-                                             item.status === 'low' ? '#FFFBEB' : '#F0FDF4'
-                            }}
-                            title="Utilisez ↑/↓ pour modifier rapidement"
-                          />
-                        ) : (
-                          <div
-                            className="w-20 mx-auto px-2 py-1 text-center font-bold text-lg border rounded bg-gray-100"
-                            style={{ 
-                              borderColor: '#D1D5DB',
-                              backgroundColor: '#F9FAFB',
-                              color: statusColor,
-                              opacity: 0.7
-                            }}
-                            title="Déverrouillez l'édition pour modifier"
-                          >
-                            {item.currentStock}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-medium" style={{ color: '#F59E0B' }}>
-                          {item.reservedStock}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-sm font-bold" style={{ color: '#16A34A' }}>
-                          {item.availableStock}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="text-xs" style={{ color: '#6B7280' }}>
-                          {new Date(item.lastUpdated).toLocaleString('fr-FR')}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Info sur la synchronisation */}
-        <div className="mt-6 pt-4 border-t" style={{ borderColor: '#E5E7EB' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm" style={{ color: '#6B7280' }}>
-              <Zap size={16} className="text-purple-500" />
-              <span>
-                Stock synchronisé automatiquement avec les factures N8N et les ventes locales
-              </span>
-            </div>
-            <div className="text-xs" style={{ color: '#6B7280' }}>
-              Dernière actualisation : {new Date().toLocaleTimeString('fr-FR')}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Modal PIN pour déverrouiller l'édition */}
-      <PinModal
-        isOpen={showPinModal}
-        onClose={() => setShowPinModal(false)}
-        onSuccess={() => setIsEditUnlocked(true)}
-        title="Déverrouiller l'édition du stock physique"
-      />
-
-      {/* Modal de confirmation RAZ */}
+      )}
+      
+      {/* Modale RAZ */}
       {showRazModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <h2 className="text-lg font-semibold mb-4">Remise À Zéro du Stock</h2>
+            
             {razStep === 'confirm' && (
-              <>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-full bg-red-100">
-                    <RotateCcw size={24} className="text-red-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">
-                      Remise À Zéro (RAZ)
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Fin d'événement - Génération des rapports
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="mb-6">
-                  <p className="text-gray-700 mb-4">
-                    Cette opération va :
-                  </p>
-                  <ul className="space-y-2 text-sm text-gray-600">
-                    <li className="flex items-center gap-2">
-                      <FileDown size={16} className="text-blue-500" />
-                      Générer le rapport du stock physique restant
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Printer size={16} className="text-green-500" />
-                      Créer la feuille de caisse complète
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <Mail size={16} className="text-purple-500" />
-                      Envoyer les rapports par email
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <RotateCcw size={16} className="text-red-500" />
-                      Remettre le stock physique à zéro
-                    </li>
-                  </ul>
-                </div>
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-6">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle size={16} className="text-yellow-600" />
-                    <span className="text-sm font-medium text-yellow-800">
-                      Attention : Cette action est irréversible
-                    </span>
-                  </div>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    Le stock général sera conservé, seul le stock physique sera remis à zéro.
-                  </p>
-                </div>
-
-                <div className="flex gap-3">
+              <div>
+                <p className="text-sm text-gray-700 mb-4">
+                  Êtes-vous sûr de vouloir remettre tout le stock physique à zéro ?
+                </p>
+                <div className="flex justify-end">
                   <button
                     onClick={() => setShowRazModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                    className="mr-2 px-4 py-2 bg-gray-200 rounded-md text-sm font-medium hover:bg-gray-300 focus:outline-none"
                   >
                     Annuler
                   </button>
                   <button
-                    onClick={handleRAZ}
-                    disabled={razLoading}
-                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                    onClick={performRAZ}
+                    className="px-4 py-2 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 focus:outline-none"
                   >
-                    {razLoading ? 'Traitement...' : 'Confirmer la RAZ'}
+                    Confirmer
                   </button>
                 </div>
-              </>
-            )}
-
-            {razStep === 'processing' && (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
-                  Traitement en cours...
-                </h3>
-                <p className="text-gray-600">
-                  Génération des rapports et remise à zéro du stock physique
-                </p>
               </div>
             )}
-
+            
+            {razStep === 'processing' && (
+              <div className="text-center py-4">
+                <svg className="animate-spin h-5 w-5 mx-auto text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4zm16 0a8 8 0 01-8 8v-8h8z"></path>
+                </svg>
+                <p className="text-sm text-gray-500">Traitement en cours...</p>
+              </div>
+            )}
+            
             {razStep === 'completed' && (
-              <div className="text-center py-8">
-                <div className="p-3 rounded-full bg-green-100 mx-auto w-fit mb-4">
-                  <CheckCircle size={24} className="text-green-600" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
-                  RAZ effectuée avec succès !
-                </h3>
-                <p className="text-gray-600">
-                  Les rapports ont été générés et le stock physique a été remis à zéro.
+              <div className="text-center py-4">
+                <CheckCircle className="h-10 w-10 mx-auto text-green-500" aria-hidden="true" />
+                <p className="mt-2 text-sm text-gray-700">
+                  La remise À zéro du stock a été effectuée avec succès.
                 </p>
               </div>
             )}
           </div>
         </div>
       )}
-
-      {/* Modal d'initialisation d'événement */}
+      
+      {/* Modale Initialisation Événement */}
       {showInitModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full mx-4">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 rounded-full bg-green-100">
-                <Play size={24} className="text-green-600" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">
-                  Nouvel événement
-                </h3>
-                <p className="text-sm text-gray-600">
-                  Initialisation du stock physique
-                </p>
-              </div>
-            </div>
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full">
+            <h2 className="text-lg font-semibold mb-4">Initialisation Stock Événement</h2>
             
-            <div className="mb-6">
-              <p className="text-gray-700 mb-4">
-                Cette opération va initialiser le stock physique avec des quantités d'exemple pour démarrer un nouvel événement.
-              </p>
+            <p className="text-sm text-gray-700 mb-4">
+              Choisissez un type d'événement pour initialiser le stock :
+            </p>
+            
+            <div className="grid grid-cols-1 gap-4">
+              <button
+                onClick={() => {
+                  setInitLoading(true);
+                  initializeEventStock();
+                }}
+                className="flex items-center justify-center bg-green-600 text-white rounded-md px-4 py-2 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <Play className="h-5 w-5 mr-2" aria-hidden="true" />
+                Initialiser
+              </button>
               
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle size={16} className="text-blue-600" />
-                  <span className="text-sm font-medium text-blue-800">
-                    Stock d'exemple qui sera initialisé
-                  </span>
-                </div>
-                <ul className="text-xs text-blue-700 mt-2 space-y-1">
-                  <li>• Matelas Simmons 140x190 : 10 unités</li>
-                  <li>• Sur-matelas Duo : 15 unités</li>
-                  <li>• Couette 220x240 : 20 unités</li>
-                  <li>• Oreiller Dual : 25 unités</li>
-                  <li>• Plateau fixe : 8 unités</li>
-                  <li>• Protège-matelas : 30 unités</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
               <button
                 onClick={() => setShowInitModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-center bg-gray-200 rounded-md px-4 py-2 hover:bg-gray-300 focus:outline-none"
               >
                 Annuler
               </button>
-              <button
-                onClick={handleInitEvent}
-                disabled={initLoading}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                {initLoading ? 'Initialisation...' : 'Initialiser'}
-              </button>
             </div>
+            
+            {initLoading && (
+              <div className="mt-4 text-center">
+                <svg className="animate-spin h-5 w-5 mx-auto text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4zm16 0a8 8 0 01-8 8v-8h8z"></path>
+                </svg>
+                <p className="text-sm text-gray-500">Initialisation en cours...</p>
+              </div>
+            )}
           </div>
         </div>
       )}
-    </>
+      
+      {/* Modale PIN */}
+      {showPinModal && (
+        <PinModal 
+          onUnlock={handleEditUnlock}
+          onClose={() => setShowPinModal(false)}
+        />
+      )}
+    </div>
   );
 };

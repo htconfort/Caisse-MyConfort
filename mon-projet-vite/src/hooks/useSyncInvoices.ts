@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { syncService, type Invoice, type SyncStats } from '../services/syncService';
+import { syncService, type Invoice, type SyncStats } from '@/services/syncService';
 
 /**
  * Hook pour gérer la synchronisation des factures

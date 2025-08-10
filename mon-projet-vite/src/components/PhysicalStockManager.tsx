@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { syncService } from '../services/syncService';
-import type { PhysicalStock, StockMovement } from '../services/syncService';
+import { syncService } from '@/services';
+import type { PhysicalStock, StockMovement } from '@/services';
 
 export const PhysicalStockManager: React.FC = () => {
   const [stock, setStock] = useState<PhysicalStock[]>([]);

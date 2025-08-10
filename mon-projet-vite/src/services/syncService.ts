@@ -4,6 +4,8 @@
  * NOUVEAU : Déduction automatique du stock lors de l'arrivée de factures N8N
  */
 
+import { RUNTIME } from '@/config/runtime';
+
 // Interface pour le stock physique
 export interface PhysicalStock {
   productName: string;
@@ -12,7 +14,10 @@ export interface PhysicalStock {
   reservedStock: number;
   availableStock: number;
   lastUpdated: Date;
-  minStock: number;
+  // Seuil minimal optionnel (calculé ailleurs selon l'UI)
+  minStock?: number;
+  // Seuil d'alerte utilisé par l'UI stock
+  minStockAlert: number;
 }
 
 // Interface pour les mouvements de stock
@@ -136,33 +141,26 @@ class SyncService {
     
     // URL adaptée selon l'environnement
     const isDevelopment = import.meta.env.DEV;
-    const forceApiTest = localStorage.getItem('n8n-test-mode') === 'true';
     const forceProductionMode = localStorage.getItem('force-production-mode') === 'true';
-    
-    // MODE PRODUCTION FORCÉ : utiliser directement les données de démo
-    if (forceProductionMode) {
+
+    // Configuration basée sur les variables d'environnement Vite
+    if (!RUNTIME.N8N_ENABLED || forceProductionMode) {
+      // Mode démo/offline ou production forcée: pas d'appels N8N
       this.baseUrl = '';
-      this.isOnline = false; // Forcer le mode offline pour utiliser les démos
-      console.log(`🏭 MODE PRODUCTION FORCÉ : Utilisation exclusive des données de démo`);
-    }
-    // En développement, utiliser automatiquement les données N8N
-    else if (isDevelopment) {
-      // En développement : utiliser le proxy Vite pour N8N
-      this.baseUrl = '/api/n8n';
-      // Activer automatiquement le mode N8N en développement
-      localStorage.setItem('n8n-test-mode', 'true');
+      this.isOnline = false; // Forcer offline pour éviter le polling
+      this.stopPolling = true;
+      console.log(`🏠 Mode N8N: DÉSACTIVÉ (${forceProductionMode ? 'production forcée' : 'env'})`);
     } else {
-      // En production : URL directe N8N
-      this.baseUrl = 'https://n8n.srv765811.hstgr.cloud/webhook';
+      // N8N activé: utiliser l'URL configurée
+      this.baseUrl = RUNTIME.N8N_URL || '/api/n8n';
+      console.log(`🛠️ SyncService mode: ${isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
+      console.log(`🌐 Base URL: ${this.baseUrl}`);
+      console.log(`🧪 Mode N8N: ACTIVÉ`);
     }
-    
-    console.log(`🛠️ SyncService mode: ${forceProductionMode ? 'PRODUCTION-DÉMO' : isDevelopment ? 'DÉVELOPPEMENT' : 'PRODUCTION'}`);
-    console.log(`🌐 Base URL: ${this.baseUrl}`);
-    console.log(`🧪 Mode N8N: ${forceProductionMode ? 'DÉSACTIVÉ (mode démo)' : 'ACTIVÉ automatiquement'}`);
     
     // Écouter les changements de connectivité
     window.addEventListener('online', () => {
-      if (!forceProductionMode) {
+      if (RUNTIME.N8N_ENABLED && !forceProductionMode) {
         this.isOnline = true;
         this.stopPolling = false;
         this.startAutoSync();
@@ -180,6 +178,10 @@ class SyncService {
    */
   async getInvoices(): Promise<Invoice[]> {
     try {
+      // Si N8N est désactivé par configuration, retourner le cache (ou vide)
+      if (!RUNTIME.N8N_ENABLED) {
+        return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
+      }
       const forceProductionMode = localStorage.getItem('force-production-mode') === 'true';
       const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
       const productionGuard = forceProductionMode || !isLocalhost;
@@ -220,7 +222,7 @@ class SyncService {
           return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
         }
       } catch (networkError) {
-        console.warn('🔌 Erreur réseau N8N, aucun fallback démo en production:', networkError);
+        console.warn('🔌 Erreur réseau N8N, fallback cache:', networkError);
         return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
       }
     } catch (error) {

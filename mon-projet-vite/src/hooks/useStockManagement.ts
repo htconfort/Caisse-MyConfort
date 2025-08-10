@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { syncService, type StockItem } from '../services/syncService';
+import { syncService, type StockItem } from '@/services/syncService';
 
 export interface StockFilter {
   category?: string;

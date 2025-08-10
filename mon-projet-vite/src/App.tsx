@@ -11,7 +11,7 @@ import {
   vendors, 
   STORAGE_KEYS 
 } from './data';
-import { useIndexedStorage } from './hooks/storage/useIndexedStorage';
+import { useIndexedStorage } from '@/storage';
 import { useSyncInvoices } from './hooks/useSyncInvoices';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
@@ -23,6 +23,7 @@ import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, Aler
 import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import './styles/invoices-tab.css';
 import './styles/print.css';
+import { sessionService } from '@/services';
 
 // Styles pour les animations RAZ
 const razAnimationStyles = `
@@ -121,6 +122,8 @@ export default function CaisseMyConfortApp() {
     const timer = setInterval(() => setCurrentDateTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Note: la session est gérée exclusivement dans l'onglet RAZ désormais.
 
   // Calculs dérivés
   const cartTotal = useMemo(() => 
@@ -470,86 +473,97 @@ export default function CaisseMyConfortApp() {
     setResetStep('executing');
     
     setTimeout(() => {
-      try {
-        // RAZ des ventes du jour
-        if (resetOptions.dailySales) {
-          const resetVendors = vendorStats.map(vendor => ({
-            ...vendor,
-            dailySales: 0
-          }));
-          setVendorStats(resetVendors);
-          console.log('✅ RAZ ventes du jour effectuée');
+      (async () => {
+        try {
+          // RAZ des ventes du jour
+          if (resetOptions.dailySales) {
+            const resetVendors = vendorStats.map(vendor => ({
+              ...vendor,
+              dailySales: 0
+            }));
+            setVendorStats(resetVendors);
+            console.log('✅ RAZ ventes du jour effectuée');
+          }
+
+          // RAZ du panier
+          if (resetOptions.cart) {
+            setCart([]);
+            console.log('✅ RAZ panier effectuée');
+          }
+
+          // RAZ des factures N8N
+          if (resetOptions.invoices) {
+            resetInvoices();
+            console.log('✅ RAZ factures N8N effectuée');
+          }
+
+          // RAZ vendeuse sélectionnée
+          if (resetOptions.selectedVendor) {
+            setSelectedVendor(null);
+            console.log('✅ RAZ vendeuse sélectionnée effectuée');
+          }
+
+          // RAZ statistiques vendeuses
+          if (resetOptions.vendorStats) {
+            const resetVendors = vendorStats.map(vendor => ({
+              ...vendor,
+              dailySales: 0,
+              totalSales: 0
+            }));
+            setVendorStats(resetVendors);
+            console.log('✅ RAZ statistiques vendeuses effectuée');
+          }
+
+          // RAZ complète
+          if (resetOptions.allData) {
+            setSales([]);
+            setCart([]);
+            resetInvoices();
+            setSelectedVendor(null);
+            const resetVendors = vendorStats.map(vendor => ({
+              ...vendor,
+              dailySales: 0,
+              totalSales: 0
+            }));
+            setVendorStats(resetVendors);
+            console.log('✅ RAZ complète effectuée');
+
+            // Clôturer la session en cours puis en ouvrir une nouvelle pour la reprise
+            try {
+              await sessionService.closeCurrentSession();
+              await sessionService.openSession('reset');
+              console.log('🔐 Session clôturée et rouverte après RAZ complète');
+            } catch (e) {
+              console.warn('⚠️ Impossible de gérer la session après RAZ:', e);
+            }
+          }
+
+          // Log de l'action
+          logRAZAction('RAZ_EXECUTED', resetOptions, true);
+
+          // Reset des états
+          setShowResetModal(false);
+          setResetOptions({
+            dailySales: true,
+            cart: true,
+            invoices: true,
+            selectedVendor: false,
+            vendorStats: false,
+            allData: false
+          });
+          setResetStep('options');
+          setShowResetSuccess(true);
+          setTimeout(() => setShowResetSuccess(false), 4000);
+          
+          alert('🎉 Remise à zéro effectuée avec succès !');
+          
+        } catch (error) {
+          console.error('❌ Erreur lors du reset:', error);
+          logRAZAction('RAZ_ERROR', resetOptions, false);
+          alert('❌ Erreur lors de la remise à zéro !');
+          setResetStep('options');
         }
-
-        // RAZ du panier
-        if (resetOptions.cart) {
-          setCart([]);
-          console.log('✅ RAZ panier effectuée');
-        }
-
-        // RAZ des factures N8N
-        if (resetOptions.invoices) {
-          resetInvoices();
-          console.log('✅ RAZ factures N8N effectuée');
-        }
-
-        // RAZ vendeuse sélectionnée
-        if (resetOptions.selectedVendor) {
-          setSelectedVendor(null);
-          console.log('✅ RAZ vendeuse sélectionnée effectuée');
-        }
-
-        // RAZ statistiques vendeuses
-        if (resetOptions.vendorStats) {
-          const resetVendors = vendorStats.map(vendor => ({
-            ...vendor,
-            dailySales: 0,
-            totalSales: 0
-          }));
-          setVendorStats(resetVendors);
-          console.log('✅ RAZ statistiques vendeuses effectuée');
-        }
-
-        // RAZ complète
-        if (resetOptions.allData) {
-          setSales([]);
-          setCart([]);
-          resetInvoices();
-          setSelectedVendor(null);
-          const resetVendors = vendorStats.map(vendor => ({
-            ...vendor,
-            dailySales: 0,
-            totalSales: 0
-          }));
-          setVendorStats(resetVendors);
-          console.log('✅ RAZ complète effectuée');
-        }
-
-        // Log de l'action
-        logRAZAction('RAZ_EXECUTED', resetOptions, true);
-
-        // Reset des états
-        setShowResetModal(false);
-        setResetOptions({
-          dailySales: true,
-          cart: true,
-          invoices: true,
-          selectedVendor: false,
-          vendorStats: false,
-          allData: false
-        });
-        setResetStep('options');
-        setShowResetSuccess(true);
-        setTimeout(() => setShowResetSuccess(false), 4000);
-        
-        alert('🎉 Remise à zéro effectuée avec succès !');
-        
-      } catch (error) {
-        console.error('❌ Erreur lors du reset:', error);
-        logRAZAction('RAZ_ERROR', resetOptions, false);
-        alert('❌ Erreur lors de la remise à zéro !');
-        setResetStep('options');
-      }
+      })();
     }, 2000);
   }, [resetOptions, vendorStats, setVendorStats, setCart, setSelectedVendor, setSales, resetInvoices, logRAZAction]);
 
@@ -1773,6 +1787,9 @@ export default function CaisseMyConfortApp() {
                 
                 <button
                   onClick={() => setShowResetSuccess(false)}
+                  style={{
+                    background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
+                    color: 'white',
                   style={{
                     background: 'linear-gradient(135deg, #00b894 0%, #00a085 100%)',
                     color: 'white',

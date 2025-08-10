@@ -1,10 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Package, Search, AlertTriangle, CheckCircle, Lock } from 'lucide-react';
-import type { ProductCategory } from '../../../types';
-import { PinModal } from '../../ui/PinModal';
-import { syncService } from '../../../services/syncService';
-import type { PhysicalStock } from '../../../services/syncService';
-import '../../../styles/general-stock-compact.css';
+import { Package, Search, Lock, AlertTriangle, CheckCircle } from 'lucide-react';
+import type { ProductCategory } from '@/types';
+import { PinModal } from '@/components/ui/PinModal';
+import { syncService } from '@/services';
+import type { PhysicalStock } from '@/services';
+import '@/styles/general-stock-compact.css';
 
 interface StockItem extends PhysicalStock {
   status: 'ok' | 'low' | 'out';

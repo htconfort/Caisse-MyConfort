@@ -1,7 +1,7 @@
 // src/hooks/storage/useMyConfortDB.ts
 // Hook métier spécialisé pour les données MyConfort
 import { useCallback, useState, useEffect } from 'react';
-import { db, saleToSaleDB, saleDBToSale, cartItemToCartItemDB } from '../../db/schema';
+import { db, saleToSaleDB, saleDBToSale, cartItemToCartItemDB } from '@/db';
 import type { 
   Sale, 
   Vendor, 

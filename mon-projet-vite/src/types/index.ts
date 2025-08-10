@@ -142,9 +142,9 @@ export interface ProductAnalytics {
   category: ProductCategory;
   period: 'daily' | 'weekly' | 'monthly' | 'yearly';
   date: number;                                // Timestamp période
-  salesCount: number;                          // Nombre de ventes
-  totalQuantity: number;                       // Quantité totale vendue
-  totalRevenue: number;                        // CA total produit
+  salesCount: number;                           // Nombre de ventes
+  totalQuantity: number;                        // Quantité totale vendue
+  totalRevenue: number;                         // CA total produit
   averagePrice: number;                        // Prix moyen
   topVendors: Array<{                          // Top vendeurs
     vendorId: string;
@@ -171,6 +171,24 @@ export interface CacheEntry {
   data: string | number | boolean | object | unknown[]; // Données cachées (JSON typé)
   expiry: number;                 // Timestamp expiration
   tags?: string[];                // Tags pour invalidation
+}
+
+// ============================================================================
+// 🧾 SESSIONS DE CAISSE
+// ============================================================================
+
+export type SessionStatus = 'open' | 'closed';
+
+export interface SessionDB {
+  id: string;                // ex: session-2025-08-10T10:15:00.123Z
+  status: SessionStatus;     // open | closed
+  openedAt: number;          // timestamp ouverture
+  openedBy?: string;         // vendorId ou nom
+  closedAt?: number;         // timestamp fermeture
+  closedBy?: string;         // qui a clôturé
+  note?: string;             // remarque ouverture/fermeture
+  metadata?: Record<string, unknown>; // infos additionnelles
+  totals?: { card: number; cash: number; cheque: number }; // totaux lors de la clôture
 }
 
 // ============================================================================
@@ -241,7 +259,7 @@ export interface MigrationResult {
 // ============================================================================
 
 // Réexports existants - conservés
-export * from '../services/syncService';
+export * from '@/services/syncService';
 export * from '../hooks/useSyncInvoices';
 export * from '../hooks/useStockManagement';
 export * from '../hooks/useNotifications';

@@ -20,7 +20,7 @@ export const Header: React.FC<HeaderProps> = ({ selectedVendor, currentDateTime 
               </h1>
             </div>
             
-            <div className="absolute top-1/2 transform -translate-y-1/2" style={{ right: '24px' }}>
+            <div className="absolute top-1/2 transform -translate-y-1/2 flex items-center gap-3" style={{ right: '24px' }}>
               <div className="header-white-text text-right">
                 <div className="text-lg font-bold">
                   {currentDateTime.toLocaleDateString('fr-FR', {
@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({ selectedVendor, currentDateTime 
               </h1>
             </div>
             
-            <div className="absolute top-1/2 transform -translate-y-1/2" style={{ right: '24px' }}>
+            <div className="absolute top-1/2 transform -translate-y-1/2 flex items-center gap-3" style={{ right: '24px' }}>
               <div className="header-white-text text-right">
                 <div className="text-lg font-bold">
                   {currentDateTime.toLocaleDateString('fr-FR', {
