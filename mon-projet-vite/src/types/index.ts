@@ -99,6 +99,103 @@ export interface StockDB {
   lastUpdate: number;            // Timestamp dernière modification
 }
 
+// ============================================================================
+// 📧 TYPES EMAIL / RAZ - Ajoutés pour EmailRAZSystem.tsx
+// ============================================================================
+
+export interface VendorStat {
+  id: string;
+  name: string;
+  dailySales: number;
+  totalSales: number;
+  color?: string;
+  sales?: number;
+  count?: number;
+  percentage?: number;
+}
+
+export interface EmailStatus {
+  scheduled: boolean;
+  success?: boolean;
+  error?: string;
+}
+
+export type ActionType = 'success' | 'error' | 'info';
+
+export interface ActionStatus {
+  type: ActionType;
+  message: string;
+  details?: string;
+  timestamp: number;
+}
+
+export interface EmailConfig {
+  recipientEmail: string;
+  ccEmails: string;
+  subject: string;
+  autoSendEnabled: boolean;
+  autoSendTime: string;
+  performRAZ: boolean;
+  attachPDF: boolean;
+  attachData: boolean;
+  includeDetails: boolean;
+  isManual?: boolean;
+}
+
+// ============================================================================
+// 🖨️ TYPES IMPRESSION - Ajoutés pour PrintableCashSheet.tsx
+// ============================================================================
+
+export interface DailySummary {
+  totalSales: number;
+  salesCount: number;
+  vendorStats: VendorStat[];
+  paymentMethods: Record<string, number>;
+  averageBasket?: number;
+  date?: string;
+}
+
+export interface PrintAction {
+  type: 'success' | 'error';
+  message: string;
+  timestamp: Date;
+}
+
+// ============================================================================
+// 📦 TYPES STOCK PHYSIQUE - Ajoutés pour PhysicalStockTab.tsx
+// ============================================================================
+
+export type StockLevel = 'low' | 'ok' | 'out';
+
+export interface PhysicalStockItem {
+  id: string;
+  productName: string;
+  category: string;
+  currentStock: number;
+  minStockAlert: number;
+  status: StockLevel;
+  minStock: number;
+}
+
+export interface PinModalProps {
+  isOpen?: boolean;
+  onClose: () => void;
+  onUnlock: (pin: string) => void;
+}
+
+// ============================================================================
+// 💾 TYPES STOCKAGE - Ajoutés pour useIndexedStorage.ts
+// ============================================================================
+
+export type Primitive = string | number | boolean | null;
+export type Storable = Primitive | Record<string, unknown> | unknown[];
+
+export interface SystemSettings {
+  darkMode: boolean;
+  outletName: string;
+  [key: string]: unknown;
+}
+
 /**
  * Mouvement de stock pour traçabilité
  */

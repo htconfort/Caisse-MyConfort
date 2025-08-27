@@ -1,293 +1,231 @@
 // src/hooks/storage/useIndexedStorage.ts
-// Hook IndexedDB avec interface identique à votre useLocalStorage
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+
+// 🔧 Si tu n'as pas d'alias "@/db", remplace par un import relatif:
+// import { db } from '../../db';
 import { db } from '@/db';
 
-/**
- * Hook pour gérer IndexedDB avec interface identique à useLocalStorage
- * Migration transparente : même interface, performance x10
- * 
- * @param key - Clé de stockage (identique à localStorage)
- * @param initialValue - Valeur initiale
- * @returns [valeur, setter] - Interface identique à useState
- */
+// ———————————————————————————————————————————————————————
+// Types
+// ———————————————————————————————————————————————————————
+type Wrapper<T> = {
+  version: string;
+  timestamp: number; // ms
+  data: T;
+};
+
+type LSValue<T> = Wrapper<T> | T | null | undefined;
+
+interface SettingsRow<T = unknown> {
+  key: string;
+  value: T;
+  lastUpdate: number;
+  version: string;
+}
+
+// ———————————————————————————————————————————————————————
+// Utils IndexedDB (tolérants / safe)
+// ———————————————————————————————————————————————————————
+async function idbGetRaw(key: string): Promise<unknown | undefined> {
+  try {
+    const settings = (db as any)?.settings;
+    if (!settings?.get) return undefined;
+    const row = await settings.get(key);
+    return row?.value as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+async function idbPutRaw(key: string, value: unknown): Promise<void> {
+  try {
+    const settings = (db as any)?.settings;
+    if (!settings?.put) return;
+    const row: SettingsRow = {
+      key,
+      value,
+      lastUpdate: Date.now(),
+      version: '1.0',
+    };
+    await settings.put(row);
+  } catch {
+    // no-op
+  }
+}
+
+// ———————————————————————————————————————————————————————
+function toWrapper<T>(val: LSValue<T>): Wrapper<T> | undefined {
+  if (val == null) return undefined;
+  if (typeof val === 'object' && 'data' in (val as Record<string, unknown>)) {
+    const obj = val as Record<string, unknown>;
+    const ts = Number((obj as any).timestamp) || 0;
+    return {
+      data: obj.data as T,
+      timestamp: ts,
+      version: String((obj as any).version ?? '1.0'),
+    };
+  }
+  // valeur brute -> wrapper minimal
+  return { data: val as T, timestamp: 0, version: '1.0' };
+}
+
+// ———————————————————————————————————————————————————————
+// Hook principal
+// ———————————————————————————————————————————————————————
 export function useIndexedStorage<T>(
-  key: string, 
+  key: string,
   initialValue: T
-): [T, (value: T | ((prevState: T) => T)) => void] {
-  // Hydratation synchrone depuis localStorage pour éviter le "flash" à l'initialisation
-  const getInitialStoredValue = (): T => {
+): [T, (value: T | ((prev: T) => T)) => void] {
+  // Hydratation synchrone (évite le flash)
+  const getInitial = (): T => {
     try {
-      if (typeof window !== 'undefined') {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const actual = (parsed && typeof parsed === 'object' && 'data' in parsed)
-            ? (parsed as Record<string, unknown>).data
-            : parsed;
-          return actual as T;
-        }
-      }
-    } catch (e) {
-      // ignore et fallback sur initialValue
-      console.warn(`⚠️ Lecture initiale localStorage échouée pour ${key}:`, e);
+      if (typeof window === 'undefined') return initialValue;
+      const raw = localStorage.getItem(key);
+      if (!raw) return initialValue;
+      const parsed = JSON.parse(raw) as LSValue<T>;
+      const w = toWrapper<T>(parsed);
+      return (w?.data ?? initialValue) as T;
+    } catch {
+      return initialValue;
     }
-    return initialValue;
   };
 
-  const [storedValue, setStoredValue] = useState<T>(getInitialStoredValue);
-  const hasHydratedRef = useRef(false);
+  const [storedValue, setStoredValue] = useState<T>(getInitial);
 
-  // ============================================================================
-  // 📥 CHARGEMENT INITIAL - Compatible avec votre format localStorage
-  // ============================================================================
-  
+  // Hydratation asynchrone: choisir source la plus fraîche (LS vs IDB)
   useEffect(() => {
-    const loadValue = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        // Lecture IndexedDB
-        const stored = await db.settings.get(key);
-        const idbValue: unknown = stored?.value as unknown;
-
-        // Lecture localStorage
-        let lsParsed: unknown;
-        try {
-          const fallbackData = localStorage.getItem(key);
-          if (fallbackData) {
-            lsParsed = JSON.parse(fallbackData) as unknown;
+        const idbRaw = await idbGetRaw(key);
+        const lsRaw = (() => {
+          if (typeof window === 'undefined') return undefined;
+          try {
+            const s = localStorage.getItem(key);
+            return s ? (JSON.parse(s) as LSValue<T>) : undefined;
+          } catch {
+            return undefined;
           }
-        } catch (lsErr) {
-          console.warn(`⚠️ Lecture localStorage échouée pendant hydratation ${key}:`, lsErr);
-        }
+        })();
 
-        // Normalisation au format { data, timestamp }
-        const normalize = (val: unknown): { data: unknown; timestamp: number } | undefined => {
-          if (val == null) return undefined;
-          if (typeof val === 'object' && val !== null && 'data' in (val as Record<string, unknown>)) {
-            const obj = val as Record<string, unknown>;
-            const ts = typeof obj.timestamp === 'number' ? obj.timestamp : Number(obj.timestamp) || 0;
-            return { data: obj.data, timestamp: ts };
-          }
-          // Valeur brute sans wrapper
-          return { data: val, timestamp: 0 };
-        };
+        const fromIDB = toWrapper<T>(idbRaw as LSValue<T>);
+        const fromLS = toWrapper<T>(lsRaw as LSValue<T>);
 
-        const fromIDB = normalize(idbValue);
-        const fromLS = normalize(lsParsed);
-
-        // Choix de la source la plus fraîche
-        let chosen = fromLS || fromIDB; // par défaut privilégier LS pour éviter le flash
+        let chosen = fromLS || fromIDB; // LS prioritaire (limite le flash)
         if (fromIDB && fromLS) {
           chosen = fromIDB.timestamp >= fromLS.timestamp ? fromIDB : fromLS;
         }
 
-        if (chosen) {
-          // Mettre à jour l'état uniquement si différent (limite les re-renders)
-          setStoredValue(chosen.data as T);
-          hasHydratedRef.current = true;
+        if (!cancelled && chosen) {
+          const next = (chosen.data ?? initialValue) as T;
+          setStoredValue(next);
 
-          // Miroir vers l'autre stockage si obsolète
+          // Miroirs croisés si nécessaire
           if (chosen === fromIDB && fromLS && fromIDB.timestamp > fromLS.timestamp) {
             try {
-              localStorage.setItem(key, JSON.stringify(idbValue));
-              console.log(`🔁 Miroir vers localStorage (depuis IndexedDB): ${key}`);
-            } catch (mirrorErr) {
-              console.warn(`⚠️ Miroir vers localStorage échoué pour ${key}:`, mirrorErr);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(key, JSON.stringify({ version: '1.0', timestamp: Date.now(), data: next }));
+              }
+            } catch {
+              /* ignore */
             }
           } else if (chosen === fromLS && fromIDB && fromLS.timestamp > fromIDB.timestamp) {
-            try {
-              const dataToSave = {
-                key,
-                value: lsParsed,
-                lastUpdate: Date.now(),
-                version: '1.0'
-              } as const;
-              await db.settings.put({ ...dataToSave });
-              console.log(`🔁 Miroir vers IndexedDB (depuis localStorage): ${key}`);
-            } catch (mirrorErr) {
-              console.warn(`⚠️ Miroir vers IndexedDB échoué pour ${key}:`, mirrorErr);
-            }
+            await idbPutRaw(key, { version: '1.0', timestamp: Date.now(), data: next });
           } else if (!fromIDB && fromLS) {
-            // Aucun IDB mais LS présent → initialiser IDB
-            try {
-              const dataToSave = {
-                key,
-                value: lsParsed,
-                lastUpdate: Date.now(),
-                version: '1.0'
-              } as const;
-              await db.settings.put({ ...dataToSave });
-              console.log(`🆕 Initialisation IndexedDB depuis localStorage: ${key}`);
-            } catch (initErr) {
-              console.warn(`⚠️ Initialisation IndexedDB échouée pour ${key}:`, initErr);
-            }
+            await idbPutRaw(key, { version: '1.0', timestamp: Date.now(), data: chosen.data });
           }
-
-          console.log(`📥 Hydratation terminée ${key} (source: ${chosen === fromIDB ? 'IndexedDB' : 'localStorage'})`);
-        } else {
-          // Rien trouvé → conserver valeur actuelle
-          console.log(`📥 Aucune donnée trouvée pour ${key}, conservation valeur courante`);
         }
-        
-      } catch (error) {
-        console.error(`❌ Erreur chargement IndexedDB ${key}:`, error);
-        
-        // Fallback vers localStorage en cas d'erreur IndexedDB
-        try {
-          const fallbackData = localStorage.getItem(key);
-          if (fallbackData) {
-            const parsed = JSON.parse(fallbackData);
-            const actualData = (parsed && typeof parsed === 'object' && 'data' in parsed) ? (parsed as Record<string, unknown>).data : parsed;
-            setStoredValue(actualData as T);
-            console.log(`🔄 Fallback localStorage: ${key} récupéré`);
-          }
-        } catch (fallbackError) {
-          console.error(`❌ Erreur fallback localStorage ${key}:`, fallbackError);
-        }
+      } catch {
+        // soft-fail
       }
+    })();
+    return () => {
+      cancelled = true;
     };
+  }, [key, initialValue]);
 
-    loadValue();
-  }, [key]);
+  // Setter persistant (API identique à useState)
+  const setValue = useCallback(
+    (value: T | ((prev: T) => T)) => {
+      const next = value instanceof Function ? value(storedValue) : value;
+      setStoredValue(next);
 
-  // ============================================================================
-  // 💾 SAUVEGARDE - Compatible avec votre logique existante
-  // ============================================================================
-  
-  const setValue = useCallback(async (value: T | ((prevState: T) => T)) => {
-    try {
-      // Calcul de la nouvelle valeur (identique à votre useLocalStorage)
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      
-      // Mise à jour immédiate de l'état (UI responsive)
-      setStoredValue(valueToStore);
-      
-      // Sauvegarde en IndexedDB avec le même format que votre localStorage
-      const dataToSave = {
-        key,
-        value: {
-          version: '1.0',
-          timestamp: Date.now(),
-          data: valueToStore as unknown
-        },
-        lastUpdate: Date.now(),
-        version: '1.0'
-      } as const;
-      
-      await db.settings.put({ ...dataToSave });
+      // IDB (asynchrone, non bloquant)
+      (async () => {
+        await idbPutRaw(key, { version: '1.0', timestamp: Date.now(), data: next });
+      })();
 
-      // Miroir systématique dans localStorage pour hydratation instantanée au refresh
+      // LS (miroir instantané)
       try {
-        localStorage.setItem(key, JSON.stringify(dataToSave.value));
-      } catch (lsErr) {
-        console.warn(`⚠️ Miroir localStorage échoué pour ${key}:`, lsErr);
-      }
-      
-      console.log(`💾 IndexedDB: Sauvé ${key}`, typeof valueToStore);
-      
-    } catch (error) {
-      console.error(`❌ Erreur sauvegarde IndexedDB ${key}:`, error);
-      
-      // Fallback vers localStorage (même logique que votre code original)
-      try {
-        const fallbackData = {
-          version: '1.0',
-          timestamp: Date.now(),
-          data: (value instanceof Function ? value(storedValue) : value) as unknown
-        };
-        
-        localStorage.setItem(key, JSON.stringify(fallbackData));
-        console.log(`🔄 Fallback localStorage: ${key} sauvé`);
-        
-      } catch (fallbackError) {
-        console.error(`❌ Erreur fallback localStorage ${key}:`, fallbackError);
-        
-        // Dernier recours : retirer uniquement cette clé puis réessayer, sans effacer tout le storage
-        try {
-          localStorage.removeItem(key);
-          localStorage.setItem(key, JSON.stringify({
-            data: (value instanceof Function ? value(storedValue) : value) as unknown
-          }));
-          console.log(`🆘 Fallback localStorage (après reset clé): ${key} sauvé`);
-        } catch (clearError) {
-          console.error(`💥 Échec complet sauvegarde ${key}:`, clearError);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(key, JSON.stringify({ version: '1.0', timestamp: Date.now(), data: next }));
         }
+      } catch {
+        /* ignore */
       }
-    }
-  }, [key, storedValue]);
+    },
+    [key, storedValue]
+  );
 
-  // ============================================================================
-  // 🎯 RETOUR - Interface identique à votre useLocalStorage
-  // ============================================================================
-  
   return [storedValue, setValue];
 }
 
-// ============================================================================
-// 🛠️ UTILITAIRES SUPPLÉMENTAIRES
-// ============================================================================
-
-/**
- * Hook pour gérer spécifiquement les arrays (ventes, vendeurs, etc.)
- * Optimisé pour vos cas d'usage fréquents
- */
+// ———————————————————————————————————————————————————————
+// Helpers orientés tableaux
+// ———————————————————————————————————————————————————————
 export function useIndexedArray<T>(
   key: string,
   initialValue: T[] = []
-): [T[], (value: T[] | ((prevState: T[]) => T[])) => void, {
-  add: (item: T) => void;
-  remove: (index: number) => void;
-  update: (index: number, item: T) => void;
-  clear: () => void;
-}] {
+): [
+  T[],
+  (value: T[] | ((prev: T[]) => T[])) => void,
+  {
+    add: (item: T) => void;
+    remove: (index: number) => void;
+    update: (index: number, item: T) => void;
+    clear: () => void;
+  }
+] {
   const [array, setArray] = useIndexedStorage<T[]>(key, initialValue);
-  
-  const add = useCallback((item: T) => {
-    setArray(prev => [...prev, item]);
-  }, [setArray]);
-  
-  const remove = useCallback((index: number) => {
-    setArray(prev => prev.filter((_, i) => i !== index));
-  }, [setArray]);
-  
-  const update = useCallback((index: number, item: T) => {
-    setArray(prev => prev.map((existingItem, i) => i === index ? item : existingItem));
-  }, [setArray]);
-  
-  const clear = useCallback(() => {
-    setArray([]);
-  }, [setArray]);
-  
+
+  const add = useCallback((item: T) => setArray(prev => [...prev, item]), [setArray]);
+  const remove = useCallback((index: number) => setArray(prev => prev.filter((_, i) => i !== index)), [setArray]);
+  const update = useCallback((index: number, item: T) => setArray(prev => prev.map((v, i) => (i === index ? item : v))), [setArray]);
+  const clear = useCallback(() => setArray([]), [setArray]);
+
   return [array, setArray, { add, remove, update, clear }];
 }
 
-/**
- * Hook pour gérer spécifiquement les objets (configuration, état app, etc.)
- * Avec méthodes utilitaires pour merge et update partiel
- */
+// ———————————————————————————————————————————————————————
+// Helpers orientés objets
+// ———————————————————————————————————————————————————————
 export function useIndexedObject<T extends Record<string, unknown>>(
   key: string,
   initialValue: T
-): [T, (value: T | ((prevState: T) => T)) => void, {
-  updateField: <K extends keyof T>(field: K, value: T[K]) => void;
-  merge: (partial: Partial<T>) => void;
-  reset: () => void;
-}] {
-  const [object, setObject] = useIndexedStorage<T>(key, initialValue);
-  
+): [
+  T,
+  (value: T | ((prev: T) => T)) => void,
+  {
+    updateField: <K extends keyof T>(field: K, value: T[K]) => void;
+    merge: (partial: Partial<T>) => void;
+    reset: () => void;
+  }
+] {
+  const [obj, setObj] = useIndexedStorage<T>(key, initialValue);
+
   const updateField = useCallback(<K extends keyof T>(field: K, value: T[K]) => {
-    setObject(prev => ({ ...prev, [field]: value }));
-  }, [setObject]);
-  
+    setObj(prev => ({ ...prev, [field]: value }));
+  }, [setObj]);
+
   const merge = useCallback((partial: Partial<T>) => {
-    setObject(prev => ({ ...prev, ...partial }));
-  }, [setObject]);
-  
+    setObj(prev => ({ ...prev, ...partial }));
+  }, [setObj]);
+
   const reset = useCallback(() => {
-    setObject(initialValue);
-  }, [setObject, initialValue]);
-  
-  return [object, setObject, { updateField, merge, reset }];
+    setObj(initialValue);
+  }, [setObj, initialValue]);
+
+  return [obj, setObj, { updateField, merge, reset }];
 }
 
 export default useIndexedStorage;

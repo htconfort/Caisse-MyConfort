@@ -11,8 +11,18 @@ import {
   vendors, 
   STORAGE_KEYS 
 } from './data';
-import { useIndexedStorage } from '@/storage';
+import { useIndexedStorage } from '@/hooks/storage/useIndexedStorage';
 import { useSyncInvoices } from './hooks/useSyncInvoices';
+
+// Type pour les options de RAZ
+type ResetOptionKey =
+  | 'dailySales'
+  | 'cart'
+  | 'invoices'
+  | 'selectedVendor'
+  | 'vendorStats'
+  | 'allData';
+
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
 import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
@@ -110,7 +120,7 @@ export default function CaisseMyConfortApp() {
 
   // États pour le système RAZ avancé
   const [showResetModal, setShowResetModal] = useState(false);
-  const [resetOptions, setResetOptions] = useState({
+  const [resetOptions, setResetOptions] = useState<Record<ResetOptionKey, boolean>>({
     dailySales: true,
     cart: true,
     invoices: true,
@@ -145,21 +155,25 @@ export default function CaisseMyConfortApp() {
 
   // Gestion du panier
   const addToCart = useCallback((product: CatalogProduct) => {
-    if (product.priceTTC === 0) return;
+    const unitPrice = Number((product as any).priceTTC ?? (product as any).price ?? 0);
+    if (!unitPrice) return;
+
     if (!selectedVendor) {
-      alert('Veuillez d\'abord sélectionner une vendeuse pour ajouter des produits au panier.');
+      alert("Veuillez d'abord sélectionner une vendeuse pour ajouter des produits au panier.");
       return;
     }
-    
-    // Toujours créer une nouvelle ligne d'article (pas d'incrémentation de quantité)
-    setCart(prevCart => [...prevCart, {
-      id: `${product.name}-${Date.now()}-${Math.random()}`,
-      name: product.name,
-      price: product.priceTTC,
-      quantity: 1,
-      category: product.category,
-      addedAt: new Date()
-    }]);
+
+    setCart(prevCart => [
+      ...prevCart,
+      {
+        id: `${product.name}-${Date.now()}-${Math.random()}`,
+        name: product.name,
+        price: unitPrice,
+        quantity: 1,
+        category: product.category,
+        addedAt: new Date(),
+      },
+    ]);
   }, [setCart, selectedVendor]);
 
   const updateQuantity = useCallback((itemId: string, newQuantity: number) => {
@@ -201,7 +215,11 @@ export default function CaisseMyConfortApp() {
     
     setVendorStats(prev => prev.map(vendor => 
       vendor.id === selectedVendor.id
-        ? { ...vendor, dailySales: vendor.dailySales + cartTotal, totalSales: vendor.totalSales + 1 }
+        ? {
+            ...vendor,
+            dailySales: (vendor.dailySales ?? 0) + cartTotal,
+            totalSales: (vendor.totalSales ?? 0) + cartTotal, // <— cumul € (pas un compteur)
+          }
         : vendor
     ));
 
@@ -232,10 +250,10 @@ export default function CaisseMyConfortApp() {
     // Mettre à jour les statistiques de la vendeuse
     setVendorStats(prev => prev.map(vendor => 
       vendor.id === lastSale.vendorId
-        ? { 
-            ...vendor, 
-            dailySales: vendor.dailySales - lastSale.totalAmount, 
-            totalSales: vendor.totalSales - 1 
+        ? {
+            ...vendor,
+            dailySales: (vendor.dailySales ?? 0) - lastSale.totalAmount,
+            totalSales: (vendor.totalSales ?? 0) - lastSale.totalAmount, // <— on retire le montant €
           }
         : vendor
     ));
@@ -258,10 +276,10 @@ export default function CaisseMyConfortApp() {
     // Mettre à jour les statistiques de la vendeuse
     setVendorStats(prev => prev.map(vendor => 
       vendor.id === saleToCancel.vendorId
-        ? { 
-            ...vendor, 
-            dailySales: vendor.dailySales - saleToCancel.totalAmount, 
-            totalSales: vendor.totalSales - 1 
+        ? {
+            ...vendor,
+            dailySales: (vendor.dailySales ?? 0) - saleToCancel.totalAmount,
+            totalSales: (vendor.totalSales ?? 0) - saleToCancel.totalAmount, // <— on retire le montant €
           }
         : vendor
     ));
@@ -399,36 +417,20 @@ export default function CaisseMyConfortApp() {
   }, [vendorStats]);
 
   // Fonctions pour le système RAZ avancé
-  const handleResetOption = useCallback((option: string, value: boolean) => {
-    if (option === 'allData' && value) {
-      setResetOptions({
-        dailySales: true,
-        cart: true,
-        invoices: true,
-        selectedVendor: true,
-        vendorStats: true,
-        allData: true
-      });
-    } else if (option === 'allData' && !value) {
-      setResetOptions({
-        dailySales: false,
-        cart: false,
-        invoices: false,
-        selectedVendor: false,
-        vendorStats: false,
-        allData: false
-      });
-    } else {
-      setResetOptions(prev => {
-        const newOptions = { ...prev, [option]: value };
-        if (!value) newOptions.allData = false;
-        if (newOptions.dailySales && newOptions.cart && 
-            newOptions.selectedVendor && newOptions.vendorStats) {
-          newOptions.allData = true;
-        }
-        return newOptions;
-      });
+  const handleResetOption = useCallback((option: ResetOptionKey, value: boolean) => {
+    if (option === 'allData') {
+      setResetOptions(value
+        ? { dailySales: true, cart: true, invoices: true, selectedVendor: true, vendorStats: true, allData: true }
+        : { dailySales: false, cart: false, invoices: false, selectedVendor: false, vendorStats: false, allData: false }
+      );
+      return;
     }
+    setResetOptions(prev => {
+      const next = { ...prev, [option]: value };
+      if (!value) next.allData = false;
+      if (next.dailySales && next.cart && next.selectedVendor && next.vendorStats) next.allData = true;
+      return next;
+    });
   }, []);
 
   const exportDataBeforeReset = useCallback(() => {
@@ -685,12 +687,13 @@ export default function CaisseMyConfortApp() {
     }
 
     // Générer un ID unique
-    const newVendorId = `vendor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newVendorId = `vendor-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
     
     // Créer la nouvelle vendeuse avec la couleur choisie
     const newVendor: Vendor = {
       id: newVendorId,
       name: newVendorName.trim(),
+      email: newVendorEmail.trim() || undefined, // <— ajouté
       dailySales: 0,
       totalSales: 0,
       color: selectedColor
@@ -710,7 +713,7 @@ export default function CaisseMyConfortApp() {
 
     console.log('✅ Nouvelle vendeuse ajoutée avec couleur:', newVendor);
     alert(`🎉 Vendeuse "${newVendor.name}" ajoutée avec la couleur ${selectedColor} !`);
-  }, [newVendorName, selectedColor, setVendorStats, setNewVendorName, setNewVendorEmail, setSelectedColor, setShowAddVendorForm, setSelectedVendor]);
+  }, [newVendorName, newVendorEmail, selectedColor, setVendorStats, setNewVendorName, setNewVendorEmail, setSelectedColor, setShowAddVendorForm, setSelectedVendor]);
 
   const cancelAddVendor = useCallback(() => {
     setNewVendorName('');
@@ -735,7 +738,7 @@ export default function CaisseMyConfortApp() {
           cartItemsCount={cartItemsCount}
           salesCount={sales.length}
           cartLength={cart.length}
-          invoicesCount={invoicesStats.pendingInvoices + invoicesStats.partialInvoices}
+          invoicesCount={(invoicesStats?.pendingInvoices ?? 0) + (invoicesStats?.partialInvoices ?? 0)}
         />
 
         {/* Main Content */}
@@ -1662,11 +1665,11 @@ export default function CaisseMyConfortApp() {
                             </div>
 
                             <div style={{ fontSize: '14px', color: '#6c757d', marginBottom: '8px' }}>
-                              � {vendor.email || 'Pas d\'email'}
+                              ✉️ {vendor.email || "Pas d'email"}
                             </div>
                             
                             <div style={{ fontSize: '14px', color: '#495057', marginBottom: '8px' }}>
-                              �💰 Total: {vendor.totalSales.toFixed(2)}€ | 📊 Aujourd'hui: {vendor.dailySales.toFixed(2)}€
+                              💰 Total: {Number(vendor.totalSales ?? 0).toFixed(2)}€ | 📊 Aujourd'hui: {Number(vendor.dailySales ?? 0).toFixed(2)}€
                             </div>
                             
                             {selectedVendor?.id === vendor.id && (
