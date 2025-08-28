@@ -4,19 +4,12 @@
   # Netlify exécutera la commande depuis ce dossier
   base = "mon-projet-vite"
   publish = "dist"
-  command = "npm run build"
+  command = "npm run predeploy:netlify"
 
 [build.environment]
   # Force le runtime compatible avec ton projet
   NODE_VERSION = "20.18.0"
   NPM_VERSION = "10.8.2"
-  
-# Redirects SPA - IMPORTANT pour éviter les 404
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = false
 
 # ✅ Sécurité basique côté CDN
 [[headers]]
