@@ -6,6 +6,7 @@ import { externalInvoiceService } from '../services/externalInvoiceService';
 import WhatsAppIntegrated from './WhatsAppIntegrated';
 import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper } from '@/services/sessionService';
 import type { SessionDB } from '@/types';
+import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
 
 // Types pour WhatsApp
 interface ReportData {
@@ -29,15 +30,7 @@ interface WhatsAppConfig {
   businessNumber: string;
 }
 
-// ===== DONNÉES D'EXEMPLE RÈGLEMENTS À VENIR - À REMPLACER =====
-const reglementsAVenir = [
-  { vendorId: '1', vendorName: 'Sylvie', clientName: 'Martin Dupont', nbCheques: 3, montantCheque: 450.00, dateProchain: '2025-09-15' },
-  { vendorId: '1', vendorName: 'Sylvie', clientName: 'Sophie Bernard', nbCheques: 2, montantCheque: 650.00, dateProchain: '2025-08-20' },
-  { vendorId: '2', vendorName: 'Babette', clientName: 'Jean Moreau', nbCheques: 4, montantCheque: 375.50, dateProchain: '2025-08-25' },
-  { vendorId: '3', vendorName: 'Lucia', clientName: 'Claire Rousseau', nbCheques: 6, montantCheque: 280.00, dateProchain: '2025-09-01' },
-  { vendorId: '3', vendorName: 'Lucia', clientName: 'Pierre Durand', nbCheques: 2, montantCheque: 890.00, dateProchain: '2025-08-30' },
-  { vendorId: '5', vendorName: 'Johan', clientName: 'Marie Leblanc', nbCheques: 3, montantCheque: 520.00, dateProchain: '2025-09-10' },
-];
+// (Données désormais chargées via pendingPaymentsService)
 
 interface FeuilleDeRAZProProps {
   sales: Sale[];
@@ -55,6 +48,7 @@ interface VendeusesAvecDetail extends Vendor {
 
 function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, executeRAZ }: FeuilleDeRAZProProps) {
   const [modeApercu, setModeApercu] = useState(false);
+  const [reglementsData, setReglementsData] = useState<PendingPayment[]>([]);
 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
@@ -104,6 +98,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   useEffect(() => {
     void refreshSession();
   }, [refreshSession]);
+
+  // Charger les règlements à venir depuis le service
+  useEffect(() => {
+    (async () => {
+      const items = await pendingPaymentsService.list();
+      setReglementsData(items);
+    })();
+  }, []);
 
   const openSession = useCallback(async () => {
     try {
@@ -203,9 +205,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
     const vendeusesActives = vendeusesAvecDetail.filter(v => v.totalCalcule > 0).length;
 
-    const totalReglementsAVenir = reglementsAVenir.reduce((total, r) => total + (r.nbCheques * r.montantCheque), 0);
-    const nbClientsAttente = reglementsAVenir.length;
-    const nbChequesTotal = reglementsAVenir.reduce((total, r) => total + r.nbCheques, 0);
+    const totalReglementsAVenir = reglementsData.reduce((total: number, r: PendingPayment) => total + (r.nbCheques * r.montantCheque), 0);
+    const nbClientsAttente = reglementsData.length;
+    const nbChequesTotal = reglementsData.reduce((total: number, r: PendingPayment) => total + r.nbCheques, 0);
 
     return {
       parPaiement: caisseParPaiement,
@@ -225,7 +227,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       nbClientsAttente,
       nbChequesTotal
     };
-  }, [sales, invoices, vendorStats]);
+  }, [sales, invoices, vendorStats, reglementsData]);
 
   // ===== IMPRESSION POPUP - COMPACT A4 =====
   const imprimer = () => {
@@ -235,7 +237,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         alert('Autorisez les popups pour imprimer.');
         return;
       }
-      const html = genererHTMLImpression(calculs);
+      const html = genererHTMLImpression(calculs, reglementsData);
       w.document.write(html);
       w.document.close();
       w.focus();
@@ -252,7 +254,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     caTotal: number; nbVentesTotal: number; ticketMoyen: number;
     vendeusesActives: number; vendeusesAvecDetail: VendeusesAvecDetail[];
     totalReglementsAVenir: number; nbClientsAttente: number; nbChequesTotal: number;
-  }) => {
+  }, reglementsData: PendingPayment[]) => {
     const eventLine = session?.eventName
       ? `<p style="margin:2px 0 6px; font-weight:700;">ÉVÉNEMENT : ${session.eventName}${session.eventStart && session.eventEnd ? ` (du ${new Date(session.eventStart).toLocaleDateString('fr-FR')} au ${new Date(session.eventEnd).toLocaleDateString('fr-FR')})` : ''}</p>`
       : '';
@@ -348,7 +350,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     </table>
   </div>
 
-  ${reglementsAVenir.length > 0 ? `
+  ${reglementsData.length > 0 ? `
   <div class="section">
     <div class="section-title">RÈGLEMENTS À VENIR (FACTURIER)</div>
     <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:8px; text-align:center;">
@@ -361,9 +363,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         <th>VENDEUSE</th><th>CLIENT</th><th class="text-center">NB CHÈQUES</th><th class="text-right">MONTANT/CHÈQUE</th><th class="text-right">TOTAL CLIENT</th><th class="text-center">PROCHAINE ÉCHÉANCE</th>
       </tr></thead>
       <tbody>
-        ${reglementsAVenir
-          .sort((a, b) => a.vendorName.localeCompare(b.vendorName))
-          .map(r => `
+        ${reglementsData
+          .sort((a: PendingPayment, b: PendingPayment) => a.vendorName.localeCompare(b.vendorName))
+          .map((r: PendingPayment) => `
             <tr>
               <td class="font-bold">${r.vendorName}</td>
               <td>${r.clientName}</td>
@@ -446,7 +448,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     });
     contenuEmail += `TOTAUX PAR MODE DE PAIEMENT :\n- Carte bancaire : ${calculs.parPaiement.carte.toFixed(2)} €\n- Espèces : ${calculs.parPaiement.especes.toFixed(2)} €\n- Chèque : ${calculs.parPaiement.cheque.toFixed(2)} €\n- Mixte : ${calculs.parPaiement.mixte.toFixed(2)} €\n\n`;
     contenuEmail += `RÈGLEMENTS À VENIR (FACTURIER) :\nTotal attendu : ${calculs.totalReglementsAVenir.toFixed(2)} € (${calculs.nbChequesTotal} chèques)\n\n`;
-    reglementsAVenir.forEach(r=>{
+    reglementsData.forEach((r: PendingPayment)=>{
       const totalClient = r.nbCheques * r.montantCheque;
       contenuEmail += `${r.vendorName} - ${r.clientName} :\n  ${r.nbCheques} chèques de ${r.montantCheque.toFixed(2)} € = ${totalClient.toFixed(2)} €\n  Prochaine échéance : ${new Date(r.dateProchain).toLocaleDateString('fr-FR')}\n\n`;
     });
@@ -457,14 +459,57 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     window.location.href = mailtoUrl;
   };
 
-  const effectuerRAZ = () => {
-    if (window.confirm('⚠️ Cette action va supprimer toutes les données du jour.\nAvez-vous imprimé la feuille de caisse ?\n\nConfirmer la REMISE À ZÉRO ?')) {
-      // Nettoyer aussi les factures externes
+  // RAZ Journée (ne touche PAS aux règlements à venir)
+  const effectuerRAZ = async () => {
+    const ok = window.confirm(
+      '⚠️ Cette action va supprimer les données de la journée (UI / factures externes).\n' +
+      'Avez-vous imprimé la feuille de caisse ?\n\n' +
+      'Confirmer la REMISE À ZÉRO JOURNÉE ?'
+    );
+    if (!ok) return;
+    try {
       externalInvoiceService.clearAllInvoices();
-      console.log('🧹 Factures externes nettoyées lors de la RAZ');
-      
-      // Exécuter la RAZ normale
-      executeRAZ();
+      console.log('🧹 Factures externes nettoyées (RAZ Journée)');
+      await Promise.resolve(executeRAZ());
+    } catch (e) {
+      console.error('Erreur RAZ journée:', e);
+      alert('Erreur lors de la remise à zéro journée.');
+    }
+  };
+
+  // RAZ Fin de session (purge aussi règlements à venir + clôture)
+  const effectuerRAZFinSession = async () => {
+    const ok = window.confirm(
+      '⚠️ Cette action va remettre à zéro la session complète.\n' +
+      'Les règlements à venir (chèques différés) et les factures externes seront supprimés, puis la session sera clôturée.\n\n' +
+      'Confirmer la REMISE À ZÉRO FIN DE SESSION ?'
+    );
+    if (!ok) return;
+    try {
+      // 1) Nettoyer factures externes
+      externalInvoiceService.clearAllInvoices();
+      console.log('🧹 Factures externes nettoyées (RAZ Fin de session)');
+
+      // 2) Purger règlements à venir
+      await pendingPaymentsService.clearAll();
+      setReglementsData([]);
+      console.log('🧹 Règlements à venir nettoyés (RAZ Fin de session)');
+
+      // 3) Fermer la session en base (si événement terminé, sinon on force la clôture logique)
+      try {
+        const totals = await computeTodayTotalsFromDB();
+        await closeCurrentSessionHelper({ closedBy: 'system', totals });
+        await refreshSession();
+      } catch (err) {
+        console.warn('⚠️ Impossible de clôturer proprement la session, on continue la RAZ fin de session:', err);
+      }
+
+      // 4) RAZ "de base" réutilisée
+      await Promise.resolve(executeRAZ());
+      console.log('✅ RAZ fin de session effectuée');
+    } catch (e) {
+      console.error('Erreur RAZ fin de session:', e);
+      alert('Erreur lors de la remise à zéro fin de session.');
     }
   };
 
@@ -543,14 +588,15 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             <button onClick={imprimer} style={btn('#477A0C')}><Printer size={20}/>Imprimer</button>
             <button onClick={envoyerEmail} style={btn('#C4D144', false, '#14281D')}><Mail size={20}/>Envoyer par Email</button>
             <button onClick={exportDataBeforeReset} style={btn('#1d4ed8')}><Download size={20}/>Sauvegarde</button>
-            <button onClick={effectuerRAZ} style={btn('#DC2626')}><RefreshCw size={20}/>RAZ</button>
+            <button onClick={effectuerRAZ} style={btn('#DC2626')}><RefreshCw size={20}/>RAZ Journée</button>
+            <button onClick={effectuerRAZFinSession} style={btn('#7C2D12')}><RefreshCw size={20}/>RAZ Fin Session</button>
           </div>
 
           {/* Aperçu */}
           {modeApercu && (
             <div style={{ background: '#fff', padding: 20, borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', border: '2px dashed #477A0C' }}>
               <h2 style={{ textAlign: 'center', color: '#477A0C', marginBottom: 16 }}>📄 APERÇU DE LA FEUILLE DE CAISSE</h2>
-              <div id="feuille-imprimable"><FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} /></div>
+              <div id="feuille-imprimable"><FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} reglementsData={reglementsData} /></div>
             </div>
           )}
 
@@ -631,7 +677,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
       {/* Version imprimable */}
       <div className="print-only">
-        <FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} />
+        <FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} reglementsData={reglementsData} />
       </div>
 
       {/* Styles impression (séparation écran/print) */}
@@ -692,9 +738,10 @@ interface FeuilleImprimableProps {
     totalReglementsAVenir: number; nbClientsAttente: number; nbChequesTotal: number;
   };
   event?: { name?: string; start?: number; end?: number };
+  reglementsData?: PendingPayment[];
 }
 
-function FeuilleImprimable({ calculs, event }: FeuilleImprimableProps) {
+function FeuilleImprimable({ calculs, event, reglementsData = [] }: FeuilleImprimableProps) {
   return (
     <div style={{
       backgroundColor: '#fff', color: '#000', padding: '8mm',
@@ -780,7 +827,7 @@ function FeuilleImprimable({ calculs, event }: FeuilleImprimableProps) {
       </div>
 
       {/* Règlements à venir */}
-      {reglementsAVenir.length > 0 && (
+      {reglementsData.length > 0 && (
         <div className="print-section" style={{ marginBottom: 10 }}>
           <div style={{ fontSize: '12pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 3, marginBottom: 6 }}>
             RÈGLEMENTS À VENIR (FACTURIER)
@@ -813,9 +860,9 @@ function FeuilleImprimable({ calculs, event }: FeuilleImprimableProps) {
               </tr>
             </thead>
             <tbody>
-              {reglementsAVenir
-                .sort((a, b) => a.vendorName.localeCompare(b.vendorName))
-                .map((reglement, index) => {
+              {reglementsData
+                .sort((a: PendingPayment, b: PendingPayment) => a.vendorName.localeCompare(b.vendorName))
+                .map((reglement: PendingPayment, index: number) => {
                   const totalClient = reglement.nbCheques * reglement.montantCheque;
                   return (
                     <tr key={index}>
