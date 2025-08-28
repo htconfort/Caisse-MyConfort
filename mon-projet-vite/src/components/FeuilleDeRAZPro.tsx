@@ -53,6 +53,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
   const [sessLoading, setSessLoading] = useState(true);
+  const [openingSession, setOpeningSession] = useState(false);
   // Champs événement (saisis le premier jour)
   const [eventName, setEventName] = useState('');
   const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
@@ -108,13 +109,33 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   }, []);
 
   const openSession = useCallback(async () => {
+    setOpeningSession(true);
     try {
+      console.log('🔄 Ouverture de session...', { eventName, eventStart, eventEnd });
+      
+      // Convertir les dates en format approprié
+      const eventStartMs = eventStart ? new Date(eventStart).getTime() : undefined;
+      const eventEndMs = eventEnd ? new Date(eventEnd).getTime() : undefined;
+      
       // Passer les infos d'événement si fournies
-      await ensureSessionHelper({ openedBy: 'system', eventName: eventName || undefined, eventStart: eventStart || undefined, eventEnd: eventEnd || undefined });
+      const sessionParams = {
+        openedBy: 'system',
+        ...(eventName && { eventName }),
+        ...(eventStartMs && { eventStart: eventStartMs }),
+        ...(eventEndMs && { eventEnd: eventEndMs })
+      };
+      
+      console.log('📝 Paramètres session:', sessionParams);
+      
+      await ensureSessionHelper(sessionParams);
+      console.log('✅ Session ouverte avec succès');
+      
       await refreshSession();
     } catch (e) {
-      console.error('Erreur ouverture session:', e);
-      alert("Erreur lors de l'ouverture de la session");
+      console.error('❌ Erreur ouverture session:', e);
+      alert("Erreur lors de l'ouverture de la session: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setOpeningSession(false);
     }
   }, [eventName, eventStart, eventEnd, refreshSession]);
 
@@ -543,8 +564,17 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                   <input type="date" placeholder="Fin" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button onClick={openSession} style={{ ...btn('#16A34A'), minWidth: 200 }}>
-                    <PlayCircle size={20} /> Ouvrir la session
+                  <button 
+                    onClick={openSession} 
+                    disabled={openingSession}
+                    style={{ 
+                      ...btn(openingSession ? '#9CA3AF' : '#16A34A'), 
+                      minWidth: 200,
+                      opacity: openingSession ? 0.7 : 1,
+                      cursor: openingSession ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <PlayCircle size={20} /> {openingSession ? 'Ouverture...' : 'Ouvrir la session'}
                   </button>
                 </div>
               </div>
