@@ -3,7 +3,7 @@ export type EmailAddress = string | string[];
 
 export interface EmailConfig {
   recipientEmail: string;
-  ccEmails?: string;             // virgules possibles
+  ccEmails?: string;             // séparées par virgules
   subject: string;               // peut contenir [DATE]
   autoSendEnabled?: boolean;
   autoSendTime?: string;         // "HH:mm"
@@ -32,7 +32,7 @@ function parseCC(cc?: string): string[] {
 }
 
 function isValidEmail(s: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+  return /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(s);
 }
 
 export const EmailService = {
@@ -45,13 +45,13 @@ export const EmailService = {
       const invalid = parseCC(config.ccEmails).filter(e => !isValidEmail(e));
       if (invalid.length) errors.push(`Emails en copie invalides: ${invalid.join(', ')}`);
     }
-    if (!config.subject || !config.subject.length) errors.push('Sujet requis');
+    if (!config.subject?.length) errors.push('Sujet requis');
     if (config.autoSendEnabled && !config.autoSendTime) errors.push('Heure envoi quotidienne requise');
     return errors;
   },
 
   async getEmailStatus(): Promise<EmailStatus> {
-    // TODO: brancher sur n8n / backend si nécessaire
+    // Tu pourras le brancher sur n8n plus tard
     return { scheduled: false };
   },
 
@@ -60,9 +60,35 @@ export const EmailService = {
       const errs = this.validateEmailConfig(config);
       if (errs.length) return { ok: false, error: errs.join(', ') };
 
-      // TODO: brancher EmailJS / SMTP / API interne
-      console.debug('[EmailService.sendDailyReport] payload', { reportData, config });
-      return { ok: true, id: `mail_${Date.now()}` };
+      const payload = {
+        to: config.recipientEmail,
+        cc: parseCC(config.ccEmails),
+        subject: config.subject,
+        body: reportData,
+        options: {
+          attachPDF: config.attachPDF,
+          attachData: config.attachData,
+        },
+      };
+
+      const webhookUrl = import.meta.env.VITE_N8N_EMAIL_WEBHOOK;
+      if (!webhookUrl) {
+        throw new Error('Webhook n8n non configuré (VITE_N8N_EMAIL_WEBHOOK)');
+      }
+
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Erreur HTTP ${res.status}`);
+      }
+
+      const json = await res.json().catch(() => ({}));
+      return { ok: true, id: json.id ?? `mail_${Date.now()}` };
+
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
       return { ok: false, error: message };
@@ -77,7 +103,7 @@ export const EmailService = {
     try {
       const errs = this.validateEmailConfig({ ...config, autoSendEnabled: true });
       if (errs.length) return { ok: false, error: errs.join(', ') };
-      // TODO: créer/synchroniser le cron côté n8n
+      // TODO: gérer un cron n8n
       return { ok: true, id: `schedule_${Date.now()}` };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -86,8 +112,11 @@ export const EmailService = {
   },
 
   generateEmailPreview(data: unknown): string {
-    // Simple HTML preview. Remplace par ton template si tu veux.
-    const dataObj = data as { totalSales?: number; salesCount?: number; vendors?: Array<{ name: string; sales?: number; totalSales?: number }> };
+    const dataObj = data as {
+      totalSales?: number;
+      salesCount?: number;
+      vendors?: Array<{ name: string; sales?: number; totalSales?: number }>;
+    };
     const total = dataObj?.totalSales ?? 0;
     const count = dataObj?.salesCount ?? 0;
     const vendors = dataObj?.vendors ?? [];
@@ -114,9 +143,18 @@ export const EmailService = {
 
   async performRAZ(): Promise<SendResult> {
     try {
-      // TODO: Implémenter la logique de RAZ
-      console.log('🔄 RAZ demandée');
-      return { ok: true, id: `raz_${Date.now()}` };
+      const webhookUrl = import.meta.env.VITE_N8N_RAZ_WEBHOOK;
+      if (!webhookUrl) {
+        console.warn('Webhook RAZ non configuré, fallback console.log');
+        console.log('🔄 RAZ demandée (simulée)');
+        return { ok: true, id: `raz_${Date.now()}` };
+      }
+
+      const res = await fetch(webhookUrl, { method: 'POST' });
+      if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`);
+      const json = await res.json().catch(() => ({}));
+      return { ok: true, id: json.id ?? `raz_${Date.now()}` };
+
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
       return { ok: false, error: message };
