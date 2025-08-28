@@ -7,6 +7,8 @@ import WhatsAppIntegrated from './WhatsAppIntegrated';
 import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper } from '@/services/sessionService';
 import type { SessionDB } from '@/types';
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
+import { RAZGuardModal } from './RAZGuardModal';
+import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
 
 // Types pour WhatsApp
 interface ReportData {
@@ -55,6 +57,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const [isPrinted, setIsPrinted] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [workflowCompleted, setWorkflowCompleted] = useState(false);
+
+  // ===== RAZ GUARD MODAL =====
+  const { mode: razGuardMode, ready: razGuardReady } = useRAZGuardSetting("daily");
 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
@@ -603,6 +608,22 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
+      {/* Modal RAZ Guard - Notification sécurisée avec emoji 😃 */}
+      {razGuardReady && (
+        <RAZGuardModal
+          isViewed={isViewed}
+          isPrinted={isPrinted}
+          isEmailSent={isEmailSent}
+          sessionEndDate={session?.eventEnd ? new Date(session.eventEnd) : null}
+          sessionId={session?.eventName ? `${session.eventName.replace(/\s+/g, '_').toLowerCase()}_${new Date().getDate()}` : 'caisse_myconfort'}
+          showMode={razGuardMode}
+          chimeSrc="/sounds/ding.mp3"
+          onAcknowledge={() => {
+            console.log('🛡️ RAZ Guard: Utilisateur a confirmé avoir lu les règles');
+          }}
+        />
+      )}
+      
       {/* UI iPad (masquée à l'impression) */}
       <div className="no-print" style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
