@@ -1,36 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Mail, Send, Clock, Settings, CheckCircle, AlertCircle, Download, RefreshCw, Bell, FileDown, Eye } from 'lucide-react';
+import { Mail, Send, Clock, Settings, CheckCircle, AlertCircle, Download, Bell, FileDown, Eye } from 'lucide-react';
 import { EmailService } from '../services/emailService';
 import { PrintService } from '../services/printService';
 import { formatCurrency, formatDate, formatTime, calculateDailySummary, getTodayData } from '../utils/dateUtils';
 import type { Sale, VendorStat, DailySummary, EmailConfig, EmailStatus, ActionStatus } from '../types';
 
-/**
- * Version corrigée et renforcée de EmailRAZSystem (TypeScript)
- * - Corrections de typage et complétion du fichier
- * - Garde-fous de validation (format email, CC multiples)
- * - Nettoyage des intervals et robustesse des handlers (useCallback)
- * - Aperçu HTML avec doctype + fallback JSON
- * - Option includeDetails respectée pour limiter detailedSales
- * - Ajout d'un type SendConfig local qui étend EmailConfig (isManual/isTest facultatifs)
- */
-
-// ————————————————————————————————————————————————————————————
-// Types utilitaires
-// ————————————————————————————————————————————————————————————
-
 type Tabs = 'manual' | 'automatic' | 'config';
-
-type SendConfig = EmailConfig & {
-  isManual?: boolean;
-  isTest?: boolean;
-};
+type SendConfig = EmailConfig & { isManual?: boolean; isTest?: boolean };
 
 const STORAGE_KEY = 'myconfort-email-config';
-
-// ————————————————————————————————————————————————————————————
-// Composant principal
-// ————————————————————————————————————————————————————————————
 
 interface Props {
   sales?: Sale[];
@@ -94,8 +72,8 @@ const EmailRAZSystem: React.FC<Props> = ({
 
   // —— Vérifier le statut du système automatique
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
+    let interval: number | undefined;
+
     const checkEmailStatus = async () => {
       try {
         const status = await EmailService.getEmailStatus();
@@ -106,10 +84,10 @@ const EmailRAZSystem: React.FC<Props> = ({
     };
 
     checkEmailStatus();
-    interval = setInterval(checkEmailStatus, 30000); // toutes les 30 s
-    
+    interval = window.setInterval(checkEmailStatus, 30000);
+
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval !== undefined) window.clearInterval(interval);
     };
   }, []);
 
@@ -308,37 +286,30 @@ const EmailRAZSystem: React.FC<Props> = ({
   // —— Export PDF
   const handleExportPDF = useCallback(async () => {
     try {
-      setLastAction({ 
-        type: 'info', 
-        message: 'Génération du PDF en cours...', 
-        timestamp: Date.now() 
-      });
-      
+      setLastAction({ type: 'info', message: 'Génération du PDF en cours...', timestamp: Date.now() });
+
       const result = await PrintService.generatePDF({
         elementId: PRINT_ELEMENT_ID,
         fileName: `rapport-caisse-${formatDate(new Date()).replace(/\s/g, '-')}.pdf`,
         format: 'A4',
         marginMm: 15,
+        // autoDownload par défaut = true (donc téléchargement direct)
       });
 
       if (result.ok) {
-        setLastAction({ 
-          type: 'success', 
-          message: 'PDF exporté avec succès !', 
-          timestamp: Date.now() 
-        });
+        setLastAction({ type: 'success', message: 'PDF exporté avec succès !', timestamp: Date.now() });
       } else {
-        setLastAction({ 
-          type: 'error', 
-          message: result.error || 'Erreur lors de l\'export PDF', 
-          timestamp: Date.now() 
+        setLastAction({
+          type: 'error',
+          message: result.error || 'Erreur lors de l\'export PDF',
+          timestamp: Date.now(),
         });
       }
     } catch {
-      setLastAction({ 
-        type: 'error', 
-        message: 'Erreur lors de l\'export PDF', 
-        timestamp: Date.now() 
+      setLastAction({
+        type: 'error',
+        message: 'Erreur lors de l\'export PDF',
+        timestamp: Date.now(),
       });
     }
   }, [PRINT_ELEMENT_ID]);
@@ -346,39 +317,32 @@ const EmailRAZSystem: React.FC<Props> = ({
   // —— Aperçu PDF
   const handlePreviewPDF = useCallback(async () => {
     try {
-      setLastAction({ 
-        type: 'info', 
-        message: 'Génération de l\'aperçu PDF...', 
-        timestamp: Date.now() 
-      });
-      
+      setLastAction({ type: 'info', message: 'Génération de l\'aperçu PDF...', timestamp: Date.now() });
+
       const result = await PrintService.generatePDF({
         elementId: PRINT_ELEMENT_ID,
         fileName: 'apercu-rapport.pdf',
         format: 'A4',
         marginMm: 15,
+        autoDownload: false, // 🔑 empêche le téléchargement auto en mode aperçu
       });
 
       if (result.ok && result.blobUrl) {
         setPdfUrl(result.blobUrl);
         setShowPdfPreview(true);
-        setLastAction({ 
-          type: 'success', 
-          message: 'Aperçu PDF généré !', 
-          timestamp: Date.now() 
-        });
+        setLastAction({ type: 'success', message: 'Aperçu PDF généré !', timestamp: Date.now() });
       } else {
-        setLastAction({ 
-          type: 'error', 
-          message: result.error || 'Erreur lors de la génération de l\'aperçu', 
-          timestamp: Date.now() 
+        setLastAction({
+          type: 'error',
+          message: result.error || 'Erreur lors de la génération de l\'aperçu',
+          timestamp: Date.now(),
         });
       }
     } catch {
-      setLastAction({ 
-        type: 'error', 
-        message: 'Erreur lors de la génération de l\'aperçu PDF', 
-        timestamp: Date.now() 
+      setLastAction({
+        type: 'error',
+        message: 'Erreur lors de la génération de l\'aperçu PDF',
+        timestamp: Date.now(),
       });
     }
   }, [PRINT_ELEMENT_ID]);

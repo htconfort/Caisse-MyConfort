@@ -1,26 +1,33 @@
-import { jsPDF } from 'jspdf'; // ✅ import correct
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
+const isProd = typeof process !== 'undefined' && process.env.NODE_ENV === 'production';
+
 export interface PrintJob {
-  html?: string; // si fourni, on rend dans un conteneur temporaire
+  /** Si fourni, on rend ce HTML dans un conteneur temporaire (prioritaire sur elementId) */
+  html?: string;
   fileName?: string;
   format?: 'A4' | 'A5' | 'A6';
   landscape?: boolean;
-  scale?: number; // multiplicateur de résolution pour html2canvas
-  elementId?: string; // alternative à html
-  marginMm?: number; // marge intérieure PDF
+  /** Multiplicateur de résolution pour html2canvas (par défaut: max(2, devicePixelRatio)) */
+  scale?: number;
+  /** Alternative à html: capture d'un élément existant dans le DOM */
+  elementId?: string;
+  /** Marge intérieure PDF en millimètres */
+  marginMm?: number;
+  /** Télécharge automatiquement le PDF (par défaut: true) */
+  autoDownload?: boolean;
 }
 
 export interface PrintResult {
   ok: boolean;
-  path?: string; // laissé pour compat éventuelle (desktop)
-  blobUrl?: string; // URL du PDF généré
+  /** Pour compat éventuelle desktop; non utilisée en web */
+  path?: string;
+  /** URL du Blob pour prévisualiser le PDF (penser à URL.revokeObjectURL côté appelant) */
+  blobUrl?: string;
   error?: string;
 }
 
-/**
- * Service d'impression / export PDF robuste (multi-page, haute résolution, couleurs exactes)
- */
 export class PrintService {
   // ————————————————————————————————————————————————————————
   // PDF — Capture d'un élément DOM OU d'une string HTML
@@ -32,15 +39,18 @@ export class PrintService {
       fileName = 'rapport-caisse.pdf',
       format = 'A4',
       landscape = false,
-      // Si non précisé, on prend un max(scale, devicePixelRatio) pour la netteté
-      scale = Math.max(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 2),
+      scale = Math.max(
+        2,
+        typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 2
+      ),
       marginMm = 10,
+      autoDownload = true,
     } = job;
 
     let cleanup: (() => void) | null = null;
 
     try {
-      // 1) Récupérer l'élément à rendre
+      // 1) Récupérer la cible à rendre
       let target: HTMLElement | null = null;
 
       if (elementId) {
@@ -51,21 +61,19 @@ export class PrintService {
         container.style.position = 'fixed';
         container.style.left = '-10000px';
         container.style.top = '0';
-        container.style.width = '794px'; // ~A4 @ 96dpi, ajoute une base pour layout
+        container.style.width = '794px'; // ~A4 @96dpi; base layout stable
         container.innerHTML = html;
         document.body.appendChild(container);
         target = container;
 
         cleanup = () => {
-          if (container.parentNode) {
-            container.parentNode.removeChild(container);
-          }
+          if (container.parentNode) container.parentNode.removeChild(container);
         };
       } else {
         throw new Error('Vous devez fournir elementId ou html');
       }
 
-      // 2) Capture avec html2canvas (haute résolution)
+      // 2) Capture haute résolution
       const canvas = await html2canvas(target, {
         scale,
         useCORS: true,
@@ -77,21 +85,24 @@ export class PrintService {
         foreignObjectRendering: true,
       });
 
-      // 3) Calcul des dimensions selon le format et orientation
+      // 3) Dimensions PDF
       const formats = {
         A4: { w: 210, h: 297 },
         A5: { w: 148, h: 210 },
         A6: { w: 105, h: 148 },
       };
 
-      let { w: pageWidth, h: pageHeight } = formats[format];
-      if (landscape) [pageWidth, pageHeight] = [pageHeight, pageWidth];
+      let pageWidth: number = formats[format].w;
+      let pageHeight: number = formats[format].h;
+      if (landscape) {
+        const temp = pageWidth;
+        pageWidth = pageHeight;
+        pageHeight = temp;
+      }
 
-      // Dimensions utilisables (moins les marges)
       const contentWidth = pageWidth - 2 * marginMm;
       const contentHeight = pageHeight - 2 * marginMm;
 
-      // 4) Création du PDF
       const orientation = pageWidth > pageHeight ? 'landscape' : 'portrait';
       const pdf = new jsPDF({
         orientation,
@@ -99,42 +110,44 @@ export class PrintService {
         format: format.toLowerCase() as 'a4' | 'a5' | 'a6',
       });
 
-      // Dimensions image adaptées au contenu
+      // Dimensions image à insérer (proportionnelles)
       const imgWidth = contentWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
+      // 4) Pagination précise (basée sur le canvas source)
       let remainingHeight = imgHeight;
-      let yOffset = 0;
+      let yOffset = 0; // en mm (dans l'espace PDF)
 
-      // 5) Pagination (découpage en fenêtres)
       while (remainingHeight > 0) {
-        if (yOffset > 0) pdf.addPage(); // Nouvelle page sauf pour la première
+        if (yOffset > 0) pdf.addPage();
 
         const windowHeight = Math.min(remainingHeight, contentHeight);
-        const sourceY = imgHeight - remainingHeight;
 
-        // Découpe de l'image source
+        // Convertit l'offset/hauteur "PDF" vers des pixels du canvas
+        const sourceY = (yOffset * canvas.height) / imgHeight;
+        const cutHeightPx = (windowHeight * canvas.height) / imgHeight;
+
+        // Découpe une fenêtre dans le canvas source
         const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d')!;
         tempCanvas.width = canvas.width;
-        tempCanvas.height = (windowHeight * canvas.width) / imgWidth;
-
+        tempCanvas.height = Math.max(1, Math.round(cutHeightPx));
+        const tempCtx = tempCanvas.getContext('2d')!;
         tempCtx.drawImage(
           canvas,
-          0, (sourceY * canvas.width) / imgWidth, // source x, y
-          canvas.width, tempCanvas.height, // source width, height
-          0, 0, // dest x, y
-          canvas.width, tempCanvas.height // dest width, height
+          0, Math.round(sourceY),                 // src x,y
+          canvas.width, tempCanvas.height,        // src w,h
+          0, 0,                                    // dst x,y
+          canvas.width, tempCanvas.height          // dst w,h
         );
 
         const windowData = tempCanvas.toDataURL('image/png', 1.0);
         pdf.addImage(windowData, 'PNG', marginMm, marginMm, imgWidth, windowHeight);
 
-        remainingHeight -= windowHeight;
         yOffset += windowHeight;
+        remainingHeight -= windowHeight;
       }
 
-      // 6) Métadonnées
+      // 5) Métadonnées
       pdf.setProperties({
         title: 'Rapport de Caisse MyConfort',
         subject: 'Rapport quotidien des ventes',
@@ -143,112 +156,112 @@ export class PrintService {
         keywords: 'caisse, rapport, ventes, myconfort',
       });
 
-      // 7) Sauvegarde + création blob URL
+      // 6) Blob + URL (laisser la révocation à l'appelant)
       const pdfBlob = pdf.output('blob');
       const blobUrl = URL.createObjectURL(pdfBlob);
-      
-      pdf.save(fileName);
 
-      console.log('✅ PDF généré avec succès:', fileName);
+      if (autoDownload) {
+        pdf.save(fileName);
+      }
+
+      if (!isProd) console.log('✅ PDF généré:', { fileName, format, landscape, blobUrl });
+
       return { ok: true, blobUrl };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      console.error('❌ Erreur génération PDF:', errorMessage);
-      return { ok: false, error: `Erreur lors de la génération du PDF: ${errorMessage}` };
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      if (!isProd) console.error('❌ Erreur génération PDF:', message);
+      return { ok: false, error: `Erreur lors de la génération du PDF: ${message}` };
     } finally {
-      // Nettoyage du conteneur temporaire
       if (cleanup) cleanup();
     }
   }
 
   // ————————————————————————————————————————————————————————
-  // Impression native via fenêtre dédiée
+  // Impression native via fenêtre dédiée (avec injection CSS)
   // ————————————————————————————————————————————————————————
-  static async printElement(elementId: string): Promise<PrintResult> {
+  static async printElement(
+    elementId: string,
+    opts?: { includeStyles?: boolean; title?: string }
+  ): Promise<PrintResult> {
+    const includeStyles = opts?.includeStyles ?? true;
+    const title = opts?.title ?? 'Rapport de Caisse - MyConfort';
+
     try {
       const element = document.getElementById(elementId);
-      if (!element) {
-        throw new Error(`Élément introuvable pour impression: #${elementId}`);
-      }
+      if (!element) throw new Error(`Élément introuvable pour impression: #${elementId}`);
 
-      // Clone pour éviter d'altérer le DOM
-      const printContent = element.cloneNode(true) as HTMLElement;
-
-      // Fenêtre d'impression
       const printWindow = window.open('', '_blank', 'width=800,height=600');
       if (!printWindow) {
         throw new Error("Impossible d'ouvrir la fenêtre d'impression. Vérifiez le blocage des popups.");
       }
 
-      // CSS optimisé pour l'impression
+      // CSS d'impression de base
       const printCSS = `
         <style>
           @media print {
-            @page {
-              size: A4;
-              margin: 15mm;
-            }
+            @page { size: A4; margin: 15mm; }
             html, body {
-              margin: 0;
-              padding: 0;
+              margin: 0; padding: 0;
               font-family: Arial, sans-serif;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
             * { box-sizing: border-box; }
             .no-print, .print-hidden { display: none !important; }
-            .printable-content {
-              width: 100%;
-              max-width: none;
-              box-shadow: none !important;
-            }
-            table { 
-              page-break-inside: avoid; 
-              border-collapse: collapse; 
-              width: 100%; 
-            }
+            .printable-content { width: 100%; max-width: none; box-shadow: none !important; }
+            table { page-break-inside: avoid; border-collapse: collapse; width: 100%; }
             tr { page-break-inside: avoid; }
-            .header {
-              background: #007bff !important;
-              color: #ffffff !important;
-              -webkit-print-color-adjust: exact !important;
-            }
+            .header { background: #007bff !important; color: #ffffff !important; }
             .break-before { page-break-before: always; }
             .break-after { page-break-after: always; }
           }
           @media screen {
-            body {
-              padding: 20px;
-              background: #f5f5f5;
-            }
+            body { padding: 20px; background: #f5f5f5; }
           }
         </style>
       `;
 
-      // Contenu HTML de la fenêtre d'impression
+      // Base HTML
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
           <head>
-            <meta charset="UTF-8">
-            <title>Rapport de Caisse - MyConfort</title>
+            <meta charset="UTF-8" />
+            <title>${title}</title>
             ${printCSS}
           </head>
           <body>
-            <div class="printable-content">
-              ${printContent.innerHTML}
-            </div>
+            <div class="printable-content">${element.innerHTML}</div>
           </body>
         </html>
       `);
+
+      // Injection des styles du document courant (si autorisé)
+      if (includeStyles) {
+        try {
+          const sheets = Array.from(document.styleSheets) as CSSStyleSheet[];
+          for (const sheet of sheets) {
+            try {
+              const rules = sheet.cssRules;
+              let cssText = '';
+              for (let i = 0; i < rules.length; i++) cssText += rules[i].cssText;
+              const styleEl = printWindow.document.createElement('style');
+              styleEl.textContent = cssText;
+              printWindow.document.head.appendChild(styleEl);
+            } catch {
+              // Cross-origin: on ignore silencieusement
+            }
+          }
+        } catch {
+          // En cas de restriction, on garde au moins le CSS de base
+        }
+      }
 
       printWindow.document.close();
 
       // Attendre le rendu complet puis lancer l'impression
       return new Promise((resolve) => {
-        printWindow.onload = () => {
-          // Double requestAnimationFrame pour garantir le rendu
+        const doPrint = () => {
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               setTimeout(() => {
@@ -261,59 +274,53 @@ export class PrintService {
             });
           });
         };
-      });
 
+        if (printWindow.document.readyState === 'complete') {
+          doPrint();
+        } else {
+          printWindow.onload = doPrint;
+        }
+      });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      console.error('❌ Erreur impression:', errorMessage);
-      return { ok: false, error: `Erreur lors de l'impression: ${errorMessage}` };
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      if (!isProd) console.error('❌ Erreur impression:', message);
+      return { ok: false, error: `Erreur lors de l'impression: ${message}` };
     }
   }
 
   // ————————————————————————————————————————————————————————
-  // Méthode de convenance pour PDF depuis élément (rétrocompatibilité)
+  // Méthode de convenance (rétrocompatibilité)
   // ————————————————————————————————————————————————————————
-  static async generatePDFFromElement(elementId: string, filename: string = 'rapport-caisse.pdf'): Promise<boolean> {
+  static async generatePDFFromElement(
+    elementId: string,
+    filename: string = 'rapport-caisse.pdf'
+  ): Promise<boolean> {
     const result = await this.generatePDF({ elementId, fileName: filename });
-    if (!result.ok && result.error) {
-      throw new Error(result.error);
-    }
+    if (!result.ok && result.error) throw new Error(result.error);
     return result.ok;
   }
 
   // ————————————————————————————————————————————————————————
-  // Utils de formatage (cohérentes avec le projet)
+  // Helpers format
   // ————————————————————————————————————————————————————————
   static formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('fr-FR', { 
-      style: 'currency', 
-      currency: 'EUR' 
-    }).format(amount);
+    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
   }
 
   static formatDate(date: Date): string {
     return new Intl.DateTimeFormat('fr-FR', {
-      weekday: 'long', 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric',
+      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     }).format(date);
   }
 
   static formatTime(date: Date): string {
-    return new Intl.DateTimeFormat('fr-FR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    }).format(date);
+    return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(date);
   }
 
   static formatDateTime(date: Date): string {
     return new Intl.DateTimeFormat('fr-FR', {
-      year: 'numeric',
-      month: '2-digit', 
-      day: '2-digit',
-      hour: '2-digit', 
-      minute: '2-digit'
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit',
     }).format(date);
   }
 }
