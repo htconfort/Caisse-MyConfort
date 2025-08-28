@@ -310,18 +310,14 @@ export class MyConfortDB extends Dexie {
       const salesData = localStorage.getItem('sales');
       if (salesData) {
         const sales: Sale[] = JSON.parse(salesData);
-        const salesDB: Omit<SaleDB, 'id'>[] = sales.map(sale => ({
+        const salesDB: SaleDB[] = sales.map(sale => ({
+          ...sale,
           saleId: sale.id,
-          vendorId: sale.vendorId,
-          vendorName: sale.vendorName || 'Inconnu',
           date: new Date(sale.date).getTime(),
           dateString: new Date(sale.date).toISOString(),
           year: new Date(sale.date).getFullYear(),
           month: new Date(sale.date).getMonth() + 1,
           dayOfYear: Math.floor((new Date(sale.date).getTime() - new Date(new Date(sale.date).getFullYear(), 0, 0).getTime()) / 86400000),
-          totalAmount: sale.totalAmount,
-          paymentMethod: sale.paymentMethod,
-          items: sale.items || [],
           canceled: false
         }));
         await this.sales.bulkAdd(salesDB);
@@ -340,13 +336,9 @@ export class MyConfortDB extends Dexie {
       const itemsData = localStorage.getItem('cartItems');
       if (itemsData) {
         const items: ExtendedCartItem[] = JSON.parse(itemsData);
-        const itemsDB: Omit<CartItemDB, 'id'>[] = items.map(item => ({
+        const itemsDB: CartItemDB[] = items.map(item => ({
+          ...item,
           itemId: item.id,
-          saleId: '',
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          category: item.category,
           addedAt: Date.now()
         }));
         await this.cartItems.bulkAdd(itemsDB);
@@ -434,7 +426,7 @@ export class MyConfortDB extends Dexie {
     const productStats = items.reduce((acc, item) => {
       const key = `${item.category}:${item.name}`;
       if (!acc[key]) {
-        acc[key] = { productName: item.name, category: item.category as ProductCategory, sales: 0 };
+        acc[key] = { productName: item.name, category: item.category, sales: 0 };
       }
       acc[key].sales += item.quantity;
       return acc;
@@ -483,21 +475,6 @@ export class MyConfortDB extends Dexie {
       .sort((a, b) => b.totalSold - a.totalSold)
       .slice(0, limit);
   }
-
-  /**
-   * Nettoyage du cache expiré
-   */
-  async cleanExpiredCache(): Promise<number> {
-    const now = Date.now();
-    const expiredItems = await this.cache.where('expiry').below(now).toArray();
-    
-    if (expiredItems.length > 0) {
-      await this.cache.where('expiry').below(now).delete();
-      console.log(`🧹 ${expiredItems.length} entrées cache supprimées`);
-    }
-    
-    return expiredItems.length;
-  }
 }
 
 // ============================================================================
@@ -522,8 +499,395 @@ export const getDB = (): MyConfortDB => {
 // Export par défaut pour compatibilité
 export default getDB;
 
+  /**
+   * Application d'un mouvement de stock
+   * Met à jour automatiquement les quantités
+   */
+  private async applyStockMovement(movement: StockMovement): Promise<void> {
+    try {
+      const stock = await this.stock.get(movement.productId);
+      if (!stock) {
+        console.warn(`⚠️ Produit ${movement.productId} non trouvé en stock`);
+        return;
+      }
+
+      // Calcul nouvelle quantité selon le type de mouvement
+      let newPhysicalStock = stock.physicalStock;
+      
+      switch (movement.type) {
+        case 'sale':
+          newPhysicalStock = Math.max(0, stock.physicalStock - Math.abs(movement.quantity));
+          break;
+        case 'restock':
+        case 'adjustment':
+          newPhysicalStock = movement.quantity > 0 
+            ? stock.physicalStock + movement.quantity
+            : Math.max(0, stock.physicalStock + movement.quantity);
+          break;
+        case 'invoice':
+          // Les factures N8N peuvent décrémenter le stock physique
+          newPhysicalStock = Math.max(0, stock.physicalStock - Math.abs(movement.quantity));
+          break;
+      }
+
+      // Mise à jour du stock
+      await this.stock.update(movement.productId, {
+        physicalStock: newPhysicalStock,
+        lastUpdate: Date.now()
+      });
+
+      console.log(`📦 Stock ${movement.productId}: ${stock.physicalStock} → ${newPhysicalStock} (${movement.reason})`);
+      
+    } catch (error) {
+      console.error(`❌ Erreur application mouvement stock:`, error);
+    }
+  }
+
+  /**
+   * Nettoyage du cache expiré
+   * Supprime automatiquement les entrées expirées
+   */
+  async cleanExpiredCache(): Promise<number> {
+    const now = Date.now();
+    const expiredItems = await this.cache.where('expiry').below(now).toArray();
+    
+    if (expiredItems.length > 0) {
+      await this.cache.where('expiry').below(now).delete();
+      console.log(`🧹 ${expiredItems.length} entrées cache supprimées`);
+    }
+    
+    return expiredItems.length;
+  }
+
+  // ============================================================================
+  // 🧾 GESTION DES SESSIONS DE CAISSE
+  // ============================================================================
+
+  /** Retourne la session ouverte courante (s'il y en a une) */
+  async getCurrentSession(): Promise<SessionDB | undefined> {
+    return this.sessions.where('status').equals('open').first();
+  }
+
+  /** Ouvre une session si aucune n'est ouverte. Retourne la session courante. */
+  async openSession(
+    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
+  ): Promise<SessionDB> {
+    const { openedBy, note, eventName, eventStart, eventEnd } =
+      typeof openedByOrOpts === 'object' && openedByOrOpts !== null
+        ? {
+            openedBy: openedByOrOpts.openedBy,
+            note: openedByOrOpts.note,
+            eventName: openedByOrOpts.eventName,
+            eventStart: openedByOrOpts.eventStart,
+            eventEnd: openedByOrOpts.eventEnd,
+          }
+        : { openedBy: openedByOrOpts as string | undefined, note: undefined, eventName: undefined, eventStart: undefined, eventEnd: undefined };
+
+    // Normalisation dates (début/fin de journée)
+    const toStartOfDay = (v?: number | Date | string) => {
+      if (v === undefined || v === null) return undefined;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return undefined;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+
+    return this.transaction('rw', this.sessions, async () => {
+      const existing = await this.sessions.where('status').equals('open').first();
+      if (existing) return existing;
+      const now = Date.now();
+      const newSession: SessionDB = {
+        id: `session-${new Date(now).toISOString()}`,
+        status: 'open',
+        openedAt: now,
+        openedBy,
+        ...(note ? { note } : {}),
+        ...(eventName ? { eventName } : {}),
+        ...(toStartOfDay(eventStart) ? { eventStart: toStartOfDay(eventStart) } : {}),
+        ...(toStartOfDay(eventEnd) ? { eventEnd: toStartOfDay(eventEnd) } : {}),
+      };
+      await this.sessions.add(newSession);
+      // Mémoriser pour debug / UI
+      await this.settings.put({ key: 'current_session_id', value: newSession.id, lastUpdate: now, version: '1.0' });
+      console.log(`🔐 Session ouverte: ${newSession.id}`);
+      return newSession;
+    });
+  }
+
+  /** Version sûre: évite toute double session ouverte, ferme les doublons au besoin */
+  async openSessionSafe(
+    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
+  ): Promise<SessionDB> {
+    const { openedBy, note, eventName, eventStart, eventEnd } =
+      typeof openedByOrOpts === 'object' && openedByOrOpts !== null
+        ? {
+            openedBy: openedByOrOpts.openedBy,
+            note: openedByOrOpts.note,
+            eventName: openedByOrOpts.eventName,
+            eventStart: openedByOrOpts.eventStart,
+            eventEnd: openedByOrOpts.eventEnd,
+          }
+        : { openedBy: openedByOrOpts as string | undefined, note: undefined, eventName: undefined, eventStart: undefined, eventEnd: undefined };
+
+    const toStartOfDay = (v?: number | Date | string) => {
+      if (v === undefined || v === null) return undefined;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return undefined;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+
+    return this.transaction('rw', this.sessions, this.settings, async () => {
+      const openOnes = await this.sessions.where('status').equals('open').toArray();
+      if (openOnes.length >= 1) {
+        // Garder la plus récente et fermer les doublons éventuels
+        const sorted = openOnes.sort((a, b) => (b.openedAt || 0) - (a.openedAt || 0));
+        const keep = sorted[0];
+        const dupes = sorted.slice(1);
+        if (dupes.length) {
+          const closedAt = Date.now();
+          for (const d of dupes) {
+            await this.sessions.update(d.id, { status: 'closed', closedAt, note: `${(d as SessionDB).note ?? ''} (auto-closed duplicate)` });
+          }
+          console.warn(`⚠️ ${dupes.length} session(s) en double auto-fermée(s)`);
+        }
+        // Mettre à jour le pointeur UI
+        await this.settings.put({ key: 'current_session_id', value: keep.id, lastUpdate: Date.now(), version: '1.0' });
+        return keep;
+      }
+      // Aucune ouverte: en créer une nouvelle (avec éventuels champs d'événement)
+      const now = Date.now();
+      const newSession: SessionDB = {
+        id: `session-${new Date(now).toISOString()}`,
+        status: 'open',
+        openedAt: now,
+        openedBy,
+        ...(note ? { note } : {}),
+        ...(eventName ? { eventName } : {}),
+        ...(toStartOfDay(eventStart) ? { eventStart: toStartOfDay(eventStart) } : {}),
+        ...(toStartOfDay(eventEnd) ? { eventEnd: toStartOfDay(eventEnd) } : {}),
+      };
+      await this.sessions.add(newSession);
+      await this.settings.put({ key: 'current_session_id', value: newSession.id, lastUpdate: now, version: '1.0' });
+      console.log(`🔐 Session ouverte (safe): ${newSession.id}`);
+      return newSession;
+    });
+  }
+
+  /** Ferme la session ouverte courante (si trouvée) */
+  async closeSession(
+    args?: { closedBy?: string; note?: string; totals?: { card: number; cash: number; cheque: number } } | { card: number; cash: number; cheque: number }
+  ): Promise<void> {
+    type Totals = { card: number; cash: number; cheque: number };
+    const isTotals = (x: unknown): x is Totals =>
+      typeof x === 'object' && x !== null &&
+      'card' in (x as Record<string, unknown>) &&
+      'cash' in (x as Record<string, unknown>) &&
+      'cheque' in (x as Record<string, unknown>);
+
+    const { closedBy, note, totals } = ((): { closedBy?: string; note?: string; totals?: Totals } => {
+      if (!args) return {};
+      if (isTotals(args)) {
+        const t = args as Totals;
+        return { totals: { card: t.card, cash: t.cash, cheque: t.cheque } };
+      }
+      return args as { closedBy?: string; note?: string; totals?: Totals };
+    })();
+
+    // Helper fin de journée
+    const endOfDay = (startMs: number) => {
+      const d = new Date(startMs);
+      d.setHours(23, 59, 59, 999);
+      return d.getTime();
+    };
+
+    return this.transaction('rw', this.sessions, async () => {
+      const current = await this.sessions.where('status').equals('open').first();
+      if (!current) return;
+
+      // Bloquer la clôture si un événement est en cours et que le dernier jour n'est pas passé
+      if (current.eventEnd) {
+        const now = Date.now();
+        const eod = endOfDay(current.eventEnd);
+        if (now < eod) {
+          throw new Error(`La session ne peut pas être clôturée avant la fin de l'événement (dernier jour: ${new Date(current.eventEnd).toLocaleDateString('fr-FR')}).`);
+        }
+      }
+
+      const closedAt = Date.now();
+      await this.sessions.update(current.id, { status: 'closed', closedAt, ...(closedBy ? { closedBy } : {}), ...(note ? { note } : {}), ...(totals ? { totals } : {}) });
+      await this.settings.put({ key: 'current_session_id', value: null as unknown as string, lastUpdate: closedAt, version: '1.0' });
+      console.log(`🔒 Session fermée: ${current.id}`);
+    });
+  }
+
+  /** Retourne la session courante si ouverte, sinon l'ouvre */
+  async ensureSession(openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
+    const current = await this.getCurrentSession();
+    if (current) return current;
+    return this.openSession(openedByOrOpts);
+  }
+
+  /** Met à jour l'événement (nom + dates) sur la session ouverte, uniquement le premier jour */
+  async updateCurrentSessionEvent(args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
+    const toStartOfDay = (v?: number | Date | string) => {
+      if (v === undefined || v === null) return undefined;
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return undefined;
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    };
+    return this.transaction('rw', this.sessions, async () => {
+      const current = await this.sessions.where('status').equals('open').first();
+      if (!current) throw new Error('Aucune session ouverte.');
+      // Vérifier si aujourd'hui est le premier jour de la session
+      const openedStart = new Date(current.openedAt); openedStart.setHours(0,0,0,0);
+      const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+      if (openedStart.getTime() !== todayStart.getTime()) {
+        throw new Error("Les détails d'événement ne peuvent être modifiés que le premier jour de la session.");
+      }
+      const patch: Partial<SessionDB> = {};
+      if (args.eventName !== undefined) patch.eventName = args.eventName.trim();
+      const s = toStartOfDay(args.eventStart);
+      const e = toStartOfDay(args.eventEnd);
+      if (s !== undefined) patch.eventStart = s;
+      if (e !== undefined) patch.eventEnd = e;
+      await this.sessions.update(current.id, patch);
+      const updated = await this.sessions.get(current.id);
+      return updated as SessionDB;
+    });
+  }
+
+  // ============================================================================
+  // 🔄 MIGRATION DEPUIS LOCALSTORAGE
+  // ============================================================================
+
+  /**
+   * Migration complète depuis localStorage
+   * Conserve vos données existantes avec enrichissement
+   */
+  async migrateFromLocalStorage(): Promise<void> {
+    console.log('🚀 Début migration complète localStorage → IndexedDB...');
+    
+    try {
+      // Migration dans l'ordre des dépendances
+      await this.migrateVendors();
+      await this.migrateSales();
+      await this.migrateStock();
+      
+      // Marquer la migration comme terminée
+      await this.settings.put({
+        key: 'migration_completed',
+        value: true,
+        lastUpdate: Date.now(),
+        version: '1.0'
+      });
+      
+      console.log('✅ Migration complète terminée avec succès !');
+      
+    } catch (error) {
+      console.error('❌ Erreur durant la migration:', error);
+      throw error;
+    }
+  }
+
+  private async migrateVendors(): Promise<void> {
+    const vendorsData = localStorage.getItem('myconfort-vendors');
+    if (vendorsData) {
+      const vendors = JSON.parse(vendorsData);
+      const actualVendors = vendors.data || vendors;
+      
+      if (Array.isArray(actualVendors)) {
+        const vendorsDB: VendorDB[] = actualVendors.map(vendor => ({
+          ...vendor,
+          salesCount: 0,
+          averageTicket: 0,
+          lastUpdate: Date.now()
+        }));
+        
+        await this.vendors.bulkAdd(vendorsDB);
+        console.log(`✅ ${vendorsDB.length} vendeuses migrées`);
+      }
+    }
+  }
+
+  private async migrateSales(): Promise<void> {
+    const salesData = localStorage.getItem('myconfort-sales');
+    if (salesData) {
+      const sales = JSON.parse(salesData);
+      const actualSales = sales.data || sales;
+      
+      if (Array.isArray(actualSales)) {
+        const salesDB: SaleDB[] = actualSales.map(sale => {
+          const date = new Date(sale.date);
+          return {
+            ...sale,
+            date: date.getTime(),
+            dateString: date.toISOString(),
+            year: date.getFullYear(),
+            month: date.getMonth() + 1,
+            dayOfYear: Math.floor((date.getTime() - new Date(date.getFullYear(), 0, 0).getTime()) / 86400000)
+          };
+        });
+        
+        await this.sales.bulkAdd(salesDB);
+        console.log(`✅ ${salesDB.length} ventes migrées`);
+        
+        // Migrer les items de panier
+        const allCartItems: CartItemDB[] = actualSales.flatMap(sale => 
+          sale.items.map((item: ExtendedCartItem) => ({
+            ...item,
+            addedAt: new Date(item.addedAt).getTime(),
+            saleId: sale.id
+          }))
+        );
+        
+        await this.cartItems.bulkAdd(allCartItems);
+        console.log(`✅ ${allCartItems.length} items de panier migrés`);
+        
+        // Recalculer les stats vendeurs
+        const vendorIds = [...new Set(actualSales.map(s => s.vendorId))];
+        for (const vendorId of vendorIds) {
+          await this.updateVendorStats(vendorId);
+        }
+        console.log(`✅ Stats recalculées pour ${vendorIds.length} vendeurs`);
+      }
+    }
+  }
+
+  private async migrateStock(): Promise<void> {
+    const stockData = localStorage.getItem('physical-stock-quantities');
+    if (stockData) {
+      const stock = JSON.parse(stockData);
+      const actualStock = stock.data || stock;
+      
+      const stockEntries: StockDB[] = Object.entries(actualStock).map(([id, quantity]) => ({
+        id,
+        productName: id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        category: this.inferCategory(id),
+        generalStock: quantity as number,
+        physicalStock: quantity as number,
+        minStock: 5,
+        lastUpdate: Date.now()
+      }));
+      
+      await this.stock.bulkAdd(stockEntries);
+      console.log(`✅ ${stockEntries.length} produits stock migrés`);
+    }
+  }
+
+  private inferCategory(productId: string): ProductCategory {
+    if (productId.includes('matelas') && !productId.includes('sur')) return 'Matelas';
+    if (productId.includes('sur-matelas')) return 'Sur-matelas';
+    if (productId.includes('couette')) return 'Couettes';
+    if (productId.includes('oreiller')) return 'Oreillers';
+    if (productId.includes('plateau')) return 'Plateau';
+    return 'Accessoires';
+  }
+}
+
 // ============================================================================
-// 🌍 SINGLETON PATTERN GLOBAL
+// 🎯 INSTANCE SINGLETON - Utilisation globale
 // ============================================================================
 
 declare global {
