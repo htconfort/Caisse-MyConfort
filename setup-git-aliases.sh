@@ -1,6 +1,27 @@
 #!/bin/bash
 
-# 🛠️ CONFIGURATION DES ALIAS GIT AUTOMATIQUES
+# 🛠️ # Aliases à ajouter
+ALIASES="
+# 🔄 === MYCONFORT GIT ALIASES (Auto-générés) ===
+alias myconfort-save='cd \"$PROJECT_DIR\" && ./auto-git-save.sh'
+alias mcs='cd \"$PROJECT_DIR\" && ./auto-git-save.sh'
+alias quick-save='cd \"$PROJECT_DIR\" && ./quick-save.sh'
+alias qs='cd \"$PROJECT_DIR\" && ./quick-save.sh'
+alias watch-save='cd \"$PROJECT_DIR\" && ./auto-watch-save.sh'
+alias ws='cd \"$PROJECT_DIR\" && ./auto-watch-save.sh'
+alias ipad-sync='cd \"$PROJECT_DIR\" && ./ipad-sync.sh'
+alias ips='cd \"$PROJECT_DIR\" && ./ipad-sync.sh'
+alias watch-ipad='cd \"$PROJECT_DIR\" && ./watch-ipad.sh'
+alias wip='cd \"$PROJECT_DIR\" && ./watch-ipad.sh'
+alias full-sync='cd \"$PROJECT_DIR\" && ./full-sync.sh'
+alias fs='cd \"$PROJECT_DIR\" && ./full-sync.sh'
+alias myconfort-status='cd \"$PROJECT_DIR\" && git status'
+alias mcstatus='cd \"$PROJECT_DIR\" && git status'
+alias myconfort-log='cd \"$PROJECT_DIR\" && git log --oneline -10'
+alias mclog='cd \"$PROJECT_DIR\" && git log --oneline -10'
+alias myconfort-cd='cd \"$PROJECT_DIR\"'
+alias mcd='cd \"$PROJECT_DIR\"'
+# === FIN MYCONFORT ALIASES ==="S ALIAS GIT AUTOMATIQUES
 # Ce script configure des raccourcis pratiques pour les sauvegardes
 
 SHELL_RC="$HOME/.zshrc"
@@ -53,7 +74,10 @@ echo ""
 echo "🎯 NOUVEAUX ALIAS DISPONIBLES:"
 echo "   mcs 'message'      → Sauvegarde complète avec message"
 echo "   qs 'message'       → Sauvegarde rapide"
-echo "   ws                 → Surveillance automatique"
+echo "   ips 'message'      → Synchronisation iPad (Git → Netlify)"
+echo "   fs 'message'       → Synchronisation complète (Git + Netlify direct)"
+echo "   ws                 → Surveillance automatique Git"
+echo "   wip                → Surveillance automatique iPad"
 echo "   mcstatus           → Statut Git du projet"
 echo "   mclog              → Historique des commits"
 echo "   mcd                → Aller dans le répertoire MyConfort"
@@ -65,7 +89,9 @@ echo ""
 echo "📝 EXEMPLES D'UTILISATION:"
 echo "   mcs \"FEATURE: Nouvelle fonctionnalité\""
 echo "   qs \"Fix rapide\""
-echo "   ws  # Lance la surveillance automatique"
+echo "   ips \"UPDATE: Modifications pour iPad\"  # → Visible sur iPad en 3min"
+echo "   wip  # Lance la surveillance automatique iPad"
+echo "   fs \"DEPLOY: Version complète\"  # → Git + Netlify direct"
 echo ""
 
 # Proposer d'activer immédiatement
