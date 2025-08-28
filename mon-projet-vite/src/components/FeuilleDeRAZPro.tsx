@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Printer, Mail, Download, Eye, EyeOff, RefreshCw, PlayCircle, XCircle } from 'lucide-react';
+import { Printer, Mail, Eye, EyeOff, RefreshCw, PlayCircle, XCircle } from 'lucide-react';
 import type { Sale, Vendor } from '../types';
 import type { Invoice } from '@/services/syncService';
 import { externalInvoiceService } from '../services/externalInvoiceService';
@@ -49,6 +49,12 @@ interface VendeusesAvecDetail extends Vendor {
 function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, executeRAZ }: FeuilleDeRAZProProps) {
   const [modeApercu, setModeApercu] = useState(false);
   const [reglementsData, setReglementsData] = useState<PendingPayment[]>([]);
+  
+  // ===== WORKFLOW SÉCURISÉ =====
+  const [isViewed, setIsViewed] = useState(false);
+  const [isPrinted, setIsPrinted] = useState(false);
+  const [isEmailSent, setIsEmailSent] = useState(false);
+  const [workflowCompleted, setWorkflowCompleted] = useState(false);
 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
@@ -480,33 +486,94 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     window.location.href = mailtoUrl;
   };
 
-  // RAZ Journée (ne touche PAS aux règlements à venir)
-  const effectuerRAZ = async () => {
-    const ok = window.confirm(
-      '⚠️ Cette action va supprimer les données de la journée (UI / factures externes).\n' +
-      'Avez-vous imprimé la feuille de caisse ?\n\n' +
-      'Confirmer la REMISE À ZÉRO JOURNÉE ?'
-    );
-    if (!ok) return;
+  // ===== FONCTIONS WORKFLOW SÉCURISÉ =====
+  
+  const effectuerVisualisation = () => {
+    setModeApercu(true);
+    setIsViewed(true);
+  };
+
+  const effectuerImpression = () => {
+    if (!isViewed) {
+      alert('⚠️ Veuillez d\'abord visualiser la feuille de RAZ.');
+      return;
+    }
+    window.print();
+    setIsPrinted(true);
+  };
+
+  const envoyerEmailSecurise = () => {
+    if (!isViewed || !isPrinted) {
+      alert('⚠️ Veuillez d\'abord visualiser et imprimer la feuille de RAZ.');
+      return;
+    }
+    envoyerEmail(); // Appelle la fonction email existante
+    setIsEmailSent(true);
+    setWorkflowCompleted(true);
+  };
+
+  const effectuerRAZJourneeSecurisee = async () => {
+    if (!workflowCompleted) {
+      alert('⚠️ Veuillez d\'abord terminer le workflow complet :\n1. Visualiser\n2. Imprimer\n3. Envoyer par email');
+      return;
+    }
+    
     try {
+      // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
+      console.log('🛡️ Sauvegarde automatique avant RAZ Journée...');
+      await exportDataBeforeReset();
+      
+      // 2. Attendre 1.5 secondes pour que l'utilisateur voie la sauvegarde
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // 3. Confirmation avec mention de la sauvegarde
+      const ok = window.confirm(
+        '✅ Sauvegarde automatique effectuée !\n\n' +
+        '⚠️ Cette action va supprimer les données de la journée (UI / factures externes).\n' +
+        'Les règlements à venir seront préservés.\n\n' +
+        'Confirmer la REMISE À ZÉRO JOURNÉE ?'
+      );
+      if (!ok) return;
+      
+      // 4. RAZ normale
       externalInvoiceService.clearAllInvoices();
       console.log('🧹 Factures externes nettoyées (RAZ Journée)');
-      await Promise.resolve(executeRAZ());
-    } catch (e) {
-      console.error('Erreur RAZ journée:', e);
-      alert('Erreur lors de la remise à zéro journée.');
+      
+      // 5. Réinitialiser le workflow
+      setIsViewed(false);
+      setIsPrinted(false);
+      setIsEmailSent(false);
+      setWorkflowCompleted(false);
+      setModeApercu(false);
+      
+      alert('✅ RAZ Journée terminée avec succès !');
+      executeRAZ();
+    } catch (error) {
+      console.error('❌ Erreur RAZ Journée:', error);
+      alert('❌ Erreur lors de la RAZ Journée: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
-  // RAZ Fin de session (purge aussi règlements à venir + clôture)
-  const effectuerRAZFinSession = async () => {
-    const ok = window.confirm(
-      '⚠️ Cette action va remettre à zéro la session complète.\n' +
-      'Les règlements à venir (chèques différés) et les factures externes seront supprimés, puis la session sera clôturée.\n\n' +
-      'Confirmer la REMISE À ZÉRO FIN DE SESSION ?'
-    );
-    if (!ok) return;
+  // RAZ Fin de session (purge aussi règlements à venir + clôture) - AVEC SAUVEGARDE AUTO
+  const effectuerRAZFinSessionSecurisee = async () => {
     try {
+      // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
+      console.log('🛡️ Sauvegarde automatique avant RAZ Fin Session...');
+      await exportDataBeforeReset();
+      
+      // 2. Attendre 1.5 secondes pour que l'utilisateur voie la sauvegarde
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // 3. Confirmation avec mention de la sauvegarde
+      const ok = window.confirm(
+        '✅ Sauvegarde automatique effectuée !\n\n' +
+        '⚠️ Cette action va remettre à zéro la session complète.\n' +
+        'Les règlements à venir (chèques différés) et les factures externes seront supprimés, puis la session sera clôturée.\n\n' +
+        'Confirmer la REMISE À ZÉRO FIN DE SESSION ?'
+      );
+      if (!ok) return;
+      
+      // 4. RAZ complète
       // 1) Nettoyer factures externes
       externalInvoiceService.clearAllInvoices();
       console.log('🧹 Factures externes nettoyées (RAZ Fin de session)');
@@ -529,7 +596,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       await Promise.resolve(executeRAZ());
       console.log('✅ RAZ fin de session effectuée');
     } catch (e) {
-      console.error('Erreur RAZ fin de session:', e);
+      console.error('Erreur RAZ fin de session sécurisée:', e);
       alert('Erreur lors de la remise à zéro fin de session.');
     }
   };
@@ -610,16 +677,53 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             )}
           </div>
 
-          {/* Boutons */}
+          {/* Boutons - Interface Améliorée */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15, marginBottom: 30 }}>
-            <button onClick={() => setModeApercu(!modeApercu)} style={btn(modeApercu ? '#89BBFE' : '#14281D', true)}>
-              {modeApercu ? <EyeOff size={20} /> : <Eye size={20} />}{modeApercu ? "Masquer l'aperçu" : 'Voir la feuille'}
+            {/* 🖤 Bouton Noir : Voir feuille de caisse */}
+            <button 
+              onClick={effectuerVisualisation} 
+              style={btn(isViewed ? '#4A5568' : '#1A202C', true)}
+              title={isViewed ? 'Feuille visualisée ✓' : 'Étape 1: Visualiser la feuille'}
+            >
+              {isViewed ? <EyeOff size={20} /> : <Eye size={20} />}
+              {isViewed ? "Feuille vue ✓" : 'Voir la feuille'}
             </button>
-            <button onClick={imprimer} style={btn('#477A0C')}><Printer size={20}/>Imprimer</button>
-            <button onClick={envoyerEmail} style={btn('#C4D144', false, '#14281D')}><Mail size={20}/>Envoyer par Email</button>
-            <button onClick={exportDataBeforeReset} style={btn('#1d4ed8')}><Download size={20}/>Sauvegarde</button>
-            <button onClick={effectuerRAZ} style={btn('#DC2626')}><RefreshCw size={20}/>RAZ Journée</button>
-            <button onClick={effectuerRAZFinSession} style={btn('#7C2D12')}><RefreshCw size={20}/>RAZ Fin Session</button>
+            
+            {/* 🟢 Bouton Vert : Imprimer feuille de caisse */}
+            <button 
+              onClick={effectuerImpression} 
+              style={!isViewed ? btnDisabled('#22C55E') : btn('#22C55E')} 
+              disabled={!isViewed}
+              title={!isViewed ? 'Visualisez d\'abord la feuille' : isPrinted ? 'Impression effectuée ✓' : 'Étape 2: Imprimer la feuille'}
+            >
+              <Printer size={20}/>
+              {isPrinted ? 'Imprimé ✓' : 'Imprimer'}
+            </button>
+            
+            {/* 🟡 Bouton Jaune-Vert : Envoyer par email */}
+            <button 
+              onClick={envoyerEmailSecurise} 
+              style={(!isViewed || !isPrinted) ? btnDisabled('#84CC16') : btn('#84CC16', false, '#1A202C')} 
+              disabled={!isViewed || !isPrinted}
+              title={!isViewed || !isPrinted ? 'Visualisez et imprimez d\'abord' : isEmailSent ? 'Email envoyé ✓' : 'Étape 3: Envoyer par email'}
+            >
+              <Mail size={20}/>
+              {isEmailSent ? 'Email envoyé ✓' : 'Envoyer par Email'}
+            </button>
+            
+            {/* 🔴 Bouton Rouge : RAZ Journée (avec sauvegarde auto) */}
+            <button 
+              onClick={effectuerRAZJourneeSecurisee} 
+              style={!workflowCompleted ? btnDisabled('#DC2626') : btn('#DC2626')} 
+              disabled={!workflowCompleted}
+              title={!workflowCompleted ? 'Terminez d\'abord le workflow complet' : 'Étape 4: RAZ Journée sécurisée'}
+            >
+              <RefreshCw size={20}/>
+              RAZ Journée
+            </button>
+            
+            {/* 🔴 Bouton Rouge Foncé : RAZ Fin Session (avec sauvegarde auto) */}
+            <button onClick={effectuerRAZFinSessionSecurisee} style={btn('#7C2D12')}><RefreshCw size={20}/>RAZ Fin Session</button>
           </div>
 
           {/* Aperçu */}
@@ -750,6 +854,14 @@ const btn = (bg: string, white = true, color?: string) => ({
   alignItems: 'center',
   justifyContent: 'center',
   gap: 10
+});
+
+const btnDisabled = (bg: string, white = true, color?: string) => ({
+  ...btn(bg, white, color),
+  backgroundColor: '#9CA3AF',
+  color: '#6B7280',
+  cursor: 'not-allowed',
+  opacity: 0.6
 });
 
 const inputStyle: React.CSSProperties = {
