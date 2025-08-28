@@ -60,6 +60,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   // ===== RAZ GUARD MODAL =====
   const { mode: razGuardMode, ready: razGuardReady } = useRAZGuardSetting("daily");
+  const [showRAZGuardModal, setShowRAZGuardModal] = useState(false);
 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
@@ -528,10 +529,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   };
 
   const effectuerRAZJourneeSecurisee = async () => {
-    if (!workflowCompleted) {
-      alert('⚠️ Veuillez d\'abord terminer le workflow complet :\n1. Visualiser\n2. Imprimer\n3. Envoyer par email');
-      return;
-    }
+    // Afficher le modal RAZ Guard au lieu des alerts
+    setShowRAZGuardModal(true);
+  };
+
+  const confirmerRAZJournee = async () => {
+    setShowRAZGuardModal(false);
     
     try {
       // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
@@ -541,20 +544,11 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       // 2. Attendre 1.5 secondes pour que l'utilisateur voie la sauvegarde
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // 3. Confirmation avec mention de la sauvegarde
-      const ok = window.confirm(
-        '✅ Sauvegarde automatique effectuée !\n\n' +
-        '⚠️ Cette action va supprimer les données de la journée (UI / factures externes).\n' +
-        'Les règlements à venir seront préservés.\n\n' +
-        'Confirmer la REMISE À ZÉRO JOURNÉE ?'
-      );
-      if (!ok) return;
-      
-      // 4. RAZ normale
+      // 3. RAZ normale
       externalInvoiceService.clearAllInvoices();
       console.log('🧹 Factures externes nettoyées (RAZ Journée)');
       
-      // 5. Réinitialiser le workflow
+      // 4. Réinitialiser le workflow
       setIsViewed(false);
       setIsPrinted(false);
       setIsEmailSent(false);
@@ -628,7 +622,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif' }}>
       {/* Modal RAZ Guard - Notification sécurisée avec emoji 😃 */}
-      {razGuardReady && (
+      {razGuardReady && showRAZGuardModal && (
         <RAZGuardModal
           isViewed={isViewed}
           isPrinted={isPrinted}
@@ -638,6 +632,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           chimeSrc="/sounds/ding.mp3"
           onAcknowledge={() => {
             console.log('🛡️ RAZ Guard: Utilisateur a confirmé avoir lu les règles pour RAZ Journée');
+            setShowRAZGuardModal(false);
+            confirmerRAZJournee();
           }}
         />
       )}
