@@ -70,6 +70,16 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
   const [eventEnd, setEventEnd] = useState('');     // yyyy-mm-dd
 
+  // ===== VALIDATION DATE FIN SESSION =====
+  const canEndSessionToday = useMemo(() => {
+    if (!session?.eventEnd) return false;
+    const today = new Date();
+    const sessionEndDate = new Date(session.eventEnd);
+    
+    // On peut faire RAZ Fin Session seulement si on est à la date de fin ou après
+    return today.getTime() >= sessionEndDate.getTime();
+  }, [session?.eventEnd]);
+
   const toInputDate = (ms?: number) => {
     if (!ms) return '';
     const d = new Date(ms);
@@ -562,6 +572,15 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // RAZ Fin de session (purge aussi règlements à venir + clôture) - AVEC SAUVEGARDE AUTO
   const effectuerRAZFinSessionSecurisee = async () => {
     try {
+      // 0. VÉRIFICATION DATE OBLIGATOIRE
+      if (!canEndSessionToday) {
+        const dateFinMessage = session?.eventEnd ? 
+          `Vous pouvez effectuer la RAZ Fin Session à partir du ${new Date(session.eventEnd).toLocaleDateString('fr-FR')}.` :
+          'Aucune date de fin de session configurée.';
+        alert(`🚫 RAZ Fin Session non autorisée aujourd'hui.\n\n${dateFinMessage}\n\nSeule la RAZ Journée est disponible actuellement.`);
+        return;
+      }
+      
       // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
       console.log('🛡️ Sauvegarde automatique avant RAZ Fin Session...');
       await exportDataBeforeReset();
@@ -614,12 +633,11 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           isViewed={isViewed}
           isPrinted={isPrinted}
           isEmailSent={isEmailSent}
-          sessionEndDate={session?.eventEnd ? new Date(session.eventEnd) : null}
           sessionId={session?.eventName ? `${session.eventName.replace(/\s+/g, '_').toLowerCase()}_${new Date().getDate()}` : 'caisse_myconfort'}
           showMode={razGuardMode}
           chimeSrc="/sounds/ding.mp3"
           onAcknowledge={() => {
-            console.log('🛡️ RAZ Guard: Utilisateur a confirmé avoir lu les règles');
+            console.log('🛡️ RAZ Guard: Utilisateur a confirmé avoir lu les règles pour RAZ Journée');
           }}
         />
       )}
@@ -744,7 +762,18 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             </button>
             
             {/* 🔴 Bouton Rouge Foncé : RAZ Fin Session (avec sauvegarde auto) */}
-            <button onClick={effectuerRAZFinSessionSecurisee} style={btn('#7C2D12')}><RefreshCw size={20}/>RAZ Fin Session</button>
+            <button 
+              onClick={effectuerRAZFinSessionSecurisee} 
+              style={!canEndSessionToday ? btnDisabled('#7C2D12') : btn('#7C2D12')} 
+              disabled={!canEndSessionToday}
+              title={!canEndSessionToday ? 
+                `RAZ Fin Session disponible seulement à partir du ${session?.eventEnd ? new Date(session.eventEnd).toLocaleDateString('fr-FR') : 'date de fin'}` : 
+                'RAZ Fin Session - Supprime TOUT'
+              }
+            >
+              <RefreshCw size={20}/>
+              RAZ Fin Session
+            </button>
           </div>
 
           {/* Aperçu */}

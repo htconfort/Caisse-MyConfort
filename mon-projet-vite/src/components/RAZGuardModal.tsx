@@ -5,7 +5,6 @@ type RAZGuardModalProps = {
   isViewed: boolean;
   isPrinted: boolean;
   isEmailSent: boolean;
-  sessionEndDate?: Date | null;
   onAcknowledge?: () => void;
 
   /** "always" = à chaque fois | "daily" = 1 fois/jour */
@@ -28,7 +27,6 @@ export const RAZGuardModal: React.FC<RAZGuardModalProps> = ({
   isViewed,
   isPrinted,
   isEmailSent,
-  sessionEndDate,
   onAcknowledge,
   showMode = "daily",
   sessionId = "default",
@@ -65,8 +63,6 @@ export const RAZGuardModal: React.FC<RAZGuardModalProps> = ({
       // Safari iPad peut bloquer l'auto-play, donc on ignore l'erreur
     });
   }, [open, chimeSrc]);
-
-  const canEndSession = sessionEndDate ? Date.now() >= sessionEndDate.getTime() : false;
 
   if (!open) return null;
 
@@ -111,7 +107,7 @@ export const RAZGuardModal: React.FC<RAZGuardModalProps> = ({
           color: '#92400e',
           marginBottom: '16px'
         }}>
-          ⚠️ RAZ – Vérifications obligatoires
+          ⚠️ RAZ Journée – Vérifications obligatoires
         </h2>
 
         {/* Bulle souriante */}
@@ -164,10 +160,10 @@ export const RAZGuardModal: React.FC<RAZGuardModalProps> = ({
             {isEmailSent ? "✅" : "•"} 3) Email envoyé (bouton jaune)
           </li>
           <li style={{
-            color: canEndSession ? '#064e3b' : '#374151',
+            color: (isViewed && isPrinted && isEmailSent) ? '#064e3b' : '#374151',
             fontSize: '16px'
           }}>
-            {canEndSession ? "✅" : "•"} 4) RAZ Fin de session (bouton rouge foncé)
+            {(isViewed && isPrinted && isEmailSent) ? "✅" : "•"} 4) RAZ Journée (bouton rouge)
           </li>
         </ul>
 
@@ -192,7 +188,7 @@ export const RAZGuardModal: React.FC<RAZGuardModalProps> = ({
             <li>Impossible d'imprimer si la feuille n'a pas été visionnée.</li>
             <li>Impossible d'envoyer l'email sans impression.</li>
             <li>Impossible de faire RAZ Journée sans email.</li>
-            <li>RAZ Fin de session activée uniquement à la date de clôture.</li>
+            <li><strong>RAZ Fin de session :</strong> Bouton séparé, activé uniquement à la date de clôture prévue.</li>
           </ul>
         </div>
 
