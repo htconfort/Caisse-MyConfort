@@ -1,15 +1,15 @@
-# netlify.toml
 # Configuration Netlify optimisée pour MyConfort SPA
+
 [build]
-  # Netlify exécutera la commande depuis ce dossier
+  # Le build se fait dans le dossier mon-projet-vite
   base = "mon-projet-vite"
   publish = "dist"
-  command = "npm run predeploy:netlify"
+  command = "npm ci && npm run build"
 
 [build.environment]
   # Force le runtime compatible avec ton projet
   NODE_VERSION = "20.18.0"
-  NPM_VERSION = "10.8.2"
+  NPM_VERSION  = "10.8.2"
 
 # ✅ Sécurité basique côté CDN
 [[headers]]
