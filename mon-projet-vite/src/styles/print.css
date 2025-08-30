@@ -139,8 +139,8 @@
 /* Styles spécifiques pour l'impression */
 @media print {
   @page {
-    size: A4;
-    margin: 15mm;
+    size: A4 portrait;
+    margin: 10mm 8mm;
   }
   
   body {
@@ -238,6 +238,66 @@
   
   h1, h2, h3 {
     page-break-after: avoid;
+  }
+  
+  /* Optimisations spécifiques pour la feuille de caisse RAZ A4 Portrait */
+  .print-section {
+    page-break-inside: avoid;
+    margin-bottom: 6mm !important;
+  }
+  
+  .print-section table {
+    page-break-inside: auto;
+  }
+  
+  .print-section table tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+  
+  .print-section table thead {
+    display: table-header-group;
+  }
+  
+  .print-section table tfoot {
+    display: table-footer-group;
+  }
+  
+  /* Optimisation des polices pour A4 portrait */
+  .print-section h1 {
+    font-size: 18pt !important;
+    margin: 0 0 3mm 0 !important;
+  }
+  
+  .print-section h2 {
+    font-size: 14pt !important;
+    margin: 0 0 2mm 0 !important;
+  }
+  
+  .print-section h3 {
+    font-size: 10pt !important;
+    margin: 0 0 1mm 0 !important;
+  }
+  
+  /* Optimisation des tableaux pour A4 portrait */
+  .print-section table {
+    font-size: 8pt !important;
+    width: 100%;
+  }
+  
+  .print-section table th,
+  .print-section table td {
+    padding: 2mm 1mm !important;
+    border: 0.5pt solid #000 !important;
+  }
+  
+  /* Optimisation de l'événement en en-tête */
+  .print-section p[style*="color: #2563eb"] {
+    color: #000 !important;
+    background: #f0f0f0 !important;
+    padding: 2mm !important;
+    border: 1pt solid #000 !important;
+    margin: 2mm 0 !important;
   }
 }
 

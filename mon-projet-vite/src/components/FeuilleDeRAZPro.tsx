@@ -9,7 +9,6 @@ import type { SessionDB } from '@/types';
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
 import { RAZGuardModal } from './RAZGuardModal';
 import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
-import { printHtmlA4Iframe } from '../utils/printA4';
 
 // Types pour WhatsApp
 interface ReportData {
@@ -71,9 +70,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const [eventName, setEventName] = useState('');
   const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
   const [eventEnd, setEventEnd] = useState('');     // yyyy-mm-dd
-  // États pour le bouton dynamique d'enregistrement
-  const [savingEvent, setSavingEvent] = useState(false);
-  const [eventSaved, setEventSaved] = useState(false);
 
   // ===== VALIDATION DATE FIN SESSION =====
   const canEndSessionToday = useMemo(() => {
@@ -84,23 +80,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     // On peut faire RAZ Fin Session seulement si on est à la date de fin ou après
     return today.getTime() >= sessionEndDate.getTime();
   }, [session?.eventEnd]);
-
-  // ===== DÉTECTION DES CHANGEMENTS ÉVÉNEMENT =====
-  const hasUnsavedEventChanges = useMemo(() => {
-    if (!session) return false;
-    
-    const currentEventName = eventName || '';
-    const currentEventStart = eventStart || '';
-    const currentEventEnd = eventEnd || '';
-    
-    const sessionEventName = session.eventName || '';
-    const sessionEventStart = session.eventStart ? toInputDate(session.eventStart) : '';
-    const sessionEventEnd = session.eventEnd ? toInputDate(session.eventEnd) : '';
-    
-    return currentEventName !== sessionEventName || 
-           currentEventStart !== sessionEventStart || 
-           currentEventEnd !== sessionEventEnd;
-  }, [session, eventName, eventStart, eventEnd]);
 
   const toInputDate = (ms?: number) => {
     if (!ms) return '';
@@ -143,16 +122,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     void refreshSession();
   }, [refreshSession]);
 
-  // Initialiser les champs événement quand la session change
-  useEffect(() => {
-    if (session) {
-      setEventName(session.eventName || '');
-      setEventStart(session.eventStart ? toInputDate(session.eventStart) : '');
-      setEventEnd(session.eventEnd ? toInputDate(session.eventEnd) : '');
-      setEventSaved(false); // Réinitialiser l'état de sauvegarde
-    }
-  }, [session]);
-
   // Charger les règlements à venir depuis le service
   useEffect(() => {
     (async () => {
@@ -193,30 +162,16 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   }, [eventName, eventStart, eventEnd, refreshSession]);
 
   const onSaveEventFirstDay = useCallback(async () => {
-    if (!hasUnsavedEventChanges) return;
-    
-    setSavingEvent(true);
-    setEventSaved(false);
-    
     try {
-      await updateCurrentSessionEventHelper({ 
-        eventName: eventName || undefined, 
-        eventStart: eventStart || undefined, 
-        eventEnd: eventEnd || undefined 
-      });
+      await updateCurrentSessionEventHelper({ eventName: eventName || undefined, eventStart: eventStart || undefined, eventEnd: eventEnd || undefined });
       await refreshSession();
-      setEventSaved(true);
-      
-      // Auto-hide success feedback after 2 seconds
-      setTimeout(() => setEventSaved(false), 2000);
+      alert('Détails de l\'événement enregistrés.');
     } catch (e) {
       console.error('Erreur mise à jour événement:', e);
       const msg = e instanceof Error ? e.message : 'Erreur lors de l\'enregistrement de l\'événement';
       alert(msg);
-    } finally {
-      setSavingEvent(false);
     }
-  }, [eventName, eventStart, eventEnd, refreshSession, hasUnsavedEventChanges]);
+  }, [eventName, eventStart, eventEnd, refreshSession]);
 
   const closeSession = useCallback(async () => {
     // Empêcher la clôture si le dernier jour n'est pas passé
@@ -559,23 +514,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       alert('⚠️ Veuillez d\'abord visualiser la feuille de RAZ.');
       return;
     }
-    
-    try {
-      // Utilisation de l'impression sécurisée pour Safari/iOS
-      const contenuAImprimer = document.querySelector('.feuille-apercu')?.innerHTML || '';
-      if (contenuAImprimer) {
-        printHtmlA4Iframe(contenuAImprimer);
-        setIsPrinted(true);
-      } else {
-        // Fallback sur window.print() si pas de contenu spécifique
-        window.print();
-        setIsPrinted(true);
-      }
-    } catch (error) {
-      console.warn('Erreur impression, fallback window.print():', error);
-      window.print();
-      setIsPrinted(true);
-    }
+    window.print();
+    setIsPrinted(true);
   };
 
   const envoyerEmailSecurise = () => {
@@ -760,66 +700,11 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                 {/* Si premier jour: permettre de fixer/modifier l'événement */}
                 {isTodayFirstDayOf(session.openedAt) && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px auto', gap: 10, alignItems: 'center' }}>
-                    <input 
-                      placeholder="Nom de l'événement" 
-                      value={eventName} 
-                      onChange={e => {
-                        setEventName(e.target.value);
-                        setEventSaved(false);
-                      }} 
-                      style={inputStyle} 
-                    />
-                    <input 
-                      type="date" 
-                      value={eventStart} 
-                      onChange={e => {
-                        setEventStart(e.target.value);
-                        setEventSaved(false);
-                      }} 
-                      style={inputStyle} 
-                    />
-                    <input 
-                      type="date" 
-                      value={eventEnd} 
-                      onChange={e => {
-                        setEventEnd(e.target.value);
-                        setEventSaved(false);
-                      }} 
-                      style={inputStyle} 
-                    />
-                    <button 
-                      onClick={onSaveEventFirstDay} 
-                      disabled={!hasUnsavedEventChanges || savingEvent}
-                      style={{
-                        ...btn(
-                          eventSaved ? '#059669' : 
-                          hasUnsavedEventChanges ? '#DC2626' : 
-                          '#6B7280'
-                        ),
-                        opacity: !hasUnsavedEventChanges ? 0.6 : 1,
-                        cursor: !hasUnsavedEventChanges || savingEvent ? 'not-allowed' : 'pointer',
-                        position: 'relative',
-                        minWidth: '180px'
-                      }}
-                    >
-                      {savingEvent ? (
-                        <>
-                          <RefreshCw size={16} style={{ marginRight: 8, animation: 'spin 1s linear infinite' }} />
-                          Enregistrement...
-                        </>
-                      ) : eventSaved ? (
-                        <>
-                          ✓ Événement enregistré
-                        </>
-                      ) : hasUnsavedEventChanges ? (
-                        <>
-                          ⚠ Enregistrer l'événement
-                        </>
-                      ) : (
-                        <>
-                          Enregistrer l'événement
-                        </>
-                      )}
+                    <input placeholder="Nom de l'événement" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
+                    <input type="date" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
+                    <input type="date" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
+                    <button onClick={onSaveEventFirstDay} style={btn('#16A34A')}>
+                      Enregistrer l'événement
                     </button>
                   </div>
                 )}
@@ -884,14 +769,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             >
               <RefreshCw size={20}/>
               RAZ Fin Session
-            </button>
-            
-            {/* 🔍 DEBUG TEMPORAIRE */}
-            <button 
-              onClick={() => alert(`DEBUG WORKFLOW:\n- isViewed: ${isViewed}\n- isPrinted: ${isPrinted}\n- isEmailSent: ${isEmailSent}\n- workflowCompleted: ${workflowCompleted}`)}
-              style={btn('#FFA500')} 
-            >
-              🔍 Debug Workflow
             </button>
           </div>
 
@@ -1005,11 +882,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           /* Dé-commente pour masquer la colonne % si ça déborde encore */
           /* .payments .col-percent { display: none !important; } */
         }
-        
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
       `}}/>
     </div>
   );
@@ -1060,17 +932,17 @@ interface FeuilleImprimableProps {
 function FeuilleImprimable({ calculs, event, reglementsData = [] }: FeuilleImprimableProps) {
   return (
     <div style={{
-      backgroundColor: '#fff', color: '#000', padding: '8mm',
-      fontFamily: 'Arial, sans-serif', fontSize: '11pt', lineHeight: 1.25,
-      maxWidth: '190mm', margin: '0 auto'
+      backgroundColor: '#fff', color: '#000', padding: '5mm',
+      fontFamily: 'Arial, sans-serif', fontSize: '10pt', lineHeight: 1.2,
+      maxWidth: '210mm', margin: '0 auto', minHeight: '297mm'
     }}>
       {/* En-tête */}
-      <div className="print-section" style={{ textAlign: 'center', marginBottom: 8, paddingBottom: 6, borderBottom: '1.5px solid #000' }}>
-        <h1 style={{ margin: 0, fontSize: '22pt', fontWeight: 700, letterSpacing: '2px' }}>MYCONFORT</h1>
-        <h2 style={{ margin: '4px 0 2px', fontSize: '16pt', fontWeight: 700 }}>FEUILLE DE CAISSE</h2>
+      <div className="print-section" style={{ textAlign: 'center', marginBottom: 6, paddingBottom: 4, borderBottom: '1.5px solid #000' }}>
+        <h1 style={{ margin: 0, fontSize: '20pt', fontWeight: 700, letterSpacing: '2px' }}>MYCONFORT</h1>
+        <h2 style={{ margin: '3px 0 2px', fontSize: '14pt', fontWeight: 700 }}>FEUILLE DE CAISSE</h2>
         {event?.name && (
-          <p style={{ margin: '2px 0 6px', fontWeight: 700 }}>
-            ÉVÉNEMENT : {event.name}
+          <p style={{ margin: '2px 0 4px', fontWeight: 700, fontSize: '12pt', color: '#2563eb' }}>
+            ÉVÉNEMENT : {event.name.toUpperCase()}
             {event.start && event.end && (
               <span> (du {new Date(event.start).toLocaleDateString('fr-FR')} au {new Date(event.end).toLocaleDateString('fr-FR')})</span>
             )}
@@ -1082,27 +954,27 @@ function FeuilleImprimable({ calculs, event, reglementsData = [] }: FeuilleImpri
       </div>
 
       {/* KPIs */}
-      <div className="print-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 10 }}>
+      <div className="print-section" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 8 }}>
         {[
           ['CHIFFRE D\'AFFAIRES', `${calculs.caTotal.toFixed(2)} €`],
           ['NOMBRE DE VENTES', `${calculs.nbVentesTotal}`],
           ['TICKET MOYEN', `${calculs.ticketMoyen.toFixed(2)} €`],
           ['RÈGLEMENTS À VENIR', `${calculs.totalReglementsAVenir.toFixed(2)} €`],
         ].map(([title, value], i) => (
-          <div key={i} style={{ textAlign: 'center', padding: 10, border: '1.5px solid #000', background: '#f8f8f8' }}>
-            <h3 style={{ margin: '0 0 4px', fontSize: '11pt' }}>{title}</h3>
-            <p style={{ margin: 0, fontSize: '16pt', fontWeight: 700 }}>{value}</p>
-            {i === 3 && <div style={{ marginTop: 3, fontSize: '9pt' }}>{calculs.nbChequesTotal} chèques</div>}
+          <div key={i} style={{ textAlign: 'center', padding: 8, border: '1.5px solid #000', background: '#f8f8f8' }}>
+            <h3 style={{ margin: '0 0 3px', fontSize: '10pt' }}>{title}</h3>
+            <p style={{ margin: 0, fontSize: '14pt', fontWeight: 700 }}>{value}</p>
+            {i === 3 && <div style={{ marginTop: 2, fontSize: '8pt' }}>{calculs.nbChequesTotal} chèques</div>}
           </div>
         ))}
       </div>
 
       {/* Vendeuses */}
-      <div className="print-section" style={{ marginBottom: 10 }}>
-        <div style={{ fontSize: '12pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 3, marginBottom: 6 }}>
+      <div className="print-section" style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: '11pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 2, marginBottom: 4 }}>
           CHIFFRE D'AFFAIRES PAR VENDEUSE ET MODE DE PAIEMENT
         </div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '10pt' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '9pt' }}>
           <thead>
             <tr style={{ background: '#f0f0f0' }}>
               <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>VENDEUSE</th>
@@ -1144,27 +1016,27 @@ function FeuilleImprimable({ calculs, event, reglementsData = [] }: FeuilleImpri
 
       {/* Règlements à venir */}
       {reglementsData.length > 0 && (
-        <div className="print-section" style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: '12pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 3, marginBottom: 6 }}>
+        <div className="print-section" style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: '11pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 2, marginBottom: 4 }}>
             RÈGLEMENTS À VENIR (FACTURIER)
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 8, textAlign: 'center' }}>
-            <div style={{ padding: 8, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 6, textAlign: 'center' }}>
+            <div style={{ padding: 6, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700, fontSize: '9pt' }}>
               TOTAL ATTENDU<br/>
-              <span style={{ fontSize: '14pt' }}>{calculs.totalReglementsAVenir.toFixed(2)} €</span>
+              <span style={{ fontSize: '12pt' }}>{calculs.totalReglementsAVenir.toFixed(2)} €</span>
             </div>
-            <div style={{ padding: 8, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700 }}>
+            <div style={{ padding: 6, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700, fontSize: '9pt' }}>
               CLIENTS EN ATTENTE<br/>
-              <span style={{ fontSize: '14pt' }}>{calculs.nbClientsAttente}</span>
+              <span style={{ fontSize: '12pt' }}>{calculs.nbClientsAttente}</span>
             </div>
-            <div style={{ padding: 8, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700 }}>
+            <div style={{ padding: 6, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700, fontSize: '9pt' }}>
               CHÈQUES TOTAUX<br/>
-              <span style={{ fontSize: '14pt' }}>{calculs.nbChequesTotal}</span>
+              <span style={{ fontSize: '12pt' }}>{calculs.nbChequesTotal}</span>
             </div>
           </div>
 
-          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '10pt' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '8pt' }}>
             <thead>
               <tr style={{ background: '#f0f0f0' }}>
                 <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left' }}>VENDEUSE</th>
