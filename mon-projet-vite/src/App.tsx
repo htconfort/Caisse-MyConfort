@@ -327,14 +327,27 @@ export default function CaisseMyConfortApp() {
 
   // Fonctions pour l'édition des vendeuses
   const startEditVendor = useCallback((vendor: Vendor) => {
+    console.log('✏️ Début édition vendeuse:', vendor);
     setEditingVendor(vendor.id);
     setEditVendorName(vendor.name);
     setEditVendorEmail(vendor.email || '');
     setEditVendorColor(vendor.color);
-    console.log('✏️ Début édition vendeuse:', vendor.name);
+    console.log('✏️ États d\'édition initialisés:', {
+      id: vendor.id,
+      name: vendor.name,
+      email: vendor.email || '',
+      color: vendor.color
+    });
   }, []);
 
   const saveEditVendor = useCallback(() => {
+    console.log('🔄 Tentative de sauvegarde vendeuse...', {
+      editVendorName: editVendorName.trim(),
+      editingVendor,
+      editVendorColor,
+      editVendorEmail
+    });
+
     if (!editVendorName.trim() || !editingVendor) {
       alert('⚠️ Le nom de la vendeuse est obligatoire !');
       return;
@@ -357,6 +370,7 @@ export default function CaisseMyConfortApp() {
         : vendor
     );
 
+    console.log('🔄 Mise à jour vendorStats...', updatedVendors);
     setVendorStats(updatedVendors);
 
     // Mettre à jour la vendeuse sélectionnée si c'est celle modifiée
@@ -364,6 +378,7 @@ export default function CaisseMyConfortApp() {
       const updatedSelectedVendor = updatedVendors.find(v => v.id === editingVendor);
       if (updatedSelectedVendor) {
         setSelectedVendor(updatedSelectedVendor);
+        console.log('🔄 selectedVendor mise à jour:', updatedSelectedVendor);
       }
     }
 
@@ -373,7 +388,7 @@ export default function CaisseMyConfortApp() {
     setEditVendorEmail('');
     setEditVendorColor('');
 
-    console.log('✅ Vendeuse modifiée:', editingVendor);
+    console.log('✅ Vendeuse modifiée avec succès:', editingVendor);
     alert('🎉 Vendeuse modifiée avec succès !');
   }, [editVendorName, editingVendor, editVendorColor, editVendorEmail, vendorStats, setVendorStats, selectedVendor, setSelectedVendor]);
 
@@ -636,7 +651,9 @@ export default function CaisseMyConfortApp() {
               onClick={() => {
                 if (!isUsed) {
                   setEditVendorColor(color);
-                  console.log('🎨 Couleur modifiée:', color);
+                  console.log('🎨 Couleur sélectionnée pour édition:', color);
+                } else {
+                  console.log('⚠️ Couleur déjà utilisée:', color);
                 }
               }}
               disabled={isUsed}
@@ -1563,7 +1580,14 @@ export default function CaisseMyConfortApp() {
 
                             <div style={{ display: 'flex', gap: '8px', marginTop: '15px' }}>
                               <button
-                                onClick={saveEditVendor}
+                                onClick={() => {
+                                  console.log('🔘 Clic sur bouton sauvegarder, états actuels:', {
+                                    editVendorName: editVendorName.trim(),
+                                    editVendorColor,
+                                    disabled: !editVendorName.trim() || !editVendorColor
+                                  });
+                                  saveEditVendor();
+                                }}
                                 disabled={!editVendorName.trim() || !editVendorColor}
                                 style={{
                                   background: (!editVendorName.trim() || !editVendorColor) ? '#6c757d' : '#28a745',
