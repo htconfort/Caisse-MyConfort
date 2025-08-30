@@ -1,9 +1,9 @@
 import React from 'react';
-import { useEmailRAZState } from '../hooks/EmailRAZ/useEmailRAZState';
-import { useEmailRAZActions } from '../hooks/EmailRAZ/useEmailRAZActions';
-import { EmailRAZTabs } from './EmailRAZ/EmailRAZTabs';
+import { useEmailRAZState } from '../../hooks/EmailRAZ/useEmailRAZState';
+import { useEmailRAZActions } from '../../hooks/EmailRAZ/useEmailRAZActions';
+import { EmailRAZTabs } from './EmailRAZTabs';
 import { Loader } from 'lucide-react';
-import type { Sale, VendorStat } from '../types';
+import type { Sale, VendorStat } from '../../types';
 
 interface Props {
   sales?: Sale[];
@@ -12,7 +12,7 @@ interface Props {
   className?: string;
 }
 
-const EmailRAZSystem: React.FC<Props> = ({
+export const EmailRAZSystem: React.FC<Props> = ({
   sales = [],
   vendorStats = [],
   onRAZComplete = null,
@@ -29,21 +29,17 @@ const EmailRAZSystem: React.FC<Props> = ({
     errors,
     activeTab,
     setActiveTab,
-    showPreview,
     setShowPreview,
-    emailStatus,
-    setEmailStatus,
-    lastAction,
     setLastAction,
-    pdfUrl,
+    setEmailStatus,
     setPdfUrl,
   } = useEmailRAZState();
 
   const actions = useEmailRAZActions({
     config,
     summary,
-    vendorStats: vendorStats || hookVendorStats,
-    sales: sales || hookSales,
+    vendorStats: vendorStats.length > 0 ? vendorStats : hookVendorStats,
+    sales: sales.length > 0 ? sales : hookSales,
     errors,
     setIsSending,
     setShowPreview,
@@ -89,8 +85,8 @@ const EmailRAZSystem: React.FC<Props> = ({
         config={config}
         setConfig={setConfig}
         summary={summary}
-        vendorStats={vendorStats}
-        sales={sales}
+        vendorStats={vendorStats.length > 0 ? vendorStats : hookVendorStats}
+        sales={sales.length > 0 ? sales : hookSales}
         isSending={isSending}
         errors={errors}
         activeTab={activeTab}

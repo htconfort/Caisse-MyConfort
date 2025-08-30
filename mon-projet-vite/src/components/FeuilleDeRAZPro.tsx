@@ -70,6 +70,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const [eventName, setEventName] = useState('');
   const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
   const [eventEnd, setEventEnd] = useState('');     // yyyy-mm-dd
+  // États pour le bouton dynamique d'enregistrement
+  const [savingEvent, setSavingEvent] = useState(false);
+  const [eventSaved, setEventSaved] = useState(false);
 
   // ===== VALIDATION DATE FIN SESSION =====
   const canEndSessionToday = useMemo(() => {
@@ -80,6 +83,23 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     // On peut faire RAZ Fin Session seulement si on est à la date de fin ou après
     return today.getTime() >= sessionEndDate.getTime();
   }, [session?.eventEnd]);
+
+  // ===== DÉTECTION DES CHANGEMENTS ÉVÉNEMENT =====
+  const hasUnsavedEventChanges = useMemo(() => {
+    if (!session) return false;
+    
+    const currentEventName = eventName || '';
+    const currentEventStart = eventStart || '';
+    const currentEventEnd = eventEnd || '';
+    
+    const sessionEventName = session.eventName || '';
+    const sessionEventStart = session.eventStart ? toInputDate(session.eventStart) : '';
+    const sessionEventEnd = session.eventEnd ? toInputDate(session.eventEnd) : '';
+    
+    return currentEventName !== sessionEventName || 
+           currentEventStart !== sessionEventStart || 
+           currentEventEnd !== sessionEventEnd;
+  }, [session, eventName, eventStart, eventEnd]);
 
   const toInputDate = (ms?: number) => {
     if (!ms) return '';
@@ -122,6 +142,16 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     void refreshSession();
   }, [refreshSession]);
 
+  // Initialiser les champs événement quand la session change
+  useEffect(() => {
+    if (session) {
+      setEventName(session.eventName || '');
+      setEventStart(session.eventStart ? toInputDate(session.eventStart) : '');
+      setEventEnd(session.eventEnd ? toInputDate(session.eventEnd) : '');
+      setEventSaved(false); // Réinitialiser l'état de sauvegarde
+    }
+  }, [session]);
+
   // Charger les règlements à venir depuis le service
   useEffect(() => {
     (async () => {
@@ -162,16 +192,30 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   }, [eventName, eventStart, eventEnd, refreshSession]);
 
   const onSaveEventFirstDay = useCallback(async () => {
+    if (!hasUnsavedEventChanges) return;
+    
+    setSavingEvent(true);
+    setEventSaved(false);
+    
     try {
-      await updateCurrentSessionEventHelper({ eventName: eventName || undefined, eventStart: eventStart || undefined, eventEnd: eventEnd || undefined });
+      await updateCurrentSessionEventHelper({ 
+        eventName: eventName || undefined, 
+        eventStart: eventStart || undefined, 
+        eventEnd: eventEnd || undefined 
+      });
       await refreshSession();
-      alert('Détails de l\'événement enregistrés.');
+      setEventSaved(true);
+      
+      // Auto-hide success feedback after 2 seconds
+      setTimeout(() => setEventSaved(false), 2000);
     } catch (e) {
       console.error('Erreur mise à jour événement:', e);
       const msg = e instanceof Error ? e.message : 'Erreur lors de l\'enregistrement de l\'événement';
       alert(msg);
+    } finally {
+      setSavingEvent(false);
     }
-  }, [eventName, eventStart, eventEnd, refreshSession]);
+  }, [eventName, eventStart, eventEnd, refreshSession, hasUnsavedEventChanges]);
 
   const closeSession = useCallback(async () => {
     // Empêcher la clôture si le dernier jour n'est pas passé
@@ -700,11 +744,66 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                 {/* Si premier jour: permettre de fixer/modifier l'événement */}
                 {isTodayFirstDayOf(session.openedAt) && (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px auto', gap: 10, alignItems: 'center' }}>
-                    <input placeholder="Nom de l'événement" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
-                    <input type="date" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
-                    <input type="date" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
-                    <button onClick={onSaveEventFirstDay} style={btn('#16A34A')}>
-                      Enregistrer l'événement
+                    <input 
+                      placeholder="Nom de l'événement" 
+                      value={eventName} 
+                      onChange={e => {
+                        setEventName(e.target.value);
+                        setEventSaved(false);
+                      }} 
+                      style={inputStyle} 
+                    />
+                    <input 
+                      type="date" 
+                      value={eventStart} 
+                      onChange={e => {
+                        setEventStart(e.target.value);
+                        setEventSaved(false);
+                      }} 
+                      style={inputStyle} 
+                    />
+                    <input 
+                      type="date" 
+                      value={eventEnd} 
+                      onChange={e => {
+                        setEventEnd(e.target.value);
+                        setEventSaved(false);
+                      }} 
+                      style={inputStyle} 
+                    />
+                    <button 
+                      onClick={onSaveEventFirstDay} 
+                      disabled={!hasUnsavedEventChanges || savingEvent}
+                      style={{
+                        ...btn(
+                          eventSaved ? '#059669' : 
+                          hasUnsavedEventChanges ? '#DC2626' : 
+                          '#6B7280'
+                        ),
+                        opacity: !hasUnsavedEventChanges ? 0.6 : 1,
+                        cursor: !hasUnsavedEventChanges || savingEvent ? 'not-allowed' : 'pointer',
+                        position: 'relative',
+                        minWidth: '180px'
+                      }}
+                    >
+                      {savingEvent ? (
+                        <>
+                          <RefreshCw size={16} style={{ marginRight: 8, animation: 'spin 1s linear infinite' }} />
+                          Enregistrement...
+                        </>
+                      ) : eventSaved ? (
+                        <>
+                          ✓ Événement enregistré
+                        </>
+                      ) : hasUnsavedEventChanges ? (
+                        <>
+                          ⚠ Enregistrer l'événement
+                        </>
+                      ) : (
+                        <>
+                          Enregistrer l'événement
+                        </>
+                      )}
                     </button>
                   </div>
                 )}
@@ -769,6 +868,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             >
               <RefreshCw size={20}/>
               RAZ Fin Session
+            </button>
+            
+            {/* 🔍 DEBUG TEMPORAIRE */}
+            <button 
+              onClick={() => alert(`DEBUG WORKFLOW:\n- isViewed: ${isViewed}\n- isPrinted: ${isPrinted}\n- isEmailSent: ${isEmailSent}\n- workflowCompleted: ${workflowCompleted}`)}
+              style={btn('#FFA500')} 
+            >
+              🔍 Debug Workflow
             </button>
           </div>
 
@@ -881,6 +988,11 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         @media print {
           /* Dé-commente pour masquer la colonne % si ça déborde encore */
           /* .payments .col-percent { display: none !important; } */
+        }
+        
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}}/>
     </div>
