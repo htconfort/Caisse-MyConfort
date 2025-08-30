@@ -1,14 +1,7 @@
 import { useState, useMemo } from 'react';
-import type { Vendor } from '../../types';
+import type { Vendor, SaisieRetroFormData } from '../../types';
 
-export interface SaisieRetroFormData {
-  vendorName: string;
-  amount: string;
-  paymentMethod: 'card' | 'cash' | 'check' | 'multi';
-  dateStr: string;
-}
-
-interface UseSaisieRetroStateProps {
+interface UseSaisieRetroStateOptions {
   vendors: Vendor[];
   defaultVendorName?: string;
   eventStart?: number | null;
@@ -20,41 +13,40 @@ export function useSaisieRetroState({
   defaultVendorName,
   eventStart,
   eventEnd,
-}: UseSaisieRetroStateProps) {
-  // État du formulaire
-  const [formData, setFormData] = useState<SaisieRetroFormData>(() => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    
-    return {
-      vendorName: defaultVendorName || vendors[0]?.name || '',
-      amount: '',
-      paymentMethod: 'card',
-      dateStr: `${yyyy}-${mm}-${dd}`,
-    };
+}: UseSaisieRetroStateOptions) {
+  const [formData, setFormData] = useState<SaisieRetroFormData>({
+    clientName: '',
+    vendorName: defaultVendorName || vendors[0]?.name || '',
+    productLabel: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
   });
 
   const [saving, setSaving] = useState(false);
 
-  // Contraintes de dates calculées
-  const dateConstraints = useMemo(() => ({
-    minDate: eventStart ? new Date(eventStart).toISOString().split('T')[0] : undefined,
-    maxDate: eventEnd ? new Date(eventEnd).toISOString().split('T')[0] : undefined,
-  }), [eventStart, eventEnd]);
-
-  // Helpers pour mettre à jour le formulaire
-  const updateFormData = (updates: Partial<SaisieRetroFormData>) => {
-    setFormData(prev => ({ ...prev, ...updates }));
+  const updateFormData = (key: keyof SaisieRetroFormData, value: string) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   const resetForm = () => {
-    setFormData(prev => ({
-      ...prev,
+    setFormData({
+      clientName: '',
+      vendorName: defaultVendorName || vendors[0]?.name || '',
+      productLabel: '',
       amount: '',
-    }));
+      date: new Date().toISOString().split('T')[0],
+    });
   };
+
+  const dateConstraints = useMemo(() => {
+    const today = new Date();
+    const minDate = eventStart ? new Date(eventStart) : new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
+    const maxDate = eventEnd ? new Date(eventEnd) : today;
+    return {
+      minDate: minDate.toISOString().split('T')[0],
+      maxDate: maxDate.toISOString().split('T')[0],
+    };
+  }, [eventStart, eventEnd]);
 
   return {
     formData,
@@ -63,6 +55,5 @@ export function useSaisieRetroState({
     saving,
     setSaving,
     dateConstraints,
-    vendors,
   };
 }

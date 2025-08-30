@@ -1,10 +1,9 @@
 import React from 'react';
-import type { Vendor } from '../../types';
-import type { SaisieRetroFormData } from '../../hooks/SaisieRetro/useSaisieRetroState';
+import type { Vendor, SaisieRetroFormData } from '../../types';
 
 interface SaisieRetroFormProps {
   formData: SaisieRetroFormData;
-  updateFormData: (updates: Partial<SaisieRetroFormData>) => void;
+  updateFormData: (key: keyof SaisieRetroFormData, value: string) => void;
   vendors: Vendor[];
   minDate?: string;
   maxDate?: string;
@@ -42,10 +41,37 @@ export const SaisieRetroForm: React.FC<SaisieRetroFormProps> = ({
 
   return (
     <>
+      {/* Première ligne : Client et Produit */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr 1fr',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '12px',
+          marginBottom: '12px',
+        }}
+      >
+        <input
+          type="text"
+          placeholder="Nom du client"
+          value={formData.clientName}
+          onChange={(e) => updateFormData('clientName', e.target.value)}
+          style={inputStyle}
+        />
+
+        <input
+          type="text"
+          placeholder="Produit/Service"
+          value={formData.productLabel}
+          onChange={(e) => updateFormData('productLabel', e.target.value)}
+          style={inputStyle}
+        />
+      </div>
+
+      {/* Deuxième ligne : Vendeuse, Montant, Date */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr 1fr',
           gap: '12px',
           marginBottom: '12px',
         }}
@@ -53,7 +79,7 @@ export const SaisieRetroForm: React.FC<SaisieRetroFormProps> = ({
         {/* Sélection vendeuse */}
         <select
           value={formData.vendorName}
-          onChange={(e) => updateFormData({ vendorName: e.target.value })}
+          onChange={(e) => updateFormData('vendorName', e.target.value)}
           style={inputStyle}
         >
           {vendors.map((vendor) => (
@@ -70,29 +96,15 @@ export const SaisieRetroForm: React.FC<SaisieRetroFormProps> = ({
           step="0.01"
           placeholder="Montant (€)"
           value={formData.amount}
-          onChange={(e) => updateFormData({ amount: e.target.value })}
+          onChange={(e) => updateFormData('amount', e.target.value)}
           style={inputStyle}
         />
-
-        {/* Mode de paiement */}
-        <select
-          value={formData.paymentMethod}
-          onChange={(e) => updateFormData({ 
-            paymentMethod: e.target.value as SaisieRetroFormData['paymentMethod'] 
-          })}
-          style={inputStyle}
-        >
-          <option value="card">Carte</option>
-          <option value="cash">Espèces</option>
-          <option value="check">Chèque</option>
-          <option value="multi">Mixte</option>
-        </select>
 
         {/* Date */}
         <input
           type="date"
-          value={formData.dateStr}
-          onChange={(e) => updateFormData({ dateStr: e.target.value })}
+          value={formData.date}
+          onChange={(e) => updateFormData('date', e.target.value)}
           min={minDate}
           max={maxDate}
           style={inputStyle}

@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
 import { createSale } from '../../services/salesService';
-import type { SaisieRetroFormData } from './useSaisieRetroState';
+import type { SaisieRetroFormData } from '../../types';
 
-interface UseSaisieRetroActionsProps {
+interface UseSaisieRetroActionsOptions {
   formData: SaisieRetroFormData;
   eventStart?: number | null;
   eventEnd?: number | null;
@@ -18,15 +18,14 @@ export function useSaisieRetroActions({
   setSaving,
   resetForm,
   onCreated,
-}: UseSaisieRetroActionsProps) {
+}: UseSaisieRetroActionsOptions) {
 
   const validateForm = useCallback(() => {
-    const { vendorName, amount, dateStr } = formData;
+    const { clientName, vendorName, productLabel, amount, date } = formData;
     
-    // Validation du montant
-    const numericAmount = Number(amount.replace(',', '.'));
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      throw new Error('Montant invalide');
+    // Validation du nom du client
+    if (!clientName.trim()) {
+      throw new Error('Nom du client obligatoire');
     }
 
     // Validation vendeur
@@ -34,13 +33,24 @@ export function useSaisieRetroActions({
       throw new Error('Vendeuse obligatoire');
     }
 
+    // Validation du produit
+    if (!productLabel.trim()) {
+      throw new Error('Libellé du produit obligatoire');
+    }
+
+    // Validation du montant
+    const numericAmount = Number(amount.replace(',', '.'));
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      throw new Error('Montant invalide');
+    }
+
     // Validation date
-    if (!dateStr) {
+    if (!date) {
       throw new Error('Date obligatoire');
     }
 
     // Validation des bornes temporelles
-    const saleDate = new Date(dateStr);
+    const saleDate = new Date(date);
     saleDate.setHours(12, 0, 0, 0);
     const timestamp = saleDate.getTime();
 
@@ -61,11 +71,14 @@ export function useSaisieRetroActions({
       
       const { numericAmount, timestamp } = validateForm();
       
+      // Création d'une vente avec les nouvelles données enrichies
       await createSale({
         vendorName: formData.vendorName,
         totalAmount: numericAmount,
-        paymentMethod: formData.paymentMethod,
+        paymentMethod: 'card', // Méthode par défaut
         timestamp,
+        // Informations additionnelles (commentaire ou métadonnées)
+        note: `Client: ${formData.clientName} - Produit: ${formData.productLabel}`,
       });
 
       resetForm();
@@ -75,7 +88,11 @@ export function useSaisieRetroActions({
       }
 
       const dateFormatted = new Date(timestamp).toLocaleDateString('fr-FR');
-      alert(`✅ Vente enregistrée au ${dateFormatted} pour ${formData.vendorName}.`);
+      alert(`✅ Vente enregistrée au ${dateFormatted}\n` +
+            `Client: ${formData.clientName}\n` +
+            `Vendeuse: ${formData.vendorName}\n` +
+            `Produit: ${formData.productLabel}\n` +
+            `Montant: ${formData.amount}€`);
       
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
