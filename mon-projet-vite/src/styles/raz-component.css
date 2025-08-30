@@ -1,0 +1,292 @@
+/* Styles pour FeuilleDeRAZPro - Extraction du CSS inline */
+
+/* Layout principal RAZ */
+.raz-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f8fafc;
+  min-height: 100vh;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.raz-header {
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+  color: white;
+  padding: 2rem;
+  border-radius: 16px;
+  margin-bottom: 2rem;
+  box-shadow: 0 10px 25px rgba(30, 64, 175, 0.2);
+}
+
+.raz-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.raz-subtitle {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Grille de statistiques */
+.raz-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.raz-stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #3b82f6;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.raz-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+}
+
+.raz-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1e40af;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.raz-stat-label {
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Sections */
+.raz-section {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.raz-section-header {
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.raz-section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.raz-section-content {
+  padding: 1.5rem;
+}
+
+/* Tableaux */
+.raz-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.raz-table th {
+  background: #475569;
+  color: white;
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.raz-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.raz-table tr:last-child td {
+  border-bottom: none;
+}
+
+.raz-table tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.raz-table tr:hover {
+  background: #f1f5f9;
+}
+
+/* Boutons d'action */
+.raz-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 2rem 0;
+}
+
+.raz-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  text-align: center;
+}
+
+.raz-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+
+.raz-btn.primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+  color: white;
+}
+
+.raz-btn.secondary {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  color: white;
+}
+
+.raz-btn.success {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+}
+
+.raz-btn.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+}
+
+.raz-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Alertes et notifications */
+.raz-alert {
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 500;
+}
+
+.raz-alert.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.raz-alert.error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.raz-alert.warning {
+  background: #fefce8;
+  color: #a16207;
+  border: 1px solid #fde68a;
+}
+
+.raz-alert.info {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+/* Responsive iPad */
+@media (max-width: 1024px) {
+  .raz-container {
+    padding: 1rem;
+  }
+  
+  .raz-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+  }
+  
+  .raz-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .raz-btn {
+    justify-content: center;
+  }
+}
+
+/* Styles d'impression */
+@media print {
+  .raz-container {
+    background: white;
+    box-shadow: none;
+    padding: 0;
+  }
+  
+  .raz-actions,
+  .no-print {
+    display: none !important;
+  }
+  
+  .raz-section {
+    box-shadow: none;
+    border: 1px solid #e2e8f0;
+    break-inside: avoid;
+  }
+  
+  .raz-stat-card {
+    box-shadow: none;
+    border: 1px solid #e2e8f0;
+  }
+}
+
+/* Animations */
+@keyframes raz-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.raz-section {
+  animation: raz-fade-in 0.4s ease-out;
+}
+
+.raz-stat-card {
+  animation: raz-fade-in 0.4s ease-out;
+}

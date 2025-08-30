@@ -205,3 +205,97 @@ export const printSimpleA4 = (content: string): void => {
     printWindow.print();
   }
 };
+
+/**
+ * Safari/iOS safe print via hidden iframe
+ * Évite les pages blanches liées au timing de window.open + print() sur iOS/Safari
+ */
+export const printHtmlA4Iframe = (htmlContent: string): void => {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!doc) {
+    document.body.removeChild(iframe);
+    throw new Error('Impossible de créer le document d\'impression.');
+  }
+
+  const fullHtml = `
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Impression A4</title>
+      <style>
+        @page { size: A4 portrait; margin: 15mm; }
+        html, body { background:#fff; margin: 0; padding: 0; }
+        .a4-sheet { width: 210mm; min-height: 297mm; box-sizing: border-box; }
+        @media print {
+          .no-print { display:none !important; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+        /* Styles pour tableaux */
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        /* Styles pour sections */
+        .section { margin: 20px 0; }
+        .section h2, .section h3 { color: #333; margin-bottom: 10px; }
+      </style>
+    </head>
+    <body>
+      <div class="a4-sheet">${htmlContent}</div>
+      <script>
+        // Attendre la fin du layout + fonts
+        (function() {
+          function ready() {
+            setTimeout(function() {
+              try { 
+                window.focus(); 
+                window.print(); 
+              } catch(e) {
+                console.warn('Erreur impression:', e);
+              }
+              setTimeout(function(){ 
+                if (window.close) window.close(); 
+              }, 800);
+            }, 300);
+          }
+          if (document.readyState === 'complete') { 
+            ready(); 
+          } else { 
+            window.addEventListener('load', ready); 
+          }
+        })();
+      </script>
+    </body>
+    </html>
+  `;
+
+  doc.open();
+  doc.write(fullHtml);
+  doc.close();
+
+  // Nettoyage après impression (fallback au cas où)
+  const cleanup = () => {
+    try { 
+      if (iframe.parentNode) {
+        document.body.removeChild(iframe); 
+      }
+    } catch(e) {
+      console.warn('Erreur nettoyage iframe:', e);
+    }
+    window.removeEventListener('afterprint', cleanup);
+  };
+  
+  window.addEventListener('afterprint', cleanup);
+  // Sécurité: supprimer quoi qu'il arrive après 10s
+  setTimeout(cleanup, 10000);
+};

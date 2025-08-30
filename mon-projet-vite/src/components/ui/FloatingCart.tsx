@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { ShoppingCart, X, CreditCard, Check, Plus, Minus } from 'lucide-react';
 import type { 
   TabType, 
@@ -34,6 +34,37 @@ export function FloatingCart({
   updateQuantity
 }: FloatingCartProps) {
   const [isCartMinimized, setIsCartMinimized] = useState(false);
+  const [miniPos, setMiniPos] = useState<{ top: number; right: number }>({ top: 16, right: 16 });
+
+  // Clamp helper to keep the button in the viewport
+  const clampMiniPos = useCallback(() => {
+    const isTablet = window.innerWidth >= 768 && window.innerWidth <= 1366; // iPad range
+    const size = isTablet ? 70 : 60;
+    const margin = 12;
+    const maxTop = Math.max(margin, window.innerHeight - size - margin);
+    const maxRight = Math.max(margin, window.innerWidth - size - margin);
+    setMiniPos(prev => ({
+      top: Math.min(Math.max(prev.top, margin), maxTop),
+      right: Math.min(Math.max(prev.right, margin), maxRight),
+    }));
+  }, []);
+
+  // Re-clamp on minimize toggle, resize, orientation changes, or visibility change
+  useEffect(() => {
+    if (!isCartMinimized) return;
+    clampMiniPos();
+    const onResize = () => clampMiniPos();
+    const onOrient = () => clampMiniPos();
+    const onVis = () => clampMiniPos();
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onOrient);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onOrient);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [isCartMinimized, clampMiniPos]);
 
   // Méthodes de paiement
   const paymentMethods = [
@@ -62,15 +93,28 @@ export function FloatingCart({
 
   // Mode minimisé - en haut à droite dans l'application
   if (isCartMinimized) {
+    const isTablet = window.innerWidth >= 768 && window.innerWidth <= 1366;
     return (
-      <div 
-        style={{
-          position: 'absolute',
-          right: '20px',
-          top: '20px',
-          zIndex: 1000
-        }}
-      >
+      <>
+        <style>
+          {`
+            @keyframes cartPulse {
+              0% { box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+              50% { box-shadow: 0 4px 20px rgba(71, 122, 12, 0.6); }
+              100% { box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+            }
+          `}
+        </style>
+        <div 
+          style={{
+            position: 'fixed',
+            right: miniPos.right + 'px',
+            top: miniPos.top + 'px',
+            zIndex: 9999,
+            maxWidth: '80px',
+            maxHeight: '80px'
+          }}
+        >
         <button
           onClick={() => setIsCartMinimized(false)}
           style={{
@@ -90,6 +134,7 @@ export function FloatingCart({
           }}
           onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
           onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          title={`Panier: ${cartItemsCount} articles - ${cartTotal.toFixed(2)}€`}
         >
           <ShoppingCart size={20} />
           {cartItemsCount > 0 && (
@@ -114,7 +159,8 @@ export function FloatingCart({
             </div>
           )}
         </button>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -122,10 +168,10 @@ export function FloatingCart({
     <div 
       style={{
         position: 'absolute',
-        right: '10px',
-        top: '80px',
-        bottom: '10px',
-        width: '350px',
+        right: 'clamp(5px, 1vw, 10px)', // ✅ Sécurisé pour iPad
+        top: 'clamp(70px, 10vh, 80px)',  // ✅ Évite header
+        bottom: 'clamp(5px, 1vh, 10px)', // ✅ Sécurisé en bas
+        width: 'clamp(300px, 40vw, 350px)', // ✅ Responsive
         backgroundColor: 'white',
         borderRadius: '16px',
         boxShadow: '0 8px 32px rgba(0,0,0,0.15)',

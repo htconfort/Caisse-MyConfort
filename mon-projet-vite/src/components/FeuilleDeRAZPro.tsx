@@ -9,6 +9,7 @@ import type { SessionDB } from '@/types';
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
 import { RAZGuardModal } from './RAZGuardModal';
 import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
+import { printHtmlA4Iframe } from '../utils/printA4';
 
 // Types pour WhatsApp
 interface ReportData {
@@ -558,8 +559,23 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       alert('⚠️ Veuillez d\'abord visualiser la feuille de RAZ.');
       return;
     }
-    window.print();
-    setIsPrinted(true);
+    
+    try {
+      // Utilisation de l'impression sécurisée pour Safari/iOS
+      const contenuAImprimer = document.querySelector('.feuille-apercu')?.innerHTML || '';
+      if (contenuAImprimer) {
+        printHtmlA4Iframe(contenuAImprimer);
+        setIsPrinted(true);
+      } else {
+        // Fallback sur window.print() si pas de contenu spécifique
+        window.print();
+        setIsPrinted(true);
+      }
+    } catch (error) {
+      console.warn('Erreur impression, fallback window.print():', error);
+      window.print();
+      setIsPrinted(true);
+    }
   };
 
   const envoyerEmailSecurise = () => {

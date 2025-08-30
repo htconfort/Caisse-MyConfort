@@ -1,0 +1,51 @@
+#!/bin/bash
+# Tests manuels d'audit MyConfort - iPad Safari
+
+echo "🧪 TESTS MANUELS MyConfort - iPad Safari"
+echo "========================================"
+
+echo ""
+echo "1. 📱 Test FloatingCart iPad"
+echo "   → Ouvrir sur iPad Safari"
+echo "   → Vérifier panier minimisé visible (coin droit)"
+echo "   → Vérifier panier maximisé ne sort pas écran"
+echo "   → Tester en portrait et paysage"
+echo "   ✅ Position: clamp(5px, 1vw, 10px) du bord"
+
+echo ""
+echo "2. 🖨️ Test Impression A4"
+echo "   → Aller onglet RAZ"
+echo "   → Cliquer 'Imprimer Feuille'"
+echo "   → Vérifier aperçu bien formaté"
+echo "   → Tester sur différents navigateurs"
+echo "   ✅ Timing: window.onload + 500ms delay"
+
+echo ""
+echo "3. 🎯 Test Panneau RAZ"
+echo "   → Cliquer onglet RAZ dans navigation"
+echo "   → Vérifier composant FeuilleDeRAZPro affiché"
+echo "   → Vérifier toutes sections visibles"
+echo "   → Tester données en temps réel"
+echo "   ✅ Import: FeuilleDeRAZPro (pas backup)"
+
+echo ""
+echo "4. 🎨 Test CSS Séparé"
+echo "   → Vérifier styles RAZ appliqués"
+echo "   → Tester responsive design"
+echo "   → Valider cohérence visuelle"
+echo "   ✅ CSS: styles/raz-component.css"
+
+echo ""
+echo "5. 🔗 Test SessionService"
+echo "   → Vérifier pas d'erreurs console"
+echo "   → Tester ouverture/fermeture session"
+echo "   → Valider imports cohérents"
+echo "   ✅ Import: @/services barrel export"
+
+echo ""
+echo "📋 CHECKLIST FINAL:"
+echo "   □ Panier visible sur tous écrans iPad"
+echo "   □ Impression génère PDF non-vide"
+echo "   □ Onglet RAZ affiche contenu"
+echo "   □ Styles appliqués sans CSS inline"
+echo "   □ Aucune erreur console imports"
