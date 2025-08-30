@@ -1,0 +1,39 @@
+# Fichiers et dossiers ignorés par GitHub Copilot
+# 📁 Dossiers de build et dependencies
+node_modules/
+dist/
+build/
+.next/
+.vercel/
+.firebase/
+
+# 📋 Fichiers de configuration système
+.DS_Store
+.env
+.env.local
+.env.production
+.env.development
+
+# 🗃️ Archives et backups
+archive-ancien-projet-react-*/
+*.backup
+*.bak
+*.tmp
+
+# 📄 Logs et rapports
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ⚙️ Fichiers de configuration moins prioritaires
+firebase.json
+tailwind.config.ts
+vite.config.ts
+tsconfig.json
+package-lock.json
+yarn.lock
+
+# 📊 Fichiers de documentation générés automatiquement
+README-*.md
+CHANGELOG.md

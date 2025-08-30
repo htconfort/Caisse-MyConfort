@@ -1,0 +1,342 @@
+{
+  "name": "Sync_Caisse_Google_Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "sync/daily",
+        "options": {}
+      },
+      "id": "webhook-sync-daily",
+      "name": "Webhook Sync Daily",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "sync-daily-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Vérification idempotence pour éviter les doublons\nconst data = $input.all()[0].json;\nconst idempotencyKey = data.idempotencyKey;\n\n// Récupérer les clés déjà traitées depuis le Data Store\nconst processedKeys = $('Data Store').get('processed_keys') || [];\n\nif (processedKeys.includes(idempotencyKey)) {\n  // Déjà traité, retourner un statut d'ignoré\n  return [{\n    json: { \n      status: 'ignored', \n      message: `Données déjà traitées pour ${idempotencyKey}`,\n      idempotencyKey,\n      skipExecution: true\n    }\n  }];\n}\n\n// Nouveau traitement, ajouter à la liste\nprocessedKeys.push(idempotencyKey);\n$('Data Store').set('processed_keys', processedKeys);\n\n// Préparer les données pour les nœuds suivants\nconst vendors = data.vendors || [];\nconst results = [];\n\n// Créer une sortie pour chaque vendeuse\nvendors.forEach(vendor => {\n  // Données pour le récap\n  if (vendor.lines && vendor.lines.length > 0) {\n    vendor.lines.forEach(line => {\n      results.push({\n        json: {\n          type: 'recap',\n          vendorName: vendor.name,\n          sheetName: `${vendor.name}_Recap`,\n          date: line.date,\n          cheque: line.cheque,\n          card: line.card,\n          cash: line.cash,\n          total: line.total,\n          salary: line.salary,\n          transport: vendor.rules?.transport || 0,\n          housing: vendor.rules?.housing || 0,\n          sessionId: data.sessionId,\n          idempotencyKey: data.idempotencyKey\n        }\n      });\n    });\n  }\n  \n  // Données pour les ventes détaillées\n  if (vendor.sales && vendor.sales.length > 0) {\n    vendor.sales.forEach(sale => {\n      results.push({\n        json: {\n          type: 'sale',\n          vendorName: vendor.name,\n          sheetName: `${vendor.name}_Ventes`,\n          date: sale.date,\n          firstName: sale.firstName,\n          lastName: sale.lastName,\n          address: sale.address,\n          zip: sale.zip,\n          product: sale.product,\n          amount: sale.amount,\n          payment: sale.payment,\n          postDatedCheck: sale.postDatedCheck,\n          checksCount: sale.checksCount,\n          checkAmount: sale.checkAmount,\n          sessionId: data.sessionId,\n          idempotencyKey: data.idempotencyKey\n        }\n      });\n    });\n  }\n});\n\n// Ajouter une sortie pour le snapshot si demandé\nresults.push({\n  json: {\n    type: 'snapshot',\n    sessionId: data.sessionId,\n    date: data.date,\n    idempotencyKey: data.idempotencyKey,\n    vendorCount: vendors.length\n  }\n});\n\nconsole.log(`✅ Traitement réussi pour ${idempotencyKey}: ${results.length} opérations`);\n\nreturn results;"
+      },
+      "id": "code-idempotence-check",
+      "name": "Code - Idempotence Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "recap"
+            }
+          ]
+        }
+      },
+      "id": "if-recap-data",
+      "name": "IF - Recap Data",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        680,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "sale"
+            }
+          ]
+        }
+      },
+      "id": "if-sale-data",
+      "name": "IF - Sale Data",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        680,
+        360
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": "VOTRE_GOOGLE_SHEET_ID_ICI",
+        "sheetName": "={{$json.sheetName}}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{$json.date}}",
+            "Chèque": "={{$json.cheque}}",
+            "CB": "={{$json.card}}",
+            "Espèces": "={{$json.cash}}",
+            "Total": "={{$json.total}}",
+            "Salaire": "={{$json.salary}}",
+            "Transport": "={{$json.transport}}",
+            "Logement": "={{$json.housing}}"
+          }
+        },
+        "options": {}
+      },
+      "id": "google-sheets-append-recap",
+      "name": "Google Sheets - Append Recap",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        900,
+        180
+      ],
+      "credentials": {
+        "googleSheetsApi": {
+          "id": "VOTRE_CREDENTIAL_GOOGLE_SHEETS_ID",
+          "name": "Google Sheets API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "sheet",
+        "operation": "append",
+        "documentId": "VOTRE_GOOGLE_SHEET_ID_ICI",
+        "sheetName": "={{$json.sheetName}}",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{$json.date}}",
+            "Prénom": "={{$json.firstName}}",
+            "Nom": "={{$json.lastName}}",
+            "Adresse": "={{$json.address}}",
+            "CP": "={{$json.zip}}",
+            "Produit": "={{$json.product}}",
+            "Montant": "={{$json.amount}}",
+            "Mode": "={{$json.payment}}",
+            "Chèque à venir": "={{$json.postDatedCheck}}",
+            "Nb chèques": "={{$json.checksCount}}",
+            "Montant chèque": "={{$json.checkAmount}}"
+          }
+        },
+        "options": {}
+      },
+      "id": "google-sheets-append-sales",
+      "name": "Google Sheets - Append Sales",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        900,
+        360
+      ],
+      "credentials": {
+        "googleSheetsApi": {
+          "id": "VOTRE_CREDENTIAL_GOOGLE_SHEETS_ID",
+          "name": "Google Sheets API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.type}}",
+              "operation": "equal",
+              "value2": "snapshot"
+            }
+          ]
+        }
+      },
+      "id": "if-snapshot-data",
+      "name": "IF - Snapshot Data",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        680,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Créer snapshot XLSX et le sauvegarder sur Google Drive\nconst data = $input.all()[0].json;\n\n// Construire le nom du fichier snapshot\nconst fileName = `Salaires_Foire_2025__${data.date}.xlsx`;\nconst folderPath = '/MyConfort/Salaires/2025/Archives/';\n\n// Retourner les informations pour Google Drive\nreturn [{\n  json: {\n    sourceId: 'VOTRE_GOOGLE_SHEET_ID_ICI',\n    fileName: fileName,\n    folderPath: folderPath,\n    date: data.date,\n    sessionId: data.sessionId,\n    vendorCount: data.vendorCount,\n    message: `Snapshot créé pour ${data.idempotencyKey}`\n  }\n}];"
+      },
+      "id": "code-prepare-snapshot",
+      "name": "Code - Prepare Snapshot",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        900,
+        540
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "resource": "file",
+        "operation": "copy",
+        "fileId": "={{$json.sourceId}}",
+        "name": "={{$json.fileName}}",
+        "options": {}
+      },
+      "id": "google-drive-snapshot",
+      "name": "Google Drive - Create Snapshot",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        540
+      ],
+      "credentials": {
+        "googleDriveApi": {
+          "id": "VOTRE_CREDENTIAL_GOOGLE_DRIVE_ID",
+          "name": "Google Drive API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Compilation des résultats et log final\nconst allResults = $input.all();\n\nconst recapCount = allResults.filter(r => r.json.type === 'recap' || r.json.operation === 'recap').length;\nconst salesCount = allResults.filter(r => r.json.type === 'sale' || r.json.operation === 'sales').length;\nconst snapshotCount = allResults.filter(r => r.json.type === 'snapshot' || r.json.fileName).length;\n\nconst summary = {\n  status: 'success',\n  timestamp: new Date().toISOString(),\n  operations: {\n    recap: recapCount,\n    sales: salesCount,\n    snapshot: snapshotCount\n  },\n  message: `✅ Synchronisation terminée: ${recapCount} récap, ${salesCount} ventes, ${snapshotCount} snapshot`\n};\n\nconsole.log('📊 Synchronisation Google Sheets terminée:', summary);\n\nreturn [{ json: summary }];"
+      },
+      "id": "code-final-summary",
+      "name": "Code - Final Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        360
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Sync Daily": {
+      "main": [
+        [
+          {
+            "node": "Code - Idempotence Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Idempotence Check": {
+      "main": [
+        [
+          {
+            "node": "IF - Recap Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF - Sale Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF - Snapshot Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Recap Data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Append Recap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Sale Data": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets - Append Sales",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF - Snapshot Data": {
+      "main": [
+        [
+          {
+            "node": "Code - Prepare Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code - Prepare Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Google Drive - Create Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Append Recap": {
+      "main": [
+        [
+          {
+            "node": "Code - Final Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets - Append Sales": {
+      "main": [
+        [
+          {
+            "node": "Code - Final Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Drive - Create Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Code - Final Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "timezone": "Europe/Paris"
+  },
+  "versionId": "1.0.0",
+  "meta": {
+    "instanceId": "sync-caisse-google-sheets"
+  }
+}
