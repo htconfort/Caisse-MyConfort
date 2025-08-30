@@ -359,7 +359,8 @@ export default function CaisseMyConfortApp() {
     }
 
     // Mettre à jour la vendeuse
-    const updatedVendors = vendorStats.map(vendor => 
+    console.log('🔄 Mise à jour vendorStats...');
+    setVendorStats(prev => prev.map(vendor => 
       vendor.id === editingVendor
         ? {
             ...vendor,
@@ -368,17 +369,20 @@ export default function CaisseMyConfortApp() {
             color: editVendorColor
           }
         : vendor
-    );
-
-    console.log('🔄 Mise à jour vendorStats...', updatedVendors);
-    setVendorStats(updatedVendors);
+    ));
 
     // Mettre à jour la vendeuse sélectionnée si c'est celle modifiée
     if (selectedVendor?.id === editingVendor) {
-      const updatedSelectedVendor = updatedVendors.find(v => v.id === editingVendor);
+      const updatedSelectedVendor = vendorStats.find(v => v.id === editingVendor);
       if (updatedSelectedVendor) {
-        setSelectedVendor(updatedSelectedVendor);
-        console.log('🔄 selectedVendor mise à jour:', updatedSelectedVendor);
+        const newSelectedVendor = {
+          ...updatedSelectedVendor,
+          name: editVendorName.trim(),
+          email: editVendorEmail.trim(),
+          color: editVendorColor
+        };
+        setSelectedVendor(newSelectedVendor);
+        console.log('🔄 selectedVendor mise à jour:', newSelectedVendor);
       }
     }
 
@@ -405,14 +409,17 @@ export default function CaisseMyConfortApp() {
     const vendorToDelete = vendorStats.find(v => v.id === vendorId);
     if (!vendorToDelete) return;
 
+    console.log('🗑️ Suppression vendeuse:', vendorToDelete.name);
+
     // Supprimer la vendeuse de la liste
-    const updatedVendors = vendorStats.filter(vendor => vendor.id !== vendorId);
-    setVendorStats(updatedVendors);
+    setVendorStats(prev => prev.filter(vendor => vendor.id !== vendorId));
 
     // Si c'était la vendeuse sélectionnée, sélectionner la première disponible
     if (selectedVendor?.id === vendorId) {
-      const newSelected = updatedVendors.length > 0 ? updatedVendors[0] : null;
+      const remainingVendors = vendorStats.filter(vendor => vendor.id !== vendorId);
+      const newSelected = remainingVendors.length > 0 ? remainingVendors[0] : null;
       setSelectedVendor(newSelected);
+      console.log('🔄 Nouvelle vendeuse sélectionnée:', newSelected?.name || 'aucune');
     }
 
     setDeleteConfirm(null);

@@ -8,6 +8,7 @@ import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurre
 import type { SessionDB } from '@/types';
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
 import { RAZGuardModal } from './RAZGuardModal';
+import { printHtmlA4 } from '../utils/printA4';
 import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
 
 // Types pour WhatsApp
@@ -275,17 +276,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // ===== IMPRESSION POPUP - COMPACT A4 =====
   const imprimer = () => {
     try {
-      const w = window.open('', '_blank');
-      if (!w) {
-        alert('Autorisez les popups pour imprimer.');
+      if (!isViewed) {
+        alert('⚠️ Veuillez d\'abord visualiser la feuille de RAZ.');
         return;
       }
+      
       const html = genererHTMLImpression(calculs, reglementsData);
-      w.document.write(html);
-      w.document.close();
-      w.focus();
-      w.print();
-      w.close();
+      printHtmlA4(html);
+      setIsPrinted(true);
     } catch (e) {
       console.error('Erreur impression', e);
       alert('Erreur lors de l\'impression.');
@@ -509,15 +507,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     setIsViewed(true);
   };
 
-  const effectuerImpression = () => {
-    if (!isViewed) {
-      alert('⚠️ Veuillez d\'abord visualiser la feuille de RAZ.');
-      return;
-    }
-    window.print();
-    setIsPrinted(true);
-  };
-
   const envoyerEmailSecurise = () => {
     if (!isViewed || !isPrinted) {
       alert('⚠️ Veuillez d\'abord visualiser et imprimer la feuille de RAZ.');
@@ -726,7 +715,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             
             {/* 🟢 Bouton Vert : Imprimer feuille de caisse */}
             <button 
-              onClick={effectuerImpression} 
+              onClick={imprimer} 
               style={!isViewed ? btnDisabled('#22C55E') : btn('#22C55E')} 
               disabled={!isViewed}
               title={!isViewed ? 'Visualisez d\'abord la feuille' : isPrinted ? 'Impression effectuée ✓' : 'Étape 2: Imprimer la feuille'}
