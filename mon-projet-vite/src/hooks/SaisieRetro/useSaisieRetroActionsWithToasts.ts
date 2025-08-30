@@ -2,24 +2,27 @@ import { useCallback } from 'react';
 import { createSale } from '../../services/salesService';
 import type { SaisieRetroFormData } from '../../types';
 import { validateCompleteSaisieRetro } from '../../utils/saisieRetroValidation';
+import type { ToastType } from '../../hooks/useToasts';
 
-interface UseSaisieRetroActionsOptions {
+interface UseSaisieRetroActionsWithToastsOptions {
   formData: SaisieRetroFormData;
   eventStart?: number | null;
   eventEnd?: number | null;
   setSaving: (saving: boolean) => void;
   resetForm: () => void;
   onCreated?: () => void;
+  showToast?: (type: ToastType, title: string, message?: string) => void;
 }
 
-export function useSaisieRetroActions({
+export function useSaisieRetroActionsWithToasts({
   formData,
   eventStart,
   eventEnd,
   setSaving,
   resetForm,
   onCreated,
-}: UseSaisieRetroActionsOptions) {
+  showToast,
+}: UseSaisieRetroActionsWithToastsOptions) {
 
   const validateForm = useCallback(() => {
     // Utilisation de la nouvelle validation modulaire
@@ -61,19 +64,39 @@ export function useSaisieRetroActions({
       }
 
       const dateFormatted = new Date(timestamp).toLocaleDateString('fr-FR');
-      alert(`✅ Vente enregistrée au ${dateFormatted}\n` +
-            `Client: ${formData.clientName}\n` +
-            `Vendeuse: ${formData.vendorName}\n` +
-            `Produit: ${formData.productLabel}\n` +
-            `Montant: ${formData.amount}€`);
+      
+      // Utilisation des toasts si disponible, sinon fallback vers alert
+      if (showToast) {
+        showToast(
+          'success',
+          'Vente enregistrée avec succès !',
+          `${formData.clientName} • ${formData.productLabel} • ${formData.amount}€ • ${dateFormatted}`
+        );
+      } else {
+        alert(`✅ Vente enregistrée au ${dateFormatted}\n` +
+              `Client: ${formData.clientName}\n` +
+              `Vendeuse: ${formData.vendorName}\n` +
+              `Produit: ${formData.productLabel}\n` +
+              `Montant: ${formData.amount}€`);
+      }
       
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      alert(`❌ Erreur: ${message}`);
+      
+      // Utilisation des toasts si disponible, sinon fallback vers alert
+      if (showToast) {
+        showToast(
+          'error',
+          'Erreur lors de l\'enregistrement',
+          message.replace(/\n• /g, ' • ')
+        );
+      } else {
+        alert(`❌ Erreur: ${message}`);
+      }
     } finally {
       setSaving(false);
     }
-  }, [formData, validateForm, setSaving, resetForm, onCreated]);
+  }, [formData, validateForm, setSaving, resetForm, onCreated, showToast]);
 
   return {
     handleSave,
