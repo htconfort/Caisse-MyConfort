@@ -4,9 +4,10 @@ import { printHtmlA4 } from '@/utils/printA4';
 interface Props {
   eventName: string;
   contentHtml: string; // contenu HTML (tableau, stats, etc.)
+  onPrintComplete?: () => void; // Callback appelé après impression
 }
 
-export const FeuilleCaissePrintable: React.FC<Props> = ({ eventName, contentHtml }) => {
+export const FeuilleCaissePrintable: React.FC<Props> = ({ eventName, contentHtml, onPrintComplete }) => {
   const handlePrint = () => {
     const fullHtml = `
       <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
@@ -17,6 +18,11 @@ export const FeuilleCaissePrintable: React.FC<Props> = ({ eventName, contentHtml
       </div>
     `;
     printHtmlA4(fullHtml);
+    
+    // ✅ Notifier le parent que l'impression a eu lieu
+    if (onPrintComplete) {
+      onPrintComplete();
+    }
   };
 
   return (

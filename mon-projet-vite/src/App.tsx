@@ -33,12 +33,14 @@ import InvoicesTabCompact from './components/InvoicesTabCompact';
 import { SuccessNotification, FloatingCart } from './components/ui';
 import { VendorDiagnostics } from './components/ui/VendorDiagnostics';
 import { BuildStamp } from './components/ui/BuildStamp';
+import { DebugDataPanel, type DexieLike } from './components/ui/DebugDataPanel';
 import { GuideUtilisation } from './components/GuideUtilisation';
 import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle, Book, Users } from 'lucide-react';
 import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import './styles/invoices-tab.css';
 import './styles/print.css';
 import { sessionService } from '@/services';
+import { getDB } from '@/db/index';
 
 // Styles pour les animations RAZ
 const razAnimationStyles = `
@@ -2094,6 +2096,25 @@ export default function CaisseMyConfortApp() {
             localStorage.removeItem('myconfort-current-vendor');
             alert('🎉 Vendeuses réinitialisées avec succès !');
           }} 
+        />
+
+        {/* Debug Data Panel */}
+        <DebugDataPanel 
+          db={{
+            name: getDB().name,
+            table: getDB().table?.bind(getDB())
+          }}
+          dbName="MyConfortCaisseV2"
+          onForceSync={async () => {
+            console.log('🔄 Force sync des données...');
+            // Pour le debug, on peut ignorer la sync N8N
+            console.log('Synchronisation manuelle déclenchée depuis le debug panel');
+          }}
+          onReseedDev={async (db) => {
+            console.log('🌱 Re-seed des données en développement...');
+            // Ajouter ici la logique de re-seed si nécessaire
+            console.log('DB instance:', db);
+          }}
         />
 
         {/* Build Information */}

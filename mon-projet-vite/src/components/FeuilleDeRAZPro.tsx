@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Mail, Eye, EyeOff, RefreshCw, PlayCircle, XCircle } from 'lucide-react';
+import { Mail, Eye, EyeOff, RefreshCw, PlayCircle, XCircle, Printer } from 'lucide-react';
 import type { Sale, Vendor } from '../types';
 import type { Invoice } from '@/services/syncService';
 import { externalInvoiceService } from '../services/externalInvoiceService';
@@ -11,6 +11,73 @@ import { RAZGuardModal } from './RAZGuardModal';
 import { printHtmlA4 } from '../utils/printA4';
 import { FeuilleCaissePrintable } from './FeuilleCaissePrintable';
 import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
+
+// Normalisation d'une ligne de chèque pour tables UI + impression
+type ChequeRow = {
+  source: 'classique' | 'facturier';
+  invoiceNumber: string;
+  clientName: string;
+  product: string;
+  nbCheques: number;
+  perChequeAmount: number;
+  invoiceTotal: number;
+  date?: number;
+  id?: string;
+};
+
+// Utilitaires de mapping
+function toChequeRowsFromSales(sales: Sale[]): ChequeRow[] {
+  return sales
+    .filter(s => !s.canceled && s.manualInvoiceData?.invoiceNumber) // 🔒 seulement factures éditées
+    .filter(s => (s.checkDetails?.count ?? 0) > 0)
+    .map(s => {
+      const nb = s.checkDetails?.count ?? 0;
+      const amt = s.checkDetails?.amount ?? 0;
+      const productGuess =
+        // essaie d'utiliser ce que tu as côté vente
+        (s.manualInvoiceData as any)?.productName
+        ?? (s as any)?.firstItemName
+        ?? s.items?.[0]?.name
+        ?? '—';
+      return {
+        source: 'classique',
+        invoiceNumber: s.manualInvoiceData!.invoiceNumber,
+        clientName: s.manualInvoiceData?.clientName ?? '—',
+        product: productGuess,
+        nbCheques: nb,
+        perChequeAmount: amt,
+        invoiceTotal: s.totalAmount ?? Number((nb * amt).toFixed(2)),
+        date: s.date ? new Date(s.date).getTime() : undefined,
+        id: s.id,
+      } as ChequeRow;
+    });
+}
+
+function toChequeRowsFromPending(items: PendingPayment[]): ChequeRow[] {
+  return items.map((r) => {
+    const total = Number((r.nbCheques * r.montantCheque).toFixed(2));
+    return {
+      source: 'facturier',
+      // on prend un champ d'ID/numéro si dispo, sinon libellé compact
+      invoiceNumber: (r as any).invoiceNumber ?? (r as any).externalInvoiceNumber ?? `FACT-${(r as any)?.id ?? r.clientName}`,
+      clientName: r.clientName ?? '—',
+      product: (r as any)?.productName ?? '—',
+      nbCheques: r.nbCheques ?? 0,
+      perChequeAmount: r.montantCheque ?? 0,
+      invoiceTotal: total,
+      date: r.dateProchain ? new Date(r.dateProchain).getTime() : undefined,
+      id: (r as any)?.id,
+    } as ChequeRow;
+  });
+}
+
+function mergeChequeRows(a: ChequeRow[], b: ChequeRow[]): ChequeRow[] {
+  return [...a, ...b].sort((x, y) => {
+    const ax = x.invoiceNumber?.toString() ?? '';
+    const ay = y.invoiceNumber?.toString() ?? '';
+    return ax.localeCompare(ay, 'fr', { numeric: true, sensitivity: 'base' });
+  });
+}
 
 // Types pour WhatsApp
 interface ReportData {
@@ -68,6 +135,10 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
   const [sessLoading, setSessLoading] = useState(true);
+  
+  // 🆕 États pour le tableau des chèques
+  const [chequesTab, setChequesTab] = useState<'classique' | 'facturier'>('classique');
+  const [editableChecks, setEditableChecks] = useState<Record<string, { nbCheques: number; perChequeAmount: number; product?: string }>>({});
   const [openingSession, setOpeningSession] = useState(false);
   // Champs événement (saisis le premier jour)
   const [eventName, setEventName] = useState('');
@@ -149,6 +220,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         </div>
       `;
       printHtmlA4(fullHtml);
+      setIsPrinted(true); // ✅ Marquer comme imprimé pour activer le bouton email
     } else {
       alert("Impossible de trouver la feuille à imprimer. Veuillez d'abord visualiser la feuille.");
     }
@@ -384,6 +456,50 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       salesWithManualInvoices // Ajouter les ventes avec factures manuelles
     };
   }, [sales, invoices, vendorStats, reglementsData]);
+
+  // ====== LIGNES POUR TABLES CHÈQUES (dépendent des états existants) ======
+  const classicChequeRows = useMemo(() => {
+    const rows = toChequeRowsFromSales(
+      sales.filter(s => !s.canceled && (!s.cartMode || s.cartMode === 'classique')) // garde cohérence "classique"
+    );
+    // applique éditions locales si présentes
+    return rows.map(r => {
+      const e = editableChecks[r.id ?? r.invoiceNumber];
+      if (!e) return r;
+      const nb = Math.max(1, Number(e.nbCheques ?? r.nbCheques));
+      const per = Math.max(0, Number(e.perChequeAmount ?? r.perChequeAmount));
+      return {
+        ...r,
+        product: e.product ?? r.product,
+        nbCheques: nb,
+        perChequeAmount: per,
+        invoiceTotal: Number((nb * per).toFixed(2)),
+      };
+    });
+  }, [sales, editableChecks]);
+
+  const facturierChequeRows = useMemo(() => toChequeRowsFromPending(reglementsData), [reglementsData]);
+
+  // Data fusionnée pour l'impression
+  const checksPrintData = useMemo(() => mergeChequeRows(classicChequeRows, facturierChequeRows), [classicChequeRows, facturierChequeRows]);
+
+  // Handler édition cellules (classique)
+  const handleEditClassic = (row: ChequeRow, patch: Partial<{ nbCheques: number; perChequeAmount: number; product: string }>) => {
+    const key = row.id ?? row.invoiceNumber;
+    setEditableChecks(prev => ({
+      ...prev,
+      [key]: {
+        nbCheques: patch.nbCheques ?? prev[key]?.nbCheques ?? row.nbCheques,
+        perChequeAmount: patch.perChequeAmount ?? prev[key]?.perChequeAmount ?? row.perChequeAmount,
+        product: patch.product ?? prev[key]?.product ?? row.product,
+      }
+    }));
+    // rafraîchit HTML imprimable si l'aperçu est ouvert
+    setTimeout(() => {
+      const contentElement = document.getElementById('zone-impression-content');
+      if (contentElement) setContentHtmlForPrint(contentElement.innerHTML);
+    }, 60);
+  };
 
   // ===== EMAIL (inchangé) =====
   const envoyerEmail = () => {
@@ -694,11 +810,35 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
               onClick={envoyerEmailSecurise} 
               style={(!isViewed || !isPrinted) ? btnDisabled('#84CC16') : btn('#84CC16', false, '#1A202C')} 
               disabled={!isViewed || !isPrinted}
-              title={!isViewed || !isPrinted ? 'Visualisez et imprimez d\'abord' : isEmailSent ? 'Email envoyé ✓' : 'Étape 3: Envoyer par email'}
+              title={!isViewed || !isPrinted ? `Visualisez et imprimez d'abord (Vue: ${isViewed ? '✓' : '✗'}, Imprimé: ${isPrinted ? '✓' : '✗'})` : isEmailSent ? 'Email envoyé ✓' : 'Étape 3: Envoyer par email'}
             >
               <Mail size={20}/>
               {isEmailSent ? 'Email envoyé ✓' : 'Envoyer par Email'}
             </button>
+
+            {/* 🖨️ Bouton Bleu : Imprimer */}
+            <button 
+              onClick={handleRAZPrint} 
+              style={!isViewed ? btnDisabled('#3B82F6') : btn('#3B82F6', false, '#FFFFFF')} 
+              disabled={!isViewed}
+              title={!isViewed ? 'Visualisez d\'abord la feuille' : isPrinted ? 'Déjà imprimé ✓' : 'Étape 2: Imprimer la feuille'}
+            >
+              <Printer size={20}/>
+              {isPrinted ? 'Déjà imprimé ✓' : 'Imprimer'}
+            </button>
+
+          {/* 🔍 Debug: Affichage de l'état des variables */}
+          <div style={{ 
+            background: '#f3f4f6', 
+            border: '1px solid #d1d5db', 
+            borderRadius: 6, 
+            padding: 8, 
+            fontSize: 12, 
+            color: '#6b7280',
+            gridColumn: 'span 2' 
+          }}>
+            📊 Debug Workflow: Vue={isViewed ? '✅' : '❌'} | Imprimé={isPrinted ? '✅' : '❌'} | Email={isEmailSent ? '✅' : '❌'}
+          </div>
             
             {/* 🔴 Bouton Rouge : RAZ Journée (avec sauvegarde auto) */}
             <button 
@@ -725,6 +865,141 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             </button>
           </div>
 
+          {/* 🆕===== BLOC NO-PRINT : DÉTAIL DES CHÈQUES (ONGLETS) ===== */}
+          <div className="no-print" style={{ marginTop: 20, marginBottom: 30 }}>
+            <div style={{ background: '#fff', border: '2px solid #477A0C', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
+              <div style={{ padding: 12, background: '#f0f9ff', borderBottom: '1px solid #d1e9ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h3 style={{ margin: 0, color: '#065F46', fontWeight: 800 }}>DÉTAIL DES CHÈQUES</h3>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => setChequesTab('classique')}
+                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: chequesTab==='classique' ? '#477A0C' : '#fff', color: chequesTab==='classique' ? '#fff' : '#111' }}
+                  >
+                    Panier classique
+                  </button>
+                  <button
+                    onClick={() => setChequesTab('facturier')}
+                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: chequesTab==='facturier' ? '#477A0C' : '#fff', color: chequesTab==='facturier' ? '#fff' : '#111' }}
+                  >
+                    Panier facturier (auto)
+                  </button>
+                </div>
+              </div>
+
+              {/* TABLEAU CLASSIQUE (éditable) */}
+              {chequesTab === 'classique' && (
+                <div style={{ padding: 12 }}>
+                  {classicChequeRows.length === 0 ? (
+                    <div style={{ padding: 12, color: '#6B7280' }}>Aucun chèque en mode classique (factures réellement éditées).</div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '12%' }}>N° FACTURE</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '25%' }}>NOM CLIENT</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '30%' }}>PRODUIT</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '10%' }}>NB CHÈQUES</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '11%' }}>MONTANT/CHÈQUE (€)</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '12%' }}>TOTAL FACTURE (€)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {classicChequeRows.map((r) => {
+                          const key = r.id ?? r.invoiceNumber;
+                          const edited = editableChecks[key];
+                          const nb = edited?.nbCheques ?? r.nbCheques;
+                          const per = edited?.perChequeAmount ?? r.perChequeAmount;
+                          const prod = edited?.product ?? r.product;
+                          const total = Number((nb * per).toFixed(2));
+                          const mismatch = Math.abs(total - r.invoiceTotal) > 0.01;
+
+                          return (
+                            <tr key={key}>
+                              <td style={{ border: '1px solid #000', padding: '8px 6px', fontWeight: 700 }}>{r.invoiceNumber}</td>
+                              <td style={{ border: '1px solid #000', padding: '8px 6px' }}>{r.clientName}</td>
+                              <td style={{ border: '1px solid #000', padding: '4px 6px' }}>
+                                <input
+                                  value={prod}
+                                  onChange={(e)=>handleEditClassic(r,{ product:e.target.value })}
+                                  style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 8px' }}
+                                />
+                              </td>
+                              <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right' }}>
+                                <input
+                                  type="number" min={1}
+                                  value={nb}
+                                  onChange={(e)=>handleEditClassic(r,{ nbCheques: Number(e.target.value) })}
+                                  style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 8px', textAlign:'right' }}
+                                />
+                              </td>
+                              <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right' }}>
+                                <input
+                                  type="number" min={0} step="0.01"
+                                  value={per}
+                                  onChange={(e)=>handleEditClassic(r,{ perChequeAmount: Number(e.target.value) })}
+                                  style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 8px', textAlign:'right' }}
+                                />
+                              </td>
+                              <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right', fontWeight: 700, background: mismatch ? '#fff7ed' : '#f7f7f7' }}>
+                                {total.toFixed(2)}{mismatch ? ' ⚠︎' : ''}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr style={{ background:'#eee', fontWeight:700 }}>
+                          <td colSpan={5} style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>TOTAL</td>
+                          <td style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>
+                            {classicChequeRows.reduce((s,r)=> s + (editableChecks[r.id ?? r.invoiceNumber]?.nbCheques ?? r.nbCheques) * (editableChecks[r.id ?? r.invoiceNumber]?.perChequeAmount ?? r.perChequeAmount), 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
+              {/* TABLEAU FACTURIER (lecture seule) */}
+              {chequesTab === 'facturier' && (
+                <div style={{ padding: 12 }}>
+                  {facturierChequeRows.length === 0 ? (
+                    <div style={{ padding: 12, color: '#6B7280' }}>Aucun règlement à venir (facturier) trouvé.</div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000' }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '12%' }}>N° FACTURE</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '25%' }}>NOM CLIENT</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '30%' }}>PRODUIT</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '10%' }}>NB CHÈQUES</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '11%' }}>MONTANT/CHÈQUE (€)</th>
+                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '12%' }}>TOTAL FACTURE (€)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {facturierChequeRows.map((r) => (
+                          <tr key={r.id ?? r.invoiceNumber}>
+                            <td style={{ border: '1px solid #000', padding: '8px 6px', fontWeight: 700 }}>{r.invoiceNumber}</td>
+                            <td style={{ border: '1px solid #000', padding: '8px 6px' }}>{r.clientName}</td>
+                            <td style={{ border: '1px solid #000', padding: '8px 6px' }}>{r.product}</td>
+                            <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right' }}>{r.nbCheques}</td>
+                            <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right' }}>{r.perChequeAmount.toFixed(2)}</td>
+                            <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right', fontWeight: 700, background:'#f7f7f7' }}>{r.invoiceTotal.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                        <tr style={{ background:'#eee', fontWeight:700 }}>
+                          <td colSpan={5} style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>TOTAL</td>
+                          <td style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>
+                            {facturierChequeRows.reduce((s,r)=> s + r.invoiceTotal, 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Aperçu */}
           {modeApercu && (
             <div style={{ background: '#fff', padding: 20, borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', border: '2px dashed #477A0C' }}>
@@ -739,6 +1014,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                     event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} 
                     reglementsData={reglementsData}
                     onReglementsClick={afficherDetailReglements}
+                    checksPrintData={checksPrintData}
                   />
                 </div>
               </div>
@@ -748,6 +1024,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                 <FeuilleCaissePrintable
                   eventName={eventNameDynamic}
                   contentHtml={contentHtmlForPrint}
+                  onPrintComplete={() => setIsPrinted(true)} // ✅ Marquer comme imprimé pour activer le bouton email
                 />
               </div>
             </div>
@@ -835,6 +1112,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} 
           reglementsData={reglementsData}
           onReglementsClick={afficherDetailReglements}
+          checksPrintData={checksPrintData}
         />
       </div>
 
@@ -907,9 +1185,10 @@ interface FeuilleImprimableProps {
   event?: { name?: string; start?: number; end?: number };
   reglementsData?: PendingPayment[];
   onReglementsClick?: () => void; // Callback pour rendre le bouton interactif
+  checksPrintData?: ChequeRow[]; // 🆕
 }
 
-function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsClick }: FeuilleImprimableProps) {
+function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsClick, checksPrintData = [] }: FeuilleImprimableProps) {
   return (
     <div style={{
       backgroundColor: '#fff', color: '#000', padding: '5mm',
@@ -1163,6 +1442,46 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
           </tbody>
         </table>
       </div>
+
+      {/* 🆕 SECTION IMPRIMABLE : DÉTAIL DES CHÈQUES (FUSION CLASSIQUE + FACTURIER) */}
+      {checksPrintData.length > 0 && (
+        <div className="print-section" style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: '12pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 3, marginBottom: 6 }}>
+            DÉTAIL DES CHÈQUES (CLASSIQUE + FACTURIER)
+          </div>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000', fontSize: '9pt' }}>
+            <thead>
+              <tr style={{ background: '#f0f0f0' }}>
+                <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left', width: '12%' }}>N° FACTURE</th>
+                <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left', width: '25%' }}>NOM CLIENT</th>
+                <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'left', width: '30%' }}>PRODUIT</th>
+                <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center', width: '10%' }}>NB CHÈQUES</th>
+                <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right', width: '11%' }}>MONTANT/CHÈQUE (€)</th>
+                <th style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right', width: '12%' }}>TOTAL FACTURE (€)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {checksPrintData.map((r, i) => (
+                <tr key={(r.id ?? r.invoiceNumber) + '_' + i}>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px', fontWeight: 700 }}>{r.invoiceNumber}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{r.clientName}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{r.product}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'center' }}>{r.nbCheques}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right' }}>{r.perChequeAmount.toFixed(2)}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right', fontWeight: 700, background:'#f7f7f7' }}>{r.invoiceTotal.toFixed(2)}</td>
+                </tr>
+              ))}
+              <tr style={{ background:'#eee', fontWeight:700 }}>
+                <td colSpan={5} style={{ border:'1.5px solid #000', textAlign:'right', padding:'6px' }}>TOTAL</td>
+                <td style={{ border:'1.5px solid #000', textAlign:'right', padding:'6px' }}>
+                  {checksPrintData.reduce((s,r)=> s + r.invoiceTotal, 0).toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Pied de page */}
       <div className="print-section" style={{ marginTop: 12, paddingTop: 8, borderTop: '1.5px solid #000' }}>
