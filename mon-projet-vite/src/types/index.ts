@@ -7,6 +7,8 @@
 
 export type ProductCategory = 'Matelas' | 'Sur-matelas' | 'Couettes' | 'Oreillers' | 'Plateau' | 'Accessoires';
 
+export type CartType = 'classique' | 'facturier';
+
 export interface CatalogProduct {
   name: string;
   category: ProductCategory;
@@ -23,6 +25,8 @@ export interface ExtendedCartItem {
   quantity: number;
   category: string;
   addedAt: Date;
+  offert?: boolean;
+  originalPrice?: number;
 }
 
 export interface Vendor {
@@ -44,10 +48,23 @@ export interface Sale {
   // Autoriser Date ou string pour tolérer des données non normalisées reçues
   date: Date | string;
   canceled: boolean;
+  // Détails des chèques à venir (si applicable)
+  checkDetails?: {
+    count: number;        // Nombre de chèques
+    amount: number;       // Montant par chèque
+    totalAmount: number;  // Montant total des chèques
+    notes?: string;       // Notes optionnelles
+  };
+  // Informations facture manuelle (pour matelas en mode classique ou mode secours)
+  manualInvoiceData?: {
+    clientName: string;
+    invoiceNumber: string;
+    source: 'matelas-classique' | 'facturier-manual';
+  };
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
-export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures' | 'gestion';
+export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures' | 'reglements' | 'gestion';
 
 // ============================================================================
 // 🗄️ TYPES INDEXEDDB - Simplifiés et compatibles avec le schéma Dexie

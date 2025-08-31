@@ -3,7 +3,8 @@ import type {
   TabType, 
   Vendor, 
   CatalogProduct, 
-  ProductCategory 
+  ProductCategory,
+  CartType 
 } from '../../types';
 import { productCatalog } from '../../data';
 import { categories } from '../../data/constants';
@@ -23,6 +24,7 @@ interface ProductsTabProps {
   addToCart: (product: CatalogProduct) => void;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  cartType?: CartType;
 }
 
 export function ProductsTab({
@@ -30,7 +32,8 @@ export function ProductsTab({
   setActiveTab,
   addToCart,
   searchTerm,
-  setSearchTerm
+  setSearchTerm,
+  cartType = 'classique'
 }: ProductsTabProps) {
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Tous'>('Matelas');
   const [showPriceModal, setShowPriceModal] = useState(false);
@@ -51,30 +54,50 @@ export function ProductsTab({
       const matchesCategory = product.category === selectedCategory;
       const matchesSearch = debouncedSearchTerm === '' || 
         product.name.toLowerCase().includes(debouncedSearchTerm.toLowerCase());
-      return matchesCategory && matchesSearch;
+      
+      // Bloquer Matelas et Sur-matelas UNIQUEMENT si panier facturier
+      const isAllowedInCartType = cartType === 'classique' || 
+        !['Matelas', 'Sur-matelas'].includes(product.category);
+      
+      return matchesCategory && matchesSearch && isAllowedInCartType;
     });
-  }, [selectedCategory, debouncedSearchTerm]);
+  }, [selectedCategory, debouncedSearchTerm, cartType]);
 
   return (
     <div className="animate-fadeIn">
       {/* Categories - maintenant en premier */}
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {categories.map(category => (
-          <button
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all touch-feedback ${
-              selectedCategory === category
-                ? 'btn-primary text-black shadow-md'
-                : 'bg-white hover:shadow-md'
-            }`}
-            style={{
-              color: '#000000'
-            }}
-          >
-            {category}
-          </button>
-        ))}
+        {categories.map(category => {
+          const isBlocked = cartType === 'facturier' && ['Matelas', 'Sur-matelas'].includes(category);
+          
+          return (
+            <button
+              key={category}
+              onClick={() => {
+                if (isBlocked) {
+                  alert('⚠️ Cette catégorie est désactivée en mode "Panier facturier" pour éviter les doublons avec N8N.');
+                  return;
+                }
+                setSelectedCategory(category);
+              }}
+              className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all touch-feedback ${
+                selectedCategory === category
+                  ? 'btn-primary text-black shadow-md'
+                  : isBlocked
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                    : 'bg-white hover:shadow-md'
+              }`}
+              style={{
+                color: isBlocked ? '#9CA3AF' : '#000000',
+                opacity: isBlocked ? 0.6 : 1
+              }}
+              disabled={isBlocked}
+            >
+              {category}
+              {isBlocked && ' 🚫'}
+            </button>
+          );
+        })}
       </div>
 
       {/* SearchBar - maintenant en deuxième */}

@@ -5,7 +5,8 @@ import type {
   Vendor, 
   ExtendedCartItem, 
   Sale,
-  CatalogProduct
+  CatalogProduct,
+  CartType
 } from './types';
 import { 
   vendors, 
@@ -25,7 +26,7 @@ type ResetOptionKey =
 
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
-import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab } from './components/tabs';
+import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab, PaymentsTab } from './components/tabs';
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import InvoicesTabCompact from './components/InvoicesTabCompact';
 import { SuccessNotification, FloatingCart } from './components/ui';
@@ -84,18 +85,19 @@ const VENDOR_COLORS = [
 ];
 
 export default function CaisseMyConfortApp() {
+  // 🚀 FORCE BUILD v3.0 - PANIER MODERNE
   // États principaux
   const [activeTab, setActiveTab] = useState<TabType>('vendeuse');
   const [selectedVendor, setSelectedVendor] = useIndexedStorage<Vendor | null>(STORAGE_KEYS.VENDOR, null);
   const [cart, setCart] = useIndexedStorage<ExtendedCartItem[]>(STORAGE_KEYS.CART, []);
   const [sales, setSales] = useIndexedStorage<Sale[]>(STORAGE_KEYS.SALES, []);
   const [vendorStats, setVendorStats] = useIndexedStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
+  const [cartType, setCartType] = useIndexedStorage<CartType>('CART_TYPE', 'classique');
   
   // Hook pour les factures
   const { invoices, stats: invoicesStats, resetInvoices } = useSyncInvoices();
   
   // États UI
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('card');
   const [miscDescription, setMiscDescription] = useState('');
   const [miscAmount, setMiscAmount] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
@@ -153,6 +155,29 @@ export default function CaisseMyConfortApp() {
     [cart]
   );
 
+  // Calcul du nombre de règlements en attente
+  const pendingPaymentsCount = useMemo(() => {
+    let count = 0;
+    
+    // Règlements à venir des ventes caisse
+    sales.forEach(sale => {
+      if (sale.checkDetails && sale.paymentMethod === 'check' && !sale.canceled) {
+        count++;
+      }
+    });
+
+    // Règlements à venir des factures N8N
+    invoices.forEach(invoice => {
+      if (invoice.paymentDetails?.checkDetails && 
+          invoice.paymentDetails.method === 'check' && 
+          invoice.paymentDetails.status !== 'completed') {
+        count++;
+      }
+    });
+    
+    return count;
+  }, [sales, invoices]);
+
   // Gestion du panier
   const addToCart = useCallback((product: CatalogProduct) => {
     const unitPrice = Number((product as any).priceTTC ?? (product as any).price ?? 0);
@@ -163,18 +188,28 @@ export default function CaisseMyConfortApp() {
       return;
     }
 
+    // Vérifier si le produit est autorisé selon le type de panier
+    if (cartType === 'facturier' && ['Matelas', 'Sur-matelas'].includes(product.category)) {
+      alert('⚠️ Impossible d\'ajouter ce produit en mode "Panier facturier".\n\n' +
+            'Les Matelas et Sur-matelas sont gérés automatiquement via N8N pour éviter les doublons.\n\n' +
+            'Basculez en mode "Panier classique" pour vendre directement depuis la caisse.');
+      return;
+    }
+
     setCart(prevCart => [
       ...prevCart,
       {
         id: `${product.name}-${Date.now()}-${Math.random()}`,
         name: product.name,
         price: unitPrice,
+        originalPrice: unitPrice, // ✨ Sauvegarder le prix original
         quantity: 1,
         category: product.category,
         addedAt: new Date(),
+        offert: false, // ✨ Par défaut non offert
       },
     ]);
-  }, [setCart, selectedVendor]);
+  }, [setCart, selectedVendor, cartType]);
 
   const updateQuantity = useCallback((itemId: string, newQuantity: number) => {
     setCart(prevCart => {
@@ -192,12 +227,42 @@ export default function CaisseMyConfortApp() {
     });
   }, [setCart]);
 
+  const toggleOffert = useCallback((itemId: string) => {
+    setCart(prevCart =>
+      prevCart.map(item => {
+        if (item.id === itemId) {
+          if (!item.offert) {
+            // Marquer comme offert : sauvegarder le prix original et mettre à 0
+            return {
+              ...item,
+              offert: true,
+              originalPrice: item.originalPrice || item.price,
+              price: 0
+            };
+          } else {
+            // Annuler l'offre : restaurer le prix original
+            return {
+              ...item,
+              offert: false,
+              price: item.originalPrice || item.price
+            };
+          }
+        }
+        return item;
+      })
+    );
+  }, [setCart]);
+
   const clearCart = useCallback(() => {
     setCart([]);
   }, [setCart]);
 
   // Gestion des ventes
-  const completeSale = useCallback(() => {
+  const completeSale = useCallback((
+    paymentMethod: PaymentMethod = 'card', 
+    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string },
+    manualInvoiceData?: { clientName: string; invoiceNumber: string }
+  ) => {
     if (!selectedVendor || cart.length === 0) return;
 
     const newSale: Sale = {
@@ -206,9 +271,18 @@ export default function CaisseMyConfortApp() {
       vendorName: selectedVendor.name,
       items: [...cart],
       totalAmount: cartTotal,
-      paymentMethod: selectedPaymentMethod,
+      paymentMethod: paymentMethod,
       date: new Date(),
-      canceled: false
+      canceled: false,
+      // Ajouter les détails des chèques si fournis
+      ...(checkDetails && { checkDetails }),
+      // Ajouter les données de facture manuelle si fournies
+      ...(manualInvoiceData && { 
+        manualInvoiceData: {
+          ...manualInvoiceData,
+          source: 'matelas-classique' as const
+        }
+      })
     };
 
     setSales(prev => [...prev, newSale]);
@@ -230,7 +304,7 @@ export default function CaisseMyConfortApp() {
     setTimeout(() => {
       setActiveTab('vendeuse');
     }, 2000);
-  }, [selectedVendor, cart, cartTotal, selectedPaymentMethod, setSales, setVendorStats, clearCart, setSelectedVendor]);
+  }, [selectedVendor, cart, cartTotal, setSales, setVendorStats, clearCart, setSelectedVendor]);
 
   // Fonction pour annuler la dernière vente
   const cancelLastSale = useCallback(() => {
@@ -763,6 +837,7 @@ export default function CaisseMyConfortApp() {
           salesCount={sales.length}
           cartLength={cart.length}
           invoicesCount={(invoicesStats?.pendingInvoices ?? 0) + (invoicesStats?.partialInvoices ?? 0)}
+          pendingPaymentsCount={pendingPaymentsCount}
         />
 
         {/* Main Content */}
@@ -787,12 +862,21 @@ export default function CaisseMyConfortApp() {
                 addToCart={addToCart}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
+                cartType={cartType}
               />
             )}
 
             {/* Onglet Factures */}
             {activeTab === 'factures' && (
               <InvoicesTabCompact sales={sales} />
+            )}
+
+            {/* Onglet Règlements */}
+            {activeTab === 'reglements' && (
+              <PaymentsTab 
+                sales={sales} 
+                invoices={invoices}
+              />
             )}
 
             {/* Onglet Stock */}
@@ -1843,7 +1927,7 @@ export default function CaisseMyConfortApp() {
 
 
             {/* Fallback pour les onglets non définis */}
-            {!['vendeuse', 'produits', 'factures', 'stock', 'ventes', 'diverses', 'annulation', 'ca', 'gestion', 'raz'].includes(activeTab) && (
+            {!['vendeuse', 'produits', 'factures', 'reglements', 'stock', 'ventes', 'diverses', 'annulation', 'ca', 'gestion', 'raz'].includes(activeTab) && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-md mx-auto">
                   <p className="text-4xl mb-4">🚧</p>
@@ -1867,9 +1951,10 @@ export default function CaisseMyConfortApp() {
           cartItemsCount={cartItemsCount}
           cartTotal={cartTotal}
           selectedVendor={selectedVendor}
-          selectedPaymentMethod={selectedPaymentMethod}
-          setSelectedPaymentMethod={setSelectedPaymentMethod}
           updateQuantity={updateQuantity}
+          toggleOffert={toggleOffert}
+          cartType={cartType}
+          onCartTypeChange={setCartType}
           clearCart={clearCart}
           completeSale={completeSale}
         />

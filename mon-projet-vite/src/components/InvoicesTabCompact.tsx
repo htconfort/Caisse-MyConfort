@@ -450,6 +450,66 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
                       <div><strong>Premier produit:</strong> {selectedInvoice.products.firstProduct}</div>
                     </div>
                   </div>
+                  
+                  {/* Section de paiement par chèques si applicable */}
+                  {selectedInvoice.originalData?.paymentDetails?.checkDetails && (
+                    <div>
+                      <h4 style={{ color: '#F59E0B', marginBottom: '1rem' }}>
+                        📄 Règlement par chèques
+                      </h4>
+                      <div style={{
+                        background: '#FEF3C7',
+                        border: '2px solid #F59E0B',
+                        borderRadius: '8px',
+                        padding: '1rem'
+                      }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.875rem', color: '#78350F', marginBottom: '0.25rem' }}>Nombre de chèques</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#92400E' }}>
+                              {selectedInvoice.originalData.paymentDetails.checkDetails.totalChecks}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.875rem', color: '#78350F', marginBottom: '0.25rem' }}>Montant par chèque</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#92400E' }}>
+                              {formatCurrency(selectedInvoice.originalData.paymentDetails.checkDetails.checkAmounts?.[0] || 
+                                (selectedInvoice.amount / selectedInvoice.originalData.paymentDetails.checkDetails.totalChecks))}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.875rem', color: '#78350F', marginBottom: '0.25rem' }}>Montant total</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#92400E' }}>
+                              {formatCurrency(selectedInvoice.amount)}
+                            </div>
+                          </div>
+                        </div>
+                        {selectedInvoice.originalData.paymentDetails.checkDetails.characteristics && (
+                          <div style={{ 
+                            padding: '0.75rem', 
+                            background: 'rgba(255,255,255,0.7)', 
+                            borderRadius: '4px',
+                            fontSize: '0.875rem',
+                            color: '#78350F',
+                            marginBottom: '0.5rem'
+                          }}>
+                            <strong>Caractéristiques :</strong> {selectedInvoice.originalData.paymentDetails.checkDetails.characteristics}
+                          </div>
+                        )}
+                        {selectedInvoice.originalData.paymentDetails.paymentNotes && (
+                          <div style={{ 
+                            padding: '0.75rem', 
+                            background: 'rgba(255,255,255,0.7)', 
+                            borderRadius: '4px',
+                            fontSize: '0.875rem',
+                            color: '#78350F'
+                          }}>
+                            <strong>Notes de règlement :</strong> {selectedInvoice.originalData.paymentDetails.paymentNotes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Données brutes en mode développement */}

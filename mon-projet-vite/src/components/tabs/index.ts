@@ -6,3 +6,4 @@ export { StockTab } from './StockTab';
 export { SalesTab } from './SalesTab';
 export { MiscTab } from './MiscTab';
 export { CATab } from './CATab';
+export { PaymentsTab } from './PaymentsTab';

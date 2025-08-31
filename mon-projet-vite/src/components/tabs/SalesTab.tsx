@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { Download } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Download, ChevronDown, ChevronRight, ShoppingBag, Calendar, CreditCard } from 'lucide-react';
 import type { Sale } from '../../types';
 import type { Invoice } from '@/services/syncService';
 import { convertToCSV } from '../../utils';
@@ -14,14 +14,43 @@ interface SalesTabProps {
 const fmtEUR = (n: number) =>
   new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
 
-// Libellé paiement
-const paymentLabel = (p: Sale['paymentMethod']) =>
-  p === 'card' ? 'Carte'
-  : p === 'cash' ? 'Espèces'
-  : p === 'check' ? 'Chèque'
-  : 'Virement';
+// Libellé paiement enrichi pour correspondre au nouveau système de paiement
+const paymentLabel = (p: Sale['paymentMethod']) => {
+  const labels = {
+    'card': '💳 Carte bleue',
+    'cash': '💵 Espèces',
+    'check': '🧾 Chèque',
+    'multi': '🔄 Mixte/Autre'
+  };
+  return labels[p] || '❓ Non défini';
+};
+
+// Couleur pour les modes de paiement
+const getPaymentColor = (method: Sale['paymentMethod']) => {
+  const colors = {
+    'card': { bg: '#EBF8FF', text: '#1E40AF', border: '#3B82F6' },
+    'cash': { bg: '#F0FDF4', text: '#166534', border: '#10B981' },
+    'check': { bg: '#FEF3C7', text: '#92400E', border: '#F59E0B' },
+    'multi': { bg: '#F3E8FF', text: '#7C3AED', border: '#8B5CF6' }
+  };
+  return colors[method] || { bg: '#F3F4F6', text: '#374151', border: '#9CA3AF' };
+};
 
 export function SalesTab({ sales, invoices }: SalesTabProps) {
+  // État pour gérer l'expansion des détails de vente
+  const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
+
+  // Fonction pour basculer l'expansion d'une vente
+  const toggleSaleExpansion = (saleId: string) => {
+    const newExpanded = new Set(expandedSales);
+    if (newExpanded.has(saleId)) {
+      newExpanded.delete(saleId);
+    } else {
+      newExpanded.add(saleId);
+    }
+    setExpandedSales(newExpanded);
+  };
+
   // Couleur vendeuse depuis ton data store
   const getVendorColor = (vendorId: string): string => {
     const vendor = vendors.find(v => v.id === vendorId);
@@ -62,6 +91,30 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
       (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
     );
   }, [sales, invoicesAsSales]);
+
+  // Statistiques par mode de paiement
+  const paymentStats = useMemo(() => {
+    const today = new Date().toDateString();
+    const todayValidSales = sales.filter(s => 
+      new Date(s.date).toDateString() === today && !s.canceled
+    );
+    
+    const stats = {
+      card: { count: 0, amount: 0, label: '💳 Carte bleue' },
+      cash: { count: 0, amount: 0, label: '💵 Espèces' },
+      check: { count: 0, amount: 0, label: '🧾 Chèque' },
+      multi: { count: 0, amount: 0, label: '🔄 Mixte/Autre' }
+    };
+
+    todayValidSales.forEach(sale => {
+      if (stats[sale.paymentMethod]) {
+        stats[sale.paymentMethod].count++;
+        stats[sale.paymentMethod].amount += sale.totalAmount;
+      }
+    });
+
+    return stats;
+  }, [sales]);
 
   // KPIs du jour
   const todaySales = useMemo(() => {
@@ -188,6 +241,37 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
         </div>
       </div>
 
+      {/* Statistiques des modes de paiement */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {Object.entries(paymentStats).map(([method, stats]) => {
+          const color = getPaymentColor(method as Sale['paymentMethod']);
+          return (
+            <div
+              key={method}
+              className="card text-center transition-all duration-200 hover:scale-105 cursor-pointer"
+              style={{
+                background: `linear-gradient(135deg, ${color.bg} 0%, ${color.bg}80 100%)`,
+                borderLeft: `4px solid ${color.border}`,
+                borderTop: `1px solid ${color.border}40`,
+                boxShadow: `0 2px 8px ${color.border}20`
+              }}
+            >
+              <h3 className="text-sm font-semibold mb-2" style={{ color: color.text }}>
+                {stats.label}
+              </h3>
+              <div className="space-y-1">
+                <p className="text-xl font-bold" style={{ color: color.text }}>
+                  {fmtEUR(stats.amount)}
+                </p>
+                <p className="text-xs opacity-75" style={{ color: color.text }}>
+                  {stats.count} vente{stats.count > 1 ? 's' : ''}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
       {/* Dernière vente */}
       {lastSale && (
         <div
@@ -281,50 +365,149 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
                   {sales
                     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                     .slice(0, 10)
-                    .map((sale, idx) => (
-                      <tr
-                        key={(sale.id ? String(sale.id) : '') + '|' + new Date(sale.date).getTime() + '|' + idx}
-                        className="border-b"
-                        style={{
-                          borderColor: '#F3F4F6',
-                          borderLeft: `6px solid ${getVendorColor(sale.vendorId)}`,
-                          background: `${getVendorColor(sale.vendorId)}15`
-                        }}
-                      >
-                        <td className="py-3 px-4 vendor-black-text">
-                          {new Date(sale.date).toLocaleDateString('fr-FR')}{' '}
-                          {new Date(sale.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="w-3 h-3 rounded-full" style={{ background: getVendorColor(sale.vendorId) }} />
-                            <span className="font-semibold vendor-black-text">{sale.vendorName}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4 vendor-black-text">
-                          {sale.items.reduce((sum, it) => sum + it.quantity, 0)} article(s)
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-1 rounded text-xs" style={{ background: '#F3F4F6', color: '#374151' }}>
-                            {paymentLabel(sale.paymentMethod)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right font-bold vendor-black-text">
-                          {fmtEUR(sale.totalAmount)}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          {sale.canceled ? (
-                            <span className="px-2 py-1 rounded text-xs" style={{ background: '#FEE2E2', color: '#DC2626' }}>
-                              Annulée
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded text-xs" style={{ background: '#D1FAE5', color: '#059669' }}>
-                              Validée
-                            </span>
+                    .map((sale, idx) => {
+                      const saleKey = (sale.id ? String(sale.id) : '') + '|' + new Date(sale.date).getTime() + '|' + idx;
+                      const isExpanded = expandedSales.has(saleKey);
+                      
+                      return (
+                        <React.Fragment key={saleKey}>
+                          <tr
+                            className="border-b cursor-pointer transition-all duration-200 hover:bg-gray-50"
+                            style={{
+                              borderColor: '#F3F4F6',
+                              borderLeft: `6px solid ${getVendorColor(sale.vendorId)}`,
+                              background: `${getVendorColor(sale.vendorId)}15`
+                            }}
+                            onClick={() => toggleSaleExpansion(saleKey)}
+                            title="Cliquer pour voir les détails"
+                          >
+                            <td className="py-3 px-4 vendor-black-text">
+                              <div className="flex items-center gap-2">
+                                {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                <div>
+                                  <div>{new Date(sale.date).toLocaleDateString('fr-FR')}</div>
+                                  <div className="text-xs text-gray-500">
+                                    {new Date(sale.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full" style={{ background: getVendorColor(sale.vendorId) }} />
+                                <span className="font-semibold vendor-black-text">{sale.vendorName}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 vendor-black-text">
+                              <div className="flex items-center gap-1">
+                                <ShoppingBag size={14} />
+                                {sale.items.reduce((sum, it) => sum + it.quantity, 0)} article(s)
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span 
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 transition-all duration-200 hover:scale-105 shadow-sm"
+                                style={{ 
+                                  background: getPaymentColor(sale.paymentMethod).bg,
+                                  color: getPaymentColor(sale.paymentMethod).text,
+                                  border: `1px solid ${getPaymentColor(sale.paymentMethod).border}40`,
+                                  boxShadow: `0 1px 3px ${getPaymentColor(sale.paymentMethod).border}20`
+                                }}
+                                title={`Mode de paiement: ${paymentLabel(sale.paymentMethod)}`}
+                              >
+                                {paymentLabel(sale.paymentMethod)}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right font-bold vendor-black-text">
+                              {fmtEUR(sale.totalAmount)}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              {sale.canceled ? (
+                                <span className="px-2 py-1 rounded text-xs" style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                                  Annulée
+                                </span>
+                              ) : (
+                                <span className="px-2 py-1 rounded text-xs" style={{ background: '#D1FAE5', color: '#059669' }}>
+                                  Validée
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                          
+                          {/* Ligne de détails expansible */}
+                          {isExpanded && (
+                            <tr style={{ background: '#F8F9FA' }}>
+                              <td colSpan={6} className="px-4 py-4">
+                                <div className="space-y-3">
+                                  <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                                    <ShoppingBag size={16} />
+                                    Détail des articles
+                                  </h4>
+                                  <div className="grid gap-2">
+                                    {sale.items.map((item, itemIdx) => (
+                                      <div 
+                                        key={itemIdx}
+                                        className="flex justify-between items-center p-2 bg-white rounded border border-gray-200"
+                                      >
+                                        <div>
+                                          <span className="font-medium">{item.name}</span>
+                                          <span className="text-sm text-gray-500 ml-2">
+                                            (x{item.quantity})
+                                          </span>
+                                        </div>
+                                        <span className="font-semibold">
+                                          {fmtEUR(item.price * item.quantity)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="flex items-center gap-4 text-sm text-gray-600 pt-2 border-t">
+                                    <div className="flex items-center gap-1">
+                                      <Calendar size={14} />
+                                      {new Date(sale.date).toLocaleString('fr-FR')}
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <CreditCard size={14} />
+                                      {paymentLabel(sale.paymentMethod)}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Détails des chèques à venir si applicable */}
+                                  {sale.checkDetails && (
+                                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                      <h5 className="font-semibold text-amber-800 flex items-center gap-2 mb-2">
+                                        📄 Détails des chèques à venir
+                                      </h5>
+                                      <div className="space-y-1 text-sm text-amber-700">
+                                        <div className="flex justify-between">
+                                          <span>Nombre de chèques :</span>
+                                          <span className="font-semibold">{sale.checkDetails.count}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>Montant par chèque :</span>
+                                          <span className="font-semibold">{fmtEUR(sale.checkDetails.amount)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                          <span>Montant total :</span>
+                                          <span className="font-semibold">{fmtEUR(sale.checkDetails.totalAmount)}</span>
+                                        </div>
+                                        {sale.checkDetails.notes && (
+                                          <div className="pt-2 border-t border-amber-300">
+                                            <div className="text-xs text-amber-600">
+                                              <strong>Notes :</strong> {sale.checkDetails.notes}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                      </tr>
-                    ))}
+                        </React.Fragment>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>

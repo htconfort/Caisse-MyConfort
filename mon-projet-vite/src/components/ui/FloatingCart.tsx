@@ -1,12 +1,15 @@
 import { useState, useMemo } from 'react';
-import { ShoppingCart, X, CreditCard, Check, Plus, Minus } from 'lucide-react';
+import { ShoppingCart, X, CreditCard, Plus, Minus } from 'lucide-react';
 import type { 
   TabType, 
   PaymentMethod, 
-  Vendor, 
-  ExtendedCartItem 
+  Vendor,
+  ExtendedCartItem,
+  CartType 
 } from '../../types';
 import { isMatressProduct } from '../../utils';
+import { CartTypeSelector } from './CartTypeSelector';
+import { ManualInvoiceModal } from './ManualInvoiceModal';
 
 // Interface pour les données de paiement étendues
 interface PaymentData {
@@ -36,11 +39,12 @@ interface FloatingCartProps {
   cartItemsCount: number;
   cartTotal: number;
   selectedVendor: Vendor | null;
-  selectedPaymentMethod: PaymentMethod;
-  setSelectedPaymentMethod: (method: PaymentMethod) => void;
   clearCart: () => void;
-  completeSale: () => void;
+  completeSale: (paymentMethod?: PaymentMethod, checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }, manualInvoiceData?: { clientName: string; invoiceNumber: string }) => void;
   updateQuantity?: (itemId: string, newQuantity: number) => void;
+  toggleOffert?: (itemId: string) => void;
+  cartType?: CartType;
+  onCartTypeChange?: (type: CartType) => void;
 }
 
 export function FloatingCart({
@@ -49,52 +53,20 @@ export function FloatingCart({
   cartItemsCount,
   cartTotal,
   selectedVendor,
-  selectedPaymentMethod,
-  setSelectedPaymentMethod,
   clearCart,
   completeSale,
-  updateQuantity
+  updateQuantity,
+  toggleOffert,
+  cartType = 'classique',
+  onCartTypeChange
 }: FloatingCartProps) {
   const [isCartMinimized, setIsCartMinimized] = useState(false);
-  const [showExtendedPayments, setShowExtendedPayments] = useState(false);
-
-  // Méthodes de paiement
-  const paymentMethods = [
-    { id: 'card' as PaymentMethod, label: 'Carte', emoji: '💳' },
-    { id: 'cash' as PaymentMethod, label: 'Espèces', emoji: '💵' },
-    { id: 'check' as PaymentMethod, label: 'Chèque', emoji: '📝' },
-    { id: 'multi' as PaymentMethod, label: 'Multi', emoji: '🔄' }
-  ];
-
-  // Méthodes de paiement étendues pour le mode "Multi"
-  const extendedPaymentMethods = [
-    { id: 'check_pending', label: 'Chèque en attente', emoji: '📝', description: 'Chèque différé ou à encaisser plus tard' },
-    { id: 'alma', label: 'Alma (Crédit)', emoji: '💳', description: 'Paiement en plusieurs fois avec Alma' },
-    { id: 'transfer', label: 'Virement', emoji: '🏦', description: 'Virement bancaire' },
-    { id: 'voucher', label: 'Bon/Avoir', emoji: '🎫', description: 'Bon d\'achat ou avoir client' }
-  ];
-
-  const handlePaymentMethodClick = (methodId: PaymentMethod) => {
-    console.log('🔄 Clic sur méthode de paiement:', methodId);
-    
-    if (methodId === 'multi') {
-      console.log('🚀 Ouverture de la page complète de paiement');
-      setShowFullPaymentPage(true);
-    } else {
-      setSelectedPaymentMethod(methodId);
-    }
-  };
-
-  const handleExtendedPaymentSelect = (methodId: string) => {
-    console.log('💳 Sélection méthode étendue:', methodId);
-    // Pour l'instant on ferme juste le modal et on sélectionne "multi"
-    // Plus tard on pourra gérer les méthodes étendues spécifiquement
-    setSelectedPaymentMethod('multi');
-    setShowExtendedPayments(false);
-  };
-
-  // Afficher le composant de paiement complet au lieu du modal simple
-  const [showFullPaymentPage, setShowFullPaymentPage] = useState(false);
+  const [showPaymentPage, setShowPaymentPage] = useState(false);
+  const [showManualInvoiceModal, setShowManualInvoiceModal] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<{
+    method?: PaymentMethod;
+    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string };
+  } | null>(null);
 
   // Calcul des économies
   const totalSavings = useMemo(() => {
@@ -107,6 +79,43 @@ export function FloatingCart({
       return total;
     }, 0);
   }, [cart]);
+
+  // Détection de produits matelas/sur-matelas dans le panier
+  const hasMatressProducts = useMemo(() => {
+    return cart.some(item => isMatressProduct(item.category));
+  }, [cart]);
+
+  const handleCompleteSale = (
+    paymentMethod?: PaymentMethod, 
+    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }
+  ) => {
+    // Fermer la page de paiement d'abord
+    setShowPaymentPage(false);
+    
+    // Si panier classique + matelas/sur-matelas = forcer saisie client
+    if (cartType === 'classique' && hasMatressProducts) {
+      setPendingPaymentData({ method: paymentMethod, checkDetails });
+      setShowManualInvoiceModal(true);
+      return;
+    }
+
+    // Sinon, vente normale
+    completeSale(paymentMethod, checkDetails);
+  };
+
+  // Fonction appelée après saisie des infos client/facture
+  const handleManualInvoiceComplete = (manualInvoiceData: { clientName: string; invoiceNumber: string }) => {
+    setShowManualInvoiceModal(false);
+    
+    if (pendingPaymentData) {
+      completeSale(
+        pendingPaymentData.method, 
+        pendingPaymentData.checkDetails, 
+        manualInvoiceData
+      );
+      setPendingPaymentData(null);
+    }
+  };
 
   // Ne pas afficher sur certains onglets
   if (!['produits', 'annulation'].includes(activeTab)) {
@@ -206,6 +215,16 @@ export function FloatingCart({
           <div>
             <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
               Mon Panier
+              <span style={{ 
+                marginLeft: '8px', 
+                fontSize: '10px', 
+                backgroundColor: 'rgba(255,255,255,0.2)', 
+                padding: '2px 6px', 
+                borderRadius: '4px',
+                fontWeight: 'normal'
+              }}>
+                v3.0
+              </span>
             </div>
             <div style={{ 
               fontSize: '14px', 
@@ -258,14 +277,58 @@ export function FloatingCart({
                   marginBottom: '4px'
                 }}>
                   {item.name}
+                  {item.offert && (
+                    <span style={{
+                      marginLeft: '8px',
+                      fontSize: '12px',
+                      padding: '2px 6px',
+                      backgroundColor: '#dcfce7',
+                      color: '#166534',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}>
+                      🎁 Offert
+                    </span>
+                  )}
                 </div>
                 <div style={{ 
                   fontSize: '13px', 
                   color: '#6B7280'
                 }}>
-                  {item.price.toFixed(2)}€ × {item.quantity}
+                  {item.offert ? '0.00' : item.price.toFixed(2)}€ × {item.quantity}
                 </div>
               </div>
+              
+              {/* Bouton Offert */}
+              {toggleOffert && (
+                <button
+                  onClick={() => toggleOffert(item.id)}
+                  style={{
+                    backgroundColor: item.offert ? '#dcfce7' : '#f3f4f6',
+                    color: item.offert ? '#166534' : '#6B7280',
+                    border: item.offert ? '1px solid #bbf7d0' : '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    marginRight: '8px',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!item.offert) {
+                      e.currentTarget.style.backgroundColor = '#e5e7eb';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!item.offert) {
+                      e.currentTarget.style.backgroundColor = '#f3f4f6';
+                    }
+                  }}
+                >
+                  🎁 {item.offert ? 'Annuler' : 'Offert'}
+                </button>
+              )}
               
               {/* Contrôles de quantité */}
               {updateQuantity && (
@@ -323,9 +386,9 @@ export function FloatingCart({
               <div style={{ 
                 fontSize: '14px', 
                 fontWeight: 'bold',
-                color: '#477A0C'
+                color: item.offert ? '#166534' : '#477A0C'
               }}>
-                {(item.price * item.quantity).toFixed(2)}€
+                {item.offert ? '0.00' : (item.price * item.quantity).toFixed(2)}€
               </div>
             </div>
           ))}
@@ -340,48 +403,14 @@ export function FloatingCart({
         gap: '20px'
       }}>
         
-        {/* Section des méthodes de paiement */}
-        <div>
-          <h4 style={{
-            margin: '0 0 12px 0',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            color: '#14281D',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <CreditCard size={16} />
-            Mode de paiement
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            {paymentMethods.map((method) => (
-              <button
-                key={method.id}
-                onClick={() => handlePaymentMethodClick(method.id)}
-                style={{
-                  padding: '12px 8px',
-                  borderRadius: '8px',
-                  border: `2px solid ${selectedPaymentMethod === method.id ? '#477A0C' : '#D1D5DB'}`,
-                  backgroundColor: selectedPaymentMethod === method.id ? '#477A0C' : 'white',
-                  color: selectedPaymentMethod === method.id ? 'white' : '#14281D',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <span style={{ fontSize: '16px' }}>{method.emoji}</span>
-                <span>{method.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
+        {/* Sélecteur de type de panier */}
+        {onCartTypeChange && (
+          <CartTypeSelector
+            cartType={cartType}
+            onChange={onCartTypeChange}
+          />
+        )}
+        
         {/* Section du total */}
         <div style={{ 
           padding: '20px',
@@ -399,7 +428,7 @@ export function FloatingCart({
             color: '#477A0C',
             lineHeight: 1
           }}>
-            {cartTotal.toFixed(2).replace('.', ',')}
+            {cartTotal.toFixed(2).replace('.', ',')}€
           </div>
           {totalSavings > 0 && (
             <div style={{ 
@@ -413,35 +442,48 @@ export function FloatingCart({
           )}
         </div>
 
-        {/* Section des actions */}
+        {/* Section des actions simplifiées */}
         <div style={{ 
           display: 'flex',
           flexDirection: 'column',
           gap: '12px'
         }}>
+          {/* Bouton Mode de paiement */}
           <button
-            onClick={completeSale}
+            onClick={() => {
+              if (!selectedVendor) {
+                alert('⚠️ Veuillez d\'abord sélectionner une vendeuse dans l\'onglet "Vendeuse"');
+                return;
+              }
+              if (cart.length === 0) {
+                alert('⚠️ Le panier est vide');
+                return;
+              }
+              setShowPaymentPage(true);
+            }}
             disabled={!selectedVendor || cart.length === 0}
             style={{
-              backgroundColor: !selectedVendor || cart.length === 0 ? '#9CA3AF' : '#477A0C',
+              backgroundColor: (!selectedVendor || cart.length === 0) ? '#9CA3AF' : '#477A0C',
               color: 'white',
               border: 'none',
               borderRadius: '12px',
               padding: '16px',
               fontSize: '16px',
               fontWeight: 'bold',
-              cursor: !selectedVendor || cart.length === 0 ? 'not-allowed' : 'pointer',
+              cursor: (!selectedVendor || cart.length === 0) ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: '8px',
               transition: 'all 0.2s ease',
-              opacity: !selectedVendor || cart.length === 0 ? 0.6 : 1
+              opacity: (!selectedVendor || cart.length === 0) ? 0.6 : 1
             }}
           >
-            <Check size={18} />
-            Valider le paiement
+            <CreditCard size={18} />
+            {!selectedVendor ? 'Sélectionner une vendeuse' : 'Mode de paiement'}
           </button>
+          
+          {/* Bouton Vider le panier */}
           <button
             onClick={clearCart}
             disabled={cart.length === 0}
@@ -455,163 +497,39 @@ export function FloatingCart({
               fontWeight: 'bold',
               cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
-              opacity: cart.length === 0 ? 0.6 : 1
+              opacity: cart.length === 0 ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
             }}
           >
+            <X size={18} />
             Vider le panier
           </button>
         </div>
       </div>
 
       {/* Page complète de paiement */}
-      {showFullPaymentPage && (
+      {showPaymentPage && (
         <StepPaymentNoScroll 
           cartTotal={cartTotal}
-          onBack={() => setShowFullPaymentPage(false)}
-          onSelectPayment={(method) => {
-            setSelectedPaymentMethod(method);
-            setShowFullPaymentPage(false);
-          }}
+          onBack={() => setShowPaymentPage(false)}
+          onSelectPayment={handleCompleteSale}
         />
       )}
 
-      {/* Modal des paiements étendus - version simple */}
-      {showExtendedPayments && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1100,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '16px',
-            padding: '24px',
-            width: '90%',
-            maxWidth: '500px',
-            maxHeight: '80vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.3)'
-          }}>
-            {/* Header du modal */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '24px',
-              paddingBottom: '16px',
-              borderBottom: '2px solid #f3f4f6'
-            }}>
-              <h3 style={{
-                margin: 0,
-                fontSize: '24px',
-                fontWeight: 'bold',
-                color: '#14281D',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <span style={{ fontSize: '28px' }}>🔄</span>
-                Modes de règlement
-              </h3>
-              <button
-                onClick={() => setShowExtendedPayments(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: '#6B7280',
-                  padding: '4px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Liste des méthodes de paiement étendues */}
-            <div style={{
-              display: 'grid',
-              gap: '12px'
-            }}>
-              {extendedPaymentMethods.map((method) => (
-                <button
-                  key={method.id}
-                  onClick={() => handleExtendedPaymentSelect(method.id)}
-                  style={{
-                    padding: '16px',
-                    borderRadius: '12px',
-                    border: '2px solid #D1D5DB',
-                    backgroundColor: 'white',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    transition: 'all 0.2s ease',
-                    textAlign: 'left'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#477A0C';
-                    e.currentTarget.style.backgroundColor = '#f8f9fa';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#D1D5DB';
-                    e.currentTarget.style.backgroundColor = 'white';
-                  }}
-                >
-                  <span style={{ fontSize: '24px' }}>{method.emoji}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      color: '#14281D',
-                      marginBottom: '4px'
-                    }}>
-                      {method.label}
-                    </div>
-                    <div style={{
-                      fontSize: '14px',
-                      color: '#6B7280'
-                    }}>
-                      {method.description}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Footer du modal */}
-            <div style={{
-              marginTop: '24px',
-              paddingTop: '16px',
-              borderTop: '1px solid #f3f4f6',
-              textAlign: 'center'
-            }}>
-              <button
-                onClick={() => setShowExtendedPayments(false)}
-                style={{
-                  backgroundColor: '#f3f4f6',
-                  color: '#6B7280',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px 24px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modale de saisie manuelle client/facture */}
+      <ManualInvoiceModal
+        isOpen={showManualInvoiceModal}
+        onClose={() => {
+          setShowManualInvoiceModal(false);
+          setPendingPaymentData(null);
+        }}
+        onSave={handleManualInvoiceComplete}
+        cartTotal={cartTotal}
+        reason="matelas-classique"
+      />
     </div>
   );
 }
@@ -624,12 +542,13 @@ function StepPaymentNoScroll({
 }: { 
   cartTotal: number; 
   onBack: () => void; 
-  onSelectPayment: (method: PaymentMethod) => void; 
+  onSelectPayment: (method: PaymentMethod, checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }) => void; 
 }) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentData['method']>('');
   const [acompte, setAcompte] = useState<number>(0);
   const [showAlmaPage, setShowAlmaPage] = useState(false);
   const [showChequesPage, setShowChequesPage] = useState(false);
+  const [checkDetails, setCheckDetails] = useState<{ count: number; amount: number; totalAmount: number; notes?: string } | null>(null);
 
   const restePay = Math.max(0, cartTotal - acompte);
   const isValidPayment = !!selectedMethod && acompte >= 0 && acompte <= cartTotal;
@@ -658,9 +577,17 @@ function StepPaymentNoScroll({
         acompte={acompte}
         onBack={() => setShowChequesPage(false)}
         onComplete={(data: { count: number; amount: number; notes: string }) => {
+          const totalAmount = data.count * data.amount;
+          const checkInfo = {
+            count: data.count,
+            amount: data.amount,
+            totalAmount: totalAmount,
+            notes: data.notes
+          };
+          setCheckDetails(checkInfo);
           setSelectedMethod('Chèque à venir');
           setShowChequesPage(false);
-          console.log('Chèques configurés:', data);
+          console.log('Chèques configurés:', checkInfo);
         }}
       />
     );
@@ -889,7 +816,7 @@ function StepPaymentNoScroll({
           <PaymentCard
             active={selectedMethod === 'Chèque à venir'}
             title="Chèques à venir"
-            subtitle="Planifier le paiement échelonné →"
+            subtitle={checkDetails ? `${checkDetails.count} chèques de ${checkDetails.amount}€ ✓` : "Planifier le paiement échelonné →"}
             emoji="📄"
             onClick={() => setShowChequesPage(true)}
             highlight="amber"
@@ -932,7 +859,12 @@ function StepPaymentNoScroll({
                 else if (selectedMethod === 'Carte Bleue') paymentMethod = 'card';
                 else if (selectedMethod.includes('Chèque')) paymentMethod = 'check';
                 
-                onSelectPayment(paymentMethod);
+                // Passer les détails des chèques si c'est un paiement par chèques à venir
+                if (selectedMethod === 'Chèque à venir' && checkDetails) {
+                  onSelectPayment(paymentMethod, checkDetails);
+                } else {
+                  onSelectPayment(paymentMethod);
+                }
               }
             }}
             disabled={!isValidPayment}
