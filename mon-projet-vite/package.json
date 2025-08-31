@@ -18,7 +18,9 @@
     "save:msg": "bash ./auto-commit.sh \"feat: update\"",
     "predeploy:netlify": "npm run build:verify && npm run build",
     "deploy:netlify:preview": "netlify deploy --build --dir=dist --alias=preprod",
-    "deploy:netlify:draft": "netlify deploy --dir=dist"
+    "deploy:netlify:draft": "netlify deploy --dir=dist",
+    "release": "scripts/build_and_release.sh",
+    "release:prod": "NETLIFY_DEPLOY=1 scripts/build_and_release.sh"
   },
   "dependencies": {
     "@types/dexie": "^1.3.32",
