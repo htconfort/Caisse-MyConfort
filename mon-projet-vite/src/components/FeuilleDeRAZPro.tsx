@@ -210,20 +210,61 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   // ===== FONCTION IMPRESSION A4 AVEC NOM ÉVÉNEMENT =====
   const handleRAZPrint = () => {
-    if (contentHtmlForPrint) {
-      const fullHtml = `
-        <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
-          <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
-            📍 Feuille de Caisse — ${eventNameDynamic}
-          </h1>
-          ${contentHtmlForPrint}
-        </div>
-      `;
-      printHtmlA4(fullHtml);
-      setIsPrinted(true); // ✅ Marquer comme imprimé pour activer le bouton email
-    } else {
-      alert("Impossible de trouver la feuille à imprimer. Veuillez d'abord visualiser la feuille.");
+    console.log('🖨️ DEBUG Impression - État:', { 
+      contentHtmlForPrint: contentHtmlForPrint ? 'PRÉSENT' : 'VIDE', 
+      isViewed, 
+      modeApercu 
+    });
+
+    // Si pas de contenu, essayer de le générer en forçant la visualisation
+    if (!contentHtmlForPrint) {
+      console.log('⚠️ Contenu HTML manquant, tentative de génération...');
+      
+      // Forcer la visualisation si nécessaire
+      if (!modeApercu) {
+        setModeApercu(true);
+        setIsViewed(true);
+      }
+      
+      // Attendre un peu que le DOM se mette à jour, puis essayer de capturer
+      setTimeout(() => {
+        const contentElement = document.getElementById('zone-impression-content');
+        if (contentElement) {
+          const capturedContent = contentElement.innerHTML;
+          setContentHtmlForPrint(capturedContent);
+          
+          // Maintenant imprimer avec le contenu capturé
+          const fullHtml = `
+            <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
+              <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
+                📍 Feuille de Caisse — ${eventNameDynamic}
+              </h1>
+              ${capturedContent}
+            </div>
+          `;
+          printHtmlA4(fullHtml);
+          setIsPrinted(true);
+          console.log('✅ Impression effectuée avec contenu généré');
+        } else {
+          alert("Impossible de générer la feuille à imprimer. Veuillez d'abord cliquer sur 'Voir la feuille'.");
+        }
+      }, 200);
+      
+      return;
     }
+
+    // Cas normal : contenu déjà disponible
+    const fullHtml = `
+      <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
+        <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
+          📍 Feuille de Caisse — ${eventNameDynamic}
+        </h1>
+        ${contentHtmlForPrint}
+      </div>
+    `;
+    printHtmlA4(fullHtml);
+    setIsPrinted(true);
+    console.log('✅ Impression effectuée avec contenu existant');
   };
 
   useEffect(() => {
@@ -590,10 +631,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   };
 
   const envoyerEmailSecurise = () => {
-    if (!isViewed || !isPrinted) {
-      alert('⚠️ Veuillez d\'abord visualiser et imprimer la feuille de RAZ.');
+    console.log('🔍 DEBUG Email - État du workflow:', { isViewed, isPrinted, isEmailSent });
+    
+    if (!isPrinted) {
+      alert('⚠️ Veuillez d\'abord IMPRIMER la feuille de RAZ en cliquant sur "Imprimer".');
       return;
     }
+    
+    console.log('✅ Conditions remplies, envoi de l\'email...');
     envoyerEmail(); // Appelle la fonction email existante
     setIsEmailSent(true);
   };
@@ -808,9 +853,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             {/*  Bouton Jaune-Vert : Envoyer par email */}
             <button 
               onClick={envoyerEmailSecurise} 
-              style={(!isViewed || !isPrinted) ? btnDisabled('#84CC16') : btn('#84CC16', false, '#1A202C')} 
-              disabled={!isViewed || !isPrinted}
-              title={!isViewed || !isPrinted ? `Visualisez et imprimez d'abord (Vue: ${isViewed ? '✓' : '✗'}, Imprimé: ${isPrinted ? '✓' : '✗'})` : isEmailSent ? 'Email envoyé ✓' : 'Étape 3: Envoyer par email'}
+              style={!isPrinted ? btnDisabled('#84CC16') : btn('#84CC16', false, '#1A202C')} 
+              disabled={!isPrinted}
+              title={!isPrinted ? `Imprimez d'abord la feuille (Imprimé: ${isPrinted ? '✓' : '✗'})` : isEmailSent ? 'Email envoyé ✓' : 'Étape 3: Envoyer par email'}
             >
               <Mail size={20}/>
               {isEmailSent ? 'Email envoyé ✓' : 'Envoyer par Email'}
@@ -819,9 +864,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             {/* 🖨️ Bouton Bleu : Imprimer */}
             <button 
               onClick={handleRAZPrint} 
-              style={!isViewed ? btnDisabled('#3B82F6') : btn('#3B82F6', false, '#FFFFFF')} 
-              disabled={!isViewed}
-              title={!isViewed ? 'Visualisez d\'abord la feuille' : isPrinted ? 'Déjà imprimé ✓' : 'Étape 2: Imprimer la feuille'}
+              style={btn('#3B82F6', false, '#FFFFFF')} 
+              title={isPrinted ? 'Déjà imprimé ✓' : 'Étape 2: Imprimer la feuille (génère automatiquement la vue si nécessaire)'}
             >
               <Printer size={20}/>
               {isPrinted ? 'Déjà imprimé ✓' : 'Imprimer'}
