@@ -1,7 +1,7 @@
 /**
  * Onglet Factures avec design compact et intégration factures externes
  * Remplace l'ancien InvoicesTabElegant avec une approche moderne
- * Version: 3.8.1 - MyConfort
+ * Version: 3.8.2 - MyConfort avec correspondances complètes
  */
 
 import React, { useState, useMemo } from 'react';
@@ -11,7 +11,9 @@ import { useNotifications } from '../hooks/useNotifications';
 import CompactInvoicesDisplay from './CompactInvoicesDisplay';
 import ExternalInvoicesDisplay from './ExternalInvoicesDisplay';
 import { NotificationCenter } from './NotificationCenter';
-import { Sale } from '../types';
+import { Sale, PaymentMethod } from '../types';
+import { vendors } from '../data';
+import { CreditCard, FileText, User, Euro, Calendar, Package, CheckCircle } from 'lucide-react';
 import '../styles/invoices-compact.css';
 
 interface UnifiedInvoice {
@@ -23,6 +25,14 @@ interface UnifiedInvoice {
   status: string;
   amount: number;
   type: 'internal' | 'external';
+  paymentMethod: PaymentMethod;
+  checkDetails?: {
+    count: number;
+    amount: number;
+    totalAmount: number;
+    notes?: string;
+  };
+  vendorName?: string;
   originalData: any;
 }
 
@@ -55,6 +65,33 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
     notifications,
     removeNotification
   } = useNotifications();
+
+  // Fonctions utilitaires pour les modes de paiement
+  const getPaymentMethodLabel = (method: PaymentMethod | string): string => {
+    const methods: Record<string, string> = {
+      'cash': 'Espèces',
+      'card': 'Carte',
+      'check': 'Chèque',
+      'multi': 'Mixte',
+      'Carte': 'Carte',
+      'Chèque': 'Chèque',
+      'Espèces': 'Espèces'
+    };
+    return methods[method] || method;
+  };
+
+  const getPaymentMethodColor = (method: PaymentMethod | string): string => {
+    const colors: Record<string, string> = {
+      'cash': '#4caf50',     // Vert pour espèces
+      'card': '#2196f3',     // Bleu pour carte
+      'check': '#ff9800',    // Orange pour chèque
+      'multi': '#9c27b0',    // Violet pour mixte
+      'Carte': '#2196f3',
+      'Chèque': '#ff9800',
+      'Espèces': '#4caf50'
+    };
+    return colors[method] || '#666';
+  };
 
   // Convertir les ventes en format facture pour l'affichage unifié
   const salesAsInvoices: Sale[] = useMemo(() => {
@@ -331,6 +368,192 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Section de correspondances : Mode de règlement, Client, N° Facture, Produit, Montant, Nb Chèques */}
+      <div style={{
+        background: 'white',
+        borderRadius: '12px',
+        padding: '1.5rem',
+        marginBottom: '1rem',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
+        <h3 style={{
+          margin: '0 0 1rem 0',
+          fontSize: '1.2rem',
+          color: '#477A0C',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem'
+        }}>
+          <FileText size={20} />
+          Correspondances Factures & Règlements
+        </h3>
+
+        {/* Tableau de correspondances */}
+        <div style={{
+          overflowX: 'auto',
+          marginBottom: '1rem'
+        }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '0.9rem'
+          }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8f9fa' }}>
+                <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>
+                  <CreditCard size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  Mode de Règlement
+                </th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>
+                  <User size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  Nom Client
+                </th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>
+                  <FileText size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  N° Facture
+                </th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>
+                  <Package size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  Produit(s)
+                </th>
+                <th style={{ padding: '0.75rem', textAlign: 'right', borderBottom: '2px solid #dee2e6' }}>
+                  <Euro size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  Montant
+                </th>
+                <th style={{ padding: '0.75rem', textAlign: 'center', borderBottom: '2px solid #dee2e6' }}>
+                  <CheckCircle size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  Nb Chèques
+                </th>
+                <th style={{ padding: '0.75rem', textAlign: 'left', borderBottom: '2px solid #dee2e6' }}>
+                  <Calendar size={16} style={{ display: 'inline', marginRight: '0.5rem' }} />
+                  Date
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Correspondances depuis les ventes */}
+              {salesAsInvoices.map(sale => (
+                <tr key={`sale-${sale.id}`} style={{ borderBottom: '1px solid #dee2e6' }}>
+                  <td style={{ padding: '0.75rem' }}>
+                    <span style={{
+                      background: getPaymentMethodColor(sale.paymentMethod),
+                      color: 'white',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem'
+                    }}>
+                      {getPaymentMethodLabel(sale.paymentMethod)}
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.75rem', fontWeight: '500' }}>
+                    {sale.manualInvoiceData?.clientName || 'Client Standard'}
+                  </td>
+                  <td style={{ padding: '0.75rem', fontFamily: 'monospace' }}>
+                    {sale.manualInvoiceData?.invoiceNumber || `VENTE-${sale.id.slice(-6)}`}
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    {sale.items.length === 1 
+                      ? sale.items[0].name 
+                      : `${sale.items[0].name} +${sale.items.length - 1} autres`
+                    }
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>
+                    {formatCurrency(sale.totalAmount)}
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                    {sale.checkDetails ? (
+                      <span style={{
+                        background: '#e3f2fd',
+                        color: '#1976d2',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.8rem'
+                      }}>
+                        {sale.checkDetails.count} chèque{sale.checkDetails.count > 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#666', fontSize: '0.8rem' }}>-</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '0.75rem', fontSize: '0.8rem' }}>
+                    {new Date(sale.date).toLocaleDateString('fr-FR')}
+                  </td>
+                </tr>
+              ))}
+              
+              {/* Correspondances depuis les factures externes */}
+              {externalInvoices.map(invoice => (
+                <tr key={`external-${invoice.invoiceNumber}`} style={{ borderBottom: '1px solid #dee2e6' }}>
+                  <td style={{ padding: '0.75rem' }}>
+                    <span style={{
+                      background: getPaymentMethodColor(invoice.payment?.method || 'card'),
+                      color: 'white',
+                      padding: '0.25rem 0.5rem',
+                      borderRadius: '4px',
+                      fontSize: '0.8rem'
+                    }}>
+                      {getPaymentMethodLabel(invoice.payment?.method || 'card')}
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.75rem', fontWeight: '500' }}>
+                    {invoice.client?.name || 'Client Externe'}
+                  </td>
+                  <td style={{ padding: '0.75rem', fontFamily: 'monospace' }}>
+                    {invoice.invoiceNumber}
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    {invoice.items?.length === 1 
+                      ? invoice.items[0].name 
+                      : `${invoice.items?.[0]?.name || 'Produit'} +${(invoice.items?.length || 1) - 1} autres`
+                    }
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>
+                    {formatCurrency(invoice.totals?.ttc || 0)}
+                  </td>
+                  <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                    {invoice.payment?.method === 'check' && invoice.payment?.checkCount ? (
+                      <span style={{
+                        background: '#e3f2fd',
+                        color: '#1976d2',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.8rem'
+                      }}>
+                        {invoice.payment.checkCount} chèque{invoice.payment.checkCount > 1 ? 's' : ''}
+                      </span>
+                    ) : (
+                      <span style={{ color: '#666', fontSize: '0.8rem' }}>-</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '0.75rem', fontSize: '0.8rem' }}>
+                    {new Date(invoice.invoiceDate).toLocaleDateString('fr-FR')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Message si aucune donnée */}
+        {salesAsInvoices.length === 0 && externalInvoices.length === 0 && (
+          <div style={{
+            textAlign: 'center',
+            padding: '2rem',
+            color: '#666',
+            background: '#f8f9fa',
+            borderRadius: '8px'
+          }}>
+            <FileText size={48} style={{ opacity: 0.3, marginBottom: '1rem' }} />
+            <p style={{ margin: 0, fontSize: '1.1rem' }}>
+              Aucune facture trouvée
+            </p>
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem' }}>
+              Les correspondances s'afficheront ici dès qu'il y aura des ventes ou des factures.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Centre de notifications */}
