@@ -50,18 +50,6 @@ export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
 export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures' | 'gestion';
 
 // ============================================================================
-// 📝 TYPES SAISIE RETRO - Formulaire de ventes rétroactives
-// ============================================================================
-
-export interface SaisieRetroFormData {
-  clientName: string;
-  vendorName: string;
-  productLabel: string;
-  amount: string;
-  date: string; // Format YYYY-MM-DD
-}
-
-// ============================================================================
 // 🗄️ TYPES INDEXEDDB - Simplifiés et compatibles avec le schéma Dexie
 // ============================================================================
 

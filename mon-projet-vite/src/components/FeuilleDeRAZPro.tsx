@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Printer, Mail, Eye, EyeOff, RefreshCw, PlayCircle, XCircle } from 'lucide-react';
+import { Mail, Eye, EyeOff, RefreshCw, PlayCircle, XCircle } from 'lucide-react';
 import type { Sale, Vendor } from '../types';
 import type { Invoice } from '@/services/syncService';
 import { externalInvoiceService } from '../services/externalInvoiceService';
@@ -9,6 +9,7 @@ import type { SessionDB } from '@/types';
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
 import { RAZGuardModal } from './RAZGuardModal';
 import { printHtmlA4 } from '../utils/printA4';
+import { FeuilleCaissePrintable } from './FeuilleCaissePrintable';
 import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
 
 // Types pour WhatsApp
@@ -52,12 +53,13 @@ interface VendeusesAvecDetail extends Vendor {
 function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, executeRAZ }: FeuilleDeRAZProProps) {
   const [modeApercu, setModeApercu] = useState(false);
   const [reglementsData, setReglementsData] = useState<PendingPayment[]>([]);
+  const [contentHtmlForPrint, setContentHtmlForPrint] = useState<string>('');
+  const [forceUpdate, setForceUpdate] = useState(0); // Pour forcer les mises à jour
   
   // ===== WORKFLOW SÉCURISÉ =====
   const [isViewed, setIsViewed] = useState(false);
   const [isPrinted, setIsPrinted] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
-  const [workflowCompleted, setWorkflowCompleted] = useState(false);
 
   // ===== RAZ GUARD MODAL =====
   const { mode: razGuardMode, ready: razGuardReady } = useRAZGuardSetting("daily");
@@ -71,6 +73,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const [eventName, setEventName] = useState('');
   const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
   const [eventEnd, setEventEnd] = useState('');     // yyyy-mm-dd
+  
+  // ===== NOM ÉVÉNEMENT AFFICHÉ (état local pour mise à jour immédiate) =====
+  const [displayedEventName, setDisplayedEventName] = useState<string>('');
 
   // ===== VALIDATION DATE FIN SESSION =====
   const canEndSessionToday = useMemo(() => {
@@ -119,9 +124,47 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     }
   }, []);
 
+  // ===== NOM ÉVÉNEMENT DYNAMIQUE =====
+  const eventNameDynamic = useMemo(() => {
+    // Priorité : nom local affiché > session > défaut
+    const name = displayedEventName || session?.eventName || 'Événement MyConfort';
+    console.log('🎯 Calcul eventNameDynamic:', { 
+      displayedEventName, 
+      sessionEventName: session?.eventName, 
+      result: name, 
+      forceUpdate 
+    });
+    return name;
+  }, [displayedEventName, session?.eventName, forceUpdate]);
+
+  // ===== FONCTION IMPRESSION A4 AVEC NOM ÉVÉNEMENT =====
+  const handleRAZPrint = () => {
+    if (contentHtmlForPrint) {
+      const fullHtml = `
+        <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
+          <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
+            📍 Feuille de Caisse — ${eventNameDynamic}
+          </h1>
+          ${contentHtmlForPrint}
+        </div>
+      `;
+      printHtmlA4(fullHtml);
+    } else {
+      alert("Impossible de trouver la feuille à imprimer. Veuillez d'abord visualiser la feuille.");
+    }
+  };
+
   useEffect(() => {
     void refreshSession();
   }, [refreshSession]);
+
+  // Synchroniser displayedEventName avec la session au chargement
+  useEffect(() => {
+    if (session?.eventName && !displayedEventName) {
+      console.log('🔄 Initialisation displayedEventName depuis session:', session.eventName);
+      setDisplayedEventName(session.eventName);
+    }
+  }, [session?.eventName, displayedEventName]);
 
   // Charger les règlements à venir depuis le service
   useEffect(() => {
@@ -164,15 +207,44 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   const onSaveEventFirstDay = useCallback(async () => {
     try {
+      console.log('📝 Enregistrement événement:', { eventName, eventStart, eventEnd });
+      
+      // 🎯 MISE À JOUR IMMÉDIATE DU NOM AFFICHÉ
+      if (eventName.trim()) {
+        console.log('⚡ Mise à jour immédiate du nom affiché:', eventName);
+        setDisplayedEventName(eventName.trim());
+      }
+      
       await updateCurrentSessionEventHelper({ eventName: eventName || undefined, eventStart: eventStart || undefined, eventEnd: eventEnd || undefined });
+      
+      console.log('✅ Événement enregistré, rafraîchissement session...');
       await refreshSession();
-      alert('Détails de l\'événement enregistrés.');
+      
+      // 🎯 FORCER MISE À JOUR IMMÉDIATE DE LA FEUILLE DE CAISSE
+      console.log('🔄 Forçage mise à jour interface...');
+      setForceUpdate(prev => prev + 1);
+      
+      // Attendre un peu plus longtemps pour que tout soit synchronisé
+      setTimeout(() => {
+        console.log('🕐 Vérification après délai, session actuelle:', session?.eventName);
+        
+        // Si la feuille est en mode aperçu, on force le rafraîchissement
+        if (modeApercu) {
+          console.log('🔄 Mise à jour du contenu HTML de la feuille');
+          const contentElement = document.getElementById('zone-impression-content');
+          if (contentElement) {
+            setContentHtmlForPrint(contentElement.innerHTML);
+          }
+        }
+      }, 500); // Délai plus long
+      
+      alert('✅ Détails de l\'événement enregistrés.\n📍 Le nom devrait maintenant apparaître immédiatement !');
     } catch (e) {
       console.error('Erreur mise à jour événement:', e);
       const msg = e instanceof Error ? e.message : 'Erreur lors de l\'enregistrement de l\'événement';
       alert(msg);
     }
-  }, [eventName, eventStart, eventEnd, refreshSession]);
+  }, [eventName, eventStart, eventEnd, refreshSession, modeApercu, session?.eventName]);
 
   const closeSession = useCallback(async () => {
     // Empêcher la clôture si le dernier jour n'est pas passé
@@ -272,23 +344,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       nbChequesTotal
     };
   }, [sales, invoices, vendorStats, reglementsData]);
-
-  // ===== IMPRESSION POPUP - COMPACT A4 =====
-  const imprimer = () => {
-    try {
-      if (!isViewed) {
-        alert('⚠️ Veuillez d\'abord visualiser la feuille de RAZ.');
-        return;
-      }
-      
-      const html = genererHTMLImpression(calculs, reglementsData);
-      printHtmlA4(html);
-      setIsPrinted(true);
-    } catch (e) {
-      console.error('Erreur impression', e);
-      alert('Erreur lors de l\'impression.');
-    }
-  };
 
   const genererHTMLImpression = (calculsData: {
     parPaiement: { carte: number; especes: number; cheque: number; mixte: number };
@@ -505,6 +560,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const effectuerVisualisation = () => {
     setModeApercu(true);
     setIsViewed(true);
+    
+    // Capturer le contenu HTML pour l'impression
+    setTimeout(() => {
+      const contentElement = document.getElementById('zone-impression-content');
+      if (contentElement) {
+        setContentHtmlForPrint(contentElement.innerHTML);
+      }
+    }, 100); // Petit délai pour que le DOM soit mis à jour
   };
 
   const envoyerEmailSecurise = () => {
@@ -514,18 +577,29 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     }
     envoyerEmail(); // Appelle la fonction email existante
     setIsEmailSent(true);
-    setWorkflowCompleted(true);
   };
 
   const effectuerRAZJourneeSecurisee = async () => {
-    // Afficher le modal RAZ Guard au lieu des alerts
-    setShowRAZGuardModal(true);
+    // DEBUG: Appel direct pour tester
+    console.log('🔴 Bouton RAZ Journée cliqué - Test direct');
+    
+    // Confirmation simple
+    if (confirm('🔴 Êtes-vous sûr de vouloir effectuer la RAZ Journée ?\n\n⚠️ Cette action va :\n- Imprimer la feuille automatiquement\n- Sauvegarder les données\n- Remettre à zéro les données')) {
+      await confirmerRAZJournee();
+    }
+    
+    // Version avec modal (commentée pour debug)
+    // setShowRAZGuardModal(true);
   };
 
   const confirmerRAZJournee = async () => {
     setShowRAZGuardModal(false);
     
     try {
+      // 0. IMPRESSION AUTOMATIQUE AVANT RAZ 🖨️
+      console.log('🖨️ Impression automatique de la feuille de caisse...');
+      handleRAZPrint();
+      
       // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
       console.log('🛡️ Sauvegarde automatique avant RAZ Journée...');
       await exportDataBeforeReset();
@@ -541,7 +615,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       setIsViewed(false);
       setIsPrinted(false);
       setIsEmailSent(false);
-      setWorkflowCompleted(false);
       setModeApercu(false);
       
       alert('✅ RAZ Journée terminée avec succès !');
@@ -713,18 +786,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
               {isViewed ? "Feuille vue ✓" : 'Voir la feuille'}
             </button>
             
-            {/* 🟢 Bouton Vert : Imprimer feuille de caisse */}
-            <button 
-              onClick={imprimer} 
-              style={!isViewed ? btnDisabled('#22C55E') : btn('#22C55E')} 
-              disabled={!isViewed}
-              title={!isViewed ? 'Visualisez d\'abord la feuille' : isPrinted ? 'Impression effectuée ✓' : 'Étape 2: Imprimer la feuille'}
-            >
-              <Printer size={20}/>
-              {isPrinted ? 'Imprimé ✓' : 'Imprimer'}
-            </button>
-            
-            {/* 🟡 Bouton Jaune-Vert : Envoyer par email */}
+            {/*  Bouton Jaune-Vert : Envoyer par email */}
             <button 
               onClick={envoyerEmailSecurise} 
               style={(!isViewed || !isPrinted) ? btnDisabled('#84CC16') : btn('#84CC16', false, '#1A202C')} 
@@ -738,9 +800,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             {/* 🔴 Bouton Rouge : RAZ Journée (avec sauvegarde auto) */}
             <button 
               onClick={effectuerRAZJourneeSecurisee} 
-              style={!workflowCompleted ? btnDisabled('#DC2626') : btn('#DC2626')} 
-              disabled={!workflowCompleted}
-              title={!workflowCompleted ? 'Terminez d\'abord le workflow complet' : 'Étape 4: RAZ Journée sécurisée'}
+              style={btn('#DC2626')} 
+              title="RAZ Journée sécurisée avec impression automatique"
             >
               <RefreshCw size={20}/>
               RAZ Journée
@@ -765,7 +826,22 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           {modeApercu && (
             <div style={{ background: '#fff', padding: 20, borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', border: '2px dashed #477A0C' }}>
               <h2 style={{ textAlign: 'center', color: '#477A0C', marginBottom: 16 }}>📄 APERÇU DE LA FEUILLE DE CAISSE</h2>
-              <div id="feuille-imprimable"><FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} reglementsData={reglementsData} /></div>
+              <div id="zone-impression">
+                <h1 style={{ textAlign: 'center', fontSize: '20px', marginBottom: '12px' }}>
+                  📍 Feuille de Caisse — {eventNameDynamic}
+                </h1>
+                <div id="zone-impression-content">
+                  <FeuilleImprimable calculs={calculs} event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} reglementsData={reglementsData} />
+                </div>
+              </div>
+              
+              {/* Bouton d'impression avec composant réutilisable */}
+              <div style={{ textAlign: 'center', marginTop: '16px' }}>
+                <FeuilleCaissePrintable
+                  eventName={eventNameDynamic}
+                  contentHtml={contentHtmlForPrint}
+                />
+              </div>
             </div>
           )}
 

@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 const isProd = process.env.NODE_ENV === 'production';
-const enableSourceMap = !!process.env.VITE_SOURCEMAP;
+const enableSourceMap = !!process.env.VITE_SOURCEMAP; // mets VITE_SOURCEMAP=1 pour build avec sourcemap
 
 export default defineConfig({
   plugins: [react()],
@@ -13,25 +13,15 @@ export default defineConfig({
     },
   },
 
-  // ⚡ Optimisations de performance
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'lucide-react'],
-    exclude: ['@vite/client', '@vite/env']
-  },
-
-  // 🚀 Serveur optimisé pour réseau
+  // Dev: accessible depuis l'iPad
   server: {
-    host: true,
+    host: true,        // 0.0.0.0
     port: 5173,
     strictPort: true,
-    // Optimisations HMR
-    hmr: {
-      overlay: true
-    },
-    // Cache optimisé
-    fs: {
-      strict: false
-    }
+    // Utile si l'iPad ne met pas à jour en HMR derrière la box :
+    // hmr: { clientPort: 5173 },
+    // Pour activer https local (si besoin de PWA/secure context) :
+    // https: true, // nécessite cert (mkcert)
   },
 
   preview: {

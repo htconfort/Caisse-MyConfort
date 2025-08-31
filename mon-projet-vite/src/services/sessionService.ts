@@ -11,7 +11,7 @@ export type SessionCloseArg = SessionTotals | { closedBy?: string; note?: string
 export type SessionOpenArg = string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string };
 
 class SessionService {
-  /** Ensure an open session, opening one if needed */
+  /** Ensure an open session, opening one if needed (safe variant) */
   async ensureSession(openedByOrOpts?: SessionOpenArg): Promise<SessionDB> {
     console.log('🔍 SessionService.ensureSession appelé avec:', openedByOrOpts);
     console.log('🔍 db instance:', db);
@@ -20,68 +20,55 @@ class SessionService {
       throw new Error('❌ Instance db non disponible');
     }
     
-    // Vérifier si une session est déjà ouverte
-    const currentSession = await this.getCurrentSession();
-    if (currentSession) {
-      console.log('✅ Session existante trouvée:', currentSession.id);
-      return currentSession;
-    }
-    
-    // Ouvrir une nouvelle session
-    const openedBy = typeof openedByOrOpts === 'string' ? openedByOrOpts : 
-                    openedByOrOpts?.openedBy || 'system';
-    
-    console.log('🔄 Ouverture nouvelle session pour:', openedBy);
-    return await db.openSession(openedBy);
+    // Utiliser l'assertion de type pour accéder à la méthode
+    return (db as any).openSessionSafe(openedByOrOpts);
   }
 
   /** Return the current open session (if any) */
   async getCurrentSession(): Promise<SessionDB | undefined> {
-    const result = await db.getCurrentSession();
+    const result = await (db as any).getCurrentSession();
     return result || undefined;
   }
 
   /** Open a new session if none is open (standard) */
   async openSession(openedByOrOpts?: SessionOpenArg): Promise<SessionDB> {
-    const openedBy = typeof openedByOrOpts === 'string' ? openedByOrOpts : 
-                    openedByOrOpts?.openedBy || 'system';
-    return db.openSession(openedBy);
+    return (db as any).openSession(openedByOrOpts);
   }
 
   /** Update current session's event details (only first day) */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async updateCurrentSessionEvent(_args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
-    // Cette méthode devra être implémentée dans le schéma si nécessaire
-    console.log('⚠️ updateCurrentSessionEvent pas encore implémentée dans le schéma');
-    const currentSession = await this.getCurrentSession();
-    if (!currentSession) {
-      throw new Error('Aucune session active');
-    }
-    return currentSession;
+  async updateCurrentSessionEvent(args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
+    return (db as any).updateCurrentSessionEvent(args);
   }
 
   /**
    * Close the current session if open.
    * Accepts either totals directly, or an object with closedBy/note/totals.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async closeCurrentSession(_arg?: SessionCloseArg): Promise<void> {
-    return db.closeSession();
+  async closeCurrentSession(arg?: SessionCloseArg): Promise<void> {
+    return (db as any).closeSession(arg as SessionCloseArg);
   }
 
   /** Compute today totals from DB (card/cash/cheque) */
   async computeTodayTotalsFromDB(): Promise<SessionTotals> {
-    // Cette méthode devra être implémentée dans le schéma avec getDailySales
-    console.log('⚠️ getDailySales pas encore implémentée dans le schéma');
-    
-    // Retourner des totaux par défaut pour l'instant
-    const defaultTotals: SessionTotals = {
-      card: 0,
-      cash: 0,
-      cheque: 0
-    };
-    
-    return defaultTotals;
+    const sales = await (db as any).getDailySales(new Date());
+    let card = 0, cash = 0, cheque = 0;
+    for (const s of sales) {
+      switch (s.paymentMethod) {
+        case 'card':
+          card += s.totalAmount || 0;
+          break;
+        case 'cash':
+          cash += s.totalAmount || 0;
+          break;
+        case 'check':
+          cheque += s.totalAmount || 0;
+          break;
+        default:
+          // 'multi' or others are ignored for session totals here
+          break;
+      }
+    }
+    return { card, cash, cheque };
   }
 }
 
