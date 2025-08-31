@@ -48,6 +48,8 @@ export interface Sale {
   // Autoriser Date ou string pour tolérer des données non normalisées reçues
   date: Date | string;
   canceled: boolean;
+  // Mode panier : détermine si la vente doit être synchronisée avec N8N
+  cartMode: CartType; // 'classique' = caisse seule, 'facturier' = iPad + N8N
   // Détails des chèques à venir (si applicable)
   checkDetails?: {
     count: number;        // Nombre de chèques

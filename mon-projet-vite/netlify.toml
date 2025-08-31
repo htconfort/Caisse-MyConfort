@@ -4,6 +4,10 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Variables de versioning automatiques
+  VITE_COMMIT_REF = "${COMMIT_REF}"
+  VITE_BRANCH = "${BRANCH}"
+  VITE_CONTEXT = "${CONTEXT}"
 
 [[redirects]]
   from = "/*"

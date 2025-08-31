@@ -31,6 +31,10 @@ export function getTodayData(sales: Sale[]): Sale[] {
   });
 }
 
+export function getTodayDateString(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
 export function calculateDailySummary(sales: Sale[]): DailySummary {
   const totalSales = sales.reduce((sum, sale) => sum + sale.totalAmount, 0);
   const salesCount = sales.length;

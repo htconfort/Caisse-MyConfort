@@ -270,9 +270,25 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   // ===== CALCULS =====
   const calculs = useMemo(() => {
-    const validSales = sales.filter(sale => !sale.canceled);
+    // 🎯 FILTRER UNIQUEMENT LES VENTES EN MODE "CLASSIQUE" POUR ÉVITER LES DOUBLONS
+    // Les ventes en mode "facturier" sont gérées par l'iPad et N8N, pas par la caisse
+    const validSales = sales.filter(sale => 
+      !sale.canceled && 
+      (!sale.cartMode || sale.cartMode === 'classique') // Mode classique uniquement
+    );
 
-    // Calcul des chèques à venir depuis les ventes de la caisse
+    console.log('🔍 RAZ - Filtrage des ventes:', {
+      totalSales: sales.length,
+      salesAfterCancelFilter: sales.filter(s => !s.canceled).length,
+      validSalesClassique: validSales.length,
+      modeCounts: {
+        classique: sales.filter(s => !s.canceled && (!s.cartMode || s.cartMode === 'classique')).length,
+        facturier: sales.filter(s => !s.canceled && s.cartMode === 'facturier').length,
+        undefined: sales.filter(s => !s.canceled && !s.cartMode).length
+      }
+    });
+
+    // Calcul des chèques à venir depuis les ventes de la caisse (mode classique uniquement)
     const chequesAVenirFromSales = validSales
       .filter(sale => sale.checkDetails && sale.checkDetails.count > 0)
       .reduce((total, sale) => total + (sale.checkDetails?.totalAmount || 0), 0);

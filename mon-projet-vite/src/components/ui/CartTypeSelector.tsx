@@ -93,13 +93,27 @@ export function CartTypeSelector({ cartType, onChange, className = '' }: CartTyp
         lineHeight: 1.4
       }}>
         {cartType === 'classique' ? (
-          <span>
-            ✅ <strong>Toutes catégories disponibles</strong> - Vente directe caisse.
-          </span>
+          <div style={{ padding: '8px', backgroundColor: '#f0f9ff', borderRadius: '6px', border: '1px solid #477A0C' }}>
+            <div style={{ fontWeight: '600', color: '#477A0C', marginBottom: '4px' }}>
+              📋 Mode Caisse Seule
+            </div>
+            <div style={{ fontSize: '11px' }}>
+              ✅ Toutes catégories disponibles (matelas, sur-matelas, etc.)<br/>
+              ✅ Inclus dans la feuille de RAZ<br/>
+              ❌ Pas de synchronisation N8N (évite les doublons)
+            </div>
+          </div>
         ) : (
-          <span>
-            ⚠️ <strong>Matelas & Sur-matelas bloqués</strong> pour éviter les doublons N8N.
-          </span>
+          <div style={{ padding: '8px', backgroundColor: '#dbeafe', borderRadius: '6px', border: '1px solid #3b82f6' }}>
+            <div style={{ fontWeight: '600', color: '#3b82f6', marginBottom: '4px' }}>
+              🔗 Mode Facturier iPad
+            </div>
+            <div style={{ fontSize: '11px' }}>
+              ⚠️ Matelas & Sur-matelas gérés par iPad<br/>
+              ✅ Synchronisation N8N activée<br/>
+              ❌ Exclus de la feuille de RAZ (évite les doublons)
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -14,6 +14,7 @@ import {
 } from './data';
 import { useIndexedStorage } from '@/hooks/storage/useIndexedStorage';
 import { useSyncInvoices } from './hooks/useSyncInvoices';
+import { triggerN8NSync } from './services/n8nSyncService';
 
 // Type pour les options de RAZ
 type ResetOptionKey =
@@ -30,6 +31,8 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import InvoicesTabCompact from './components/InvoicesTabCompact';
 import { SuccessNotification, FloatingCart } from './components/ui';
+import { VendorDiagnostics } from './components/ui/VendorDiagnostics';
+import { BuildStamp } from './components/ui/BuildStamp';
 import { GuideUtilisation } from './components/GuideUtilisation';
 import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle, Book, Users } from 'lucide-react';
 import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
@@ -85,7 +88,7 @@ const VENDOR_COLORS = [
 ];
 
 export default function CaisseMyConfortApp() {
-  // 🚀 FORCE BUILD v3.0 - PANIER MODERNE
+  // 🚀 MON PANIER VERSION 3.01 - DUAL MODE + SYNC
   // États principaux
   const [activeTab, setActiveTab] = useState<TabType>('vendeuse');
   const [selectedVendor, setSelectedVendor] = useIndexedStorage<Vendor | null>(STORAGE_KEYS.VENDOR, null);
@@ -144,6 +147,26 @@ export default function CaisseMyConfortApp() {
     void sessionService.ensureSession('app');
   }, []);
 
+  // 🔧 MIGRATION: Ajouter cartMode='classique' aux ventes existantes sans ce champ
+  useEffect(() => {
+    const migrateExistingSales = () => {
+      const salesNeedingMigration = sales.filter(sale => !sale.cartMode);
+      if (salesNeedingMigration.length > 0) {
+        console.log(`🔧 Migration: ${salesNeedingMigration.length} ventes sans cartMode détectées`);
+        const migratedSales = sales.map(sale => ({
+          ...sale,
+          cartMode: sale.cartMode || 'classique' as CartType
+        }));
+        setSales(migratedSales);
+        console.log('✅ Migration des ventes terminée - mode classique par défaut');
+      }
+    };
+
+    if (sales.length > 0) {
+      migrateExistingSales();
+    }
+  }, [sales, setSales]);
+
   // Calculs dérivés
   const cartTotal = useMemo(() => 
     cart.reduce((sum, item) => sum + (item.price * item.quantity), 0), 
@@ -180,7 +203,7 @@ export default function CaisseMyConfortApp() {
 
   // Gestion du panier
   const addToCart = useCallback((product: CatalogProduct) => {
-    const unitPrice = Number((product as any).priceTTC ?? (product as any).price ?? 0);
+    const unitPrice = Number(product.priceTTC ?? 0);
     if (!unitPrice) return;
 
     if (!selectedVendor) {
@@ -274,6 +297,7 @@ export default function CaisseMyConfortApp() {
       paymentMethod: paymentMethod,
       date: new Date(),
       canceled: false,
+      cartMode: cartType, // 🎯 Ajouter le mode panier pour déterminer la synchronisation
       // Ajouter les détails des chèques si fournis
       ...(checkDetails && { checkDetails }),
       // Ajouter les données de facture manuelle si fournies
@@ -297,6 +321,19 @@ export default function CaisseMyConfortApp() {
         : vendor
     ));
 
+    // 🎯 LOGIQUE DE SYNCHRONISATION N8N
+    // Synchroniser uniquement si mode "facturier" - évite les doublons
+    if (cartType === 'facturier') {
+      console.log('🔄 Mode facturier : synchronisation N8N activée', newSale);
+      // Déclencher la synchronisation N8N de manière asynchrone
+      triggerN8NSync(newSale).catch(error => {
+        console.error('❌ Erreur synchronisation N8N:', error);
+        // L'erreur est déjà gérée dans le service, on continue sans bloquer la vente
+      });
+    } else {
+      console.log('📋 Mode classique : vente en caisse seule (pas de sync N8N)', newSale);
+    }
+
     clearCart();
     setShowSuccess(true);
     setSelectedVendor(null);
@@ -304,7 +341,7 @@ export default function CaisseMyConfortApp() {
     setTimeout(() => {
       setActiveTab('vendeuse');
     }, 2000);
-  }, [selectedVendor, cart, cartTotal, setSales, setVendorStats, clearCart, setSelectedVendor]);
+  }, [selectedVendor, cart, cartTotal, setSales, setVendorStats, clearCart, setSelectedVendor, cartType]);
 
   // Fonction pour annuler la dernière vente
   const cancelLastSale = useCallback(() => {
@@ -1972,7 +2009,7 @@ export default function CaisseMyConfortApp() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
-            animation: 'fadeIn 0.3s ease'
+                       animation: 'fadeIn 0.3s ease'
           }}>
             <div style={{
               background: 'white',
@@ -2041,6 +2078,26 @@ export default function CaisseMyConfortApp() {
 
         {/* Success Notification */}
         <SuccessNotification show={showSuccess} />
+        
+        {/* Vendor Diagnostics */}
+        <VendorDiagnostics 
+          currentVendors={vendorStats} 
+          onForceReset={() => {
+            console.log('🔄 Force reset des vendeuses...');
+            setVendorStats(vendors.map(vendor => ({
+              ...vendor,
+              dailySales: 0,
+              totalSales: 0
+            })));
+            setSelectedVendor(null);
+            localStorage.removeItem('myconfort-vendors');
+            localStorage.removeItem('myconfort-current-vendor');
+            alert('🎉 Vendeuses réinitialisées avec succès !');
+          }} 
+        />
+
+        {/* Build Information */}
+        <BuildStamp />
       </div>
     </div>
   );

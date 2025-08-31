@@ -1,0 +1,99 @@
+--- a/src/components/raz/RAZPendingPayments.tsx
++++ b/src/components/raz/RAZPendingPayments.tsx
+@@ -1,92 +1,40 @@
+ import React from 'react';
+ import { PendingPayment } from '@/services/pendingPaymentsService';
+ 
+ interface RAZPendingPaymentsProps {
+   reglementsData: PendingPayment[];
+ }
+ 
+ export default function RAZPendingPayments({ reglementsData }: RAZPendingPaymentsProps) {
+   const formatEuro = (amount: number) =>
+     new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
+ 
+   const formatDate = (dateStr: string) => {
+-    try {
+-      return new Date(dateStr).toLocaleDateString('fr-FR');
+-    } catch {
+-      return dateStr;
+-    }
++    const d = new Date(dateStr);
++    return Number.isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('fr-FR');
+   };
+ 
+   const getStatusBadge = () => (
+-    <span style={{
++    <span
++      style={{
+         backgroundColor: '#FEF3C7',
+         color: '#D97706',
+         padding: '4px 8px',
+-        borderRadius: '4px',
+-        fontSize: '12px',
+-        fontWeight: 'bold'
+-    }}>
++        borderRadius: 4,
++        fontSize: 12,
++        fontWeight: 700,
++      }}
++    >
+       ⏳ En attente
+     </span>
+   );
+ 
++  // Pas de champ "method" dans PendingPayment actuellement → on affiche l'icône chèque par défaut
++  const getMethodIcon = () => '📝';
++
+   const totalAmount = reglementsData.reduce(
+-    (sum, r) => sum + (r.montantCheque * r.nbCheques),
++    (sum, r) => sum + r.montantCheque * r.nbCheques,
+     0
+   );
+ 
+   return (
+@@ -102,7 +50,7 @@
+         <h3 style={{ margin: 0, color: '#374151', fontWeight: 700, fontSize: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
+           📅 Règlements à venir
+         </h3>
+-        {reglementsData.length > 0 && (
++        {reglementsData.length > 0 ? (
+           <div style={{
+             backgroundColor: '#EBF8FF',
+             color: '#1E40AF',
+@@ -113,7 +61,7 @@
+           }}>
+             Total: {formatEuro(totalAmount)}
+           </div>
+-        )}
++        ) : null}
+       </div>
+ 
+       {/* BODY */}
+@@ -140,7 +88,7 @@
+                 <th style={{ padding: '16px 20px', textAlign: 'center', fontWeight: 600, color: '#374151', borderBottom: '1px solid #E5E7EB' }}>Statut</th>
+               </tr>
+             </thead>
+             <tbody>
+               {reglementsData
+-                .slice()
+                 .sort((a, b) => new Date(a.dateProchain).getTime() - new Date(b.dateProchain).getTime())
+-                .map((reglement, index) => (
+-                  <tr key={`${reglement.vendorId}-${index}`} style={{ borderBottom: '1px solid #F3F4F6' }}>
++                .map((reglement, index) => (
++                  <tr 
++                    key={`${reglement.vendorId}-${reglement.clientName}-${index}`}
++                    style={{ borderBottom: '1px solid #F3F4F6' }}
++                  >
+                     <td style={{ padding: '16px 20px', color: '#1F2937', fontWeight: 500 }}>
+                       <div>{reglement.clientName}</div>
+                       <div style={{ fontSize: '0.8em', color: '#6B7280', marginTop: 2 }}>
+@@ -158,7 +106,7 @@
+                     <td style={{ padding: '16px 20px', textAlign: 'center', color: '#6B7280', fontWeight: 500 }}>
+                       {formatDate(reglement.dateProchain)}
+                     </td>
+-                    <td style={{ padding: '16px 20px', textAlign: 'center', fontSize: '1.2em' }}>📄</td>
++                    <td style={{ padding: '16px 20px', textAlign: 'center', fontSize: '1.2em' }}>{getMethodIcon()}</td>
+                     <td style={{ padding: '16px 20px', textAlign: 'right', color: '#059669', fontWeight: 600 }}>
+                       <div>{formatEuro(reglement.montantCheque * reglement.nbCheques)}</div>
+                       <div style={{ fontSize: '0.8em', color: '#6B7280' }}>

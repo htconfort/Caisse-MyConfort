@@ -208,6 +208,26 @@ export class MyConfortDB extends Dexie {
     return newSession;
   }
 
+  async openSessionSafe(vendorNameOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
+    // Vérifier s'il y a déjà une session active
+    const currentSession = await this.getCurrentSession();
+    if (currentSession) {
+      console.log(`🔍 Session existante trouvée: ${currentSession.id}`);
+      return currentSession;
+    }
+
+    // Déterminer le vendeur
+    let vendorName = 'Système';
+    if (typeof vendorNameOrOpts === 'string') {
+      vendorName = vendorNameOrOpts;
+    } else if (vendorNameOrOpts?.openedBy) {
+      vendorName = vendorNameOrOpts.openedBy;
+    }
+
+    console.log(`🔓 Ouverture de session sécurisée pour: ${vendorName}`);
+    return this.openSession(vendorName);
+  }
+
   async closeSession(): Promise<void> {
     const current = await this.getCurrentSession();
     if (!current) {

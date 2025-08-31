@@ -11,7 +11,7 @@
     "dev:ipad": "vite --host --port 5173",
     "type-check": "tsc --noEmit",
     "build:verify": "npm run type-check",
-    "build": "vite build",
+    "build": "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) vite build",
     "preview": "vite preview --host --port 5173",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
     "save": "bash ./auto-commit.sh",
