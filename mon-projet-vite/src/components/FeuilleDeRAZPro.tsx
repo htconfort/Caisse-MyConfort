@@ -210,30 +210,27 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   // ===== FONCTION IMPRESSION A4 AVEC NOM ÉVÉNEMENT =====
   const handleRAZPrint = () => {
-    console.log('🖨️ DEBUG Impression - État:', { 
+    console.log('🖨️ DEBUG Impression - État initial:', { 
       contentHtmlForPrint: contentHtmlForPrint ? 'PRÉSENT' : 'VIDE', 
       isViewed, 
       modeApercu 
     });
 
-    // Si pas de contenu, essayer de le générer en forçant la visualisation
-    if (!contentHtmlForPrint) {
-      console.log('⚠️ Contenu HTML manquant, tentative de génération...');
+    // Forcer la visualisation en premier si nécessaire
+    if (!modeApercu) {
+      console.log('🔄 Forçage de la visualisation...');
+      setModeApercu(true);
+      setIsViewed(true);
       
-      // Forcer la visualisation si nécessaire
-      if (!modeApercu) {
-        setModeApercu(true);
-        setIsViewed(true);
-      }
-      
-      // Attendre un peu que le DOM se mette à jour, puis essayer de capturer
+      // Attendre que le DOM se mette à jour avec le nouveau contenu
       setTimeout(() => {
         const contentElement = document.getElementById('zone-impression-content');
+        console.log('🔍 Élément trouvé après forçage:', contentElement ? 'OUI' : 'NON');
+        
         if (contentElement) {
           const capturedContent = contentElement.innerHTML;
           setContentHtmlForPrint(capturedContent);
           
-          // Maintenant imprimer avec le contenu capturé
           const fullHtml = `
             <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
               <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
@@ -244,27 +241,54 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           `;
           printHtmlA4(fullHtml);
           setIsPrinted(true);
-          console.log('✅ Impression effectuée avec contenu généré');
+          console.log('✅ Impression effectuée avec contenu généré automatiquement');
         } else {
-          alert("Impossible de générer la feuille à imprimer. Veuillez d'abord cliquer sur 'Voir la feuille'.");
+          console.error('❌ Impossible de trouver zone-impression-content même après forçage');
+          alert("Erreur technique : impossible de générer la feuille. Essayez de cliquer d'abord sur 'Voir la feuille'.");
         }
-      }, 200);
+      }, 300); // Délai plus long pour s'assurer que React a rendu le composant
       
       return;
     }
 
-    // Cas normal : contenu déjà disponible
-    const fullHtml = `
-      <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
-        <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
-          📍 Feuille de Caisse — ${eventNameDynamic}
-        </h1>
-        ${contentHtmlForPrint}
-      </div>
-    `;
-    printHtmlA4(fullHtml);
-    setIsPrinted(true);
-    console.log('✅ Impression effectuée avec contenu existant');
+    // Mode aperçu déjà actif, vérifier si on a déjà le contenu
+    if (contentHtmlForPrint) {
+      console.log('📄 Utilisation du contenu existant');
+      const fullHtml = `
+        <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
+          <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
+            📍 Feuille de Caisse — ${eventNameDynamic}
+          </h1>
+          ${contentHtmlForPrint}
+        </div>
+      `;
+      printHtmlA4(fullHtml);
+      setIsPrinted(true);
+      console.log('✅ Impression effectuée avec contenu existant');
+      return;
+    }
+
+    // Mode aperçu actif mais pas de contenu sauvegardé, recapturer
+    const contentElement = document.getElementById('zone-impression-content');
+    if (contentElement) {
+      const capturedContent = contentElement.innerHTML;
+      setContentHtmlForPrint(capturedContent);
+      
+      const fullHtml = `
+        <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
+          <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
+            📍 Feuille de Caisse — ${eventNameDynamic}
+          </h1>
+          ${capturedContent}
+        </div>
+      `;
+      printHtmlA4(fullHtml);
+      setIsPrinted(true);
+      console.log('✅ Impression effectuée avec contenu recapturé');
+    } else {
+      console.error('❌ Zone d\'impression introuvable malgré modeApercu actif');
+      alert("Erreur technique : zone d'impression introuvable.");
+    }
   };
 
   useEffect(() => {
@@ -865,23 +889,25 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             <button 
               onClick={handleRAZPrint} 
               style={btn('#3B82F6', false, '#FFFFFF')} 
-              title={isPrinted ? 'Déjà imprimé ✓' : 'Étape 2: Imprimer la feuille (génère automatiquement la vue si nécessaire)'}
+              title={isPrinted ? 'Impression déjà effectuée ✓' : 'CLIQUEZ ICI pour débloquer le bouton email (génère et imprime automatiquement)'}
             >
               <Printer size={20}/>
-              {isPrinted ? 'Déjà imprimé ✓' : 'Imprimer'}
+              {isPrinted ? 'Imprimé ✓' : 'Imprimer pour débloquer email'}
             </button>
 
           {/* 🔍 Debug: Affichage de l'état des variables */}
           <div style={{ 
-            background: '#f3f4f6', 
-            border: '1px solid #d1d5db', 
+            background: isPrinted ? '#dcfce7' : '#fef3c7', 
+            border: `1px solid ${isPrinted ? '#16a34a' : '#f59e0b'}`, 
             borderRadius: 6, 
-            padding: 8, 
-            fontSize: 12, 
-            color: '#6b7280',
-            gridColumn: 'span 2' 
+            padding: 12, 
+            fontSize: 14, 
+            color: isPrinted ? '#166534' : '#92400e',
+            gridColumn: 'span 4',
+            fontWeight: 600 
           }}>
-            📊 Debug Workflow: Vue={isViewed ? '✅' : '❌'} | Imprimé={isPrinted ? '✅' : '❌'} | Email={isEmailSent ? '✅' : '❌'}
+            📊 État du workflow: Vue={isViewed ? '✅' : '❌'} | Imprimé={isPrinted ? '✅' : '❌'} | Email={isEmailSent ? '✅' : '❌'}
+            {isPrinted && <div style={{ marginTop: 4, fontSize: 12 }}>✅ Le bouton email devrait maintenant être actif!</div>}
           </div>
             
             {/* 🔴 Bouton Rouge : RAZ Journée (avec sauvegarde auto) */}
