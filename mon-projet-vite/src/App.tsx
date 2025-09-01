@@ -31,11 +31,12 @@ import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import InvoicesTabCompact from './components/InvoicesTabCompact';
 import { SuccessNotification, FloatingCart } from './components/ui';
+import { CartTypeSelector } from './components/ui/CartTypeSelector';
 import { VendorDiagnostics } from './components/ui/VendorDiagnostics';
 import { BuildStamp } from './components/ui/BuildStamp';
 import { DebugDataPanel, type DexieLike } from './components/ui/DebugDataPanel';
 import { GuideUtilisation } from './components/GuideUtilisation';
-import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle, Book, Users } from 'lucide-react';
+import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle, Book, Users, ShoppingCart } from 'lucide-react';
 import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import './styles/invoices-tab.css';
 import './styles/print.css';
@@ -99,6 +100,50 @@ export default function CaisseMyConfortApp() {
   const [vendorStats, setVendorStats] = useIndexedStorage<Vendor[]>(STORAGE_KEYS.VENDORS_STATS, vendors);
   const [cartType, setCartType] = useIndexedStorage<CartType>('CART_TYPE', 'classique');
   
+  // 🚨 DEBUG CART STATE
+  console.log('🚨 App.tsx - Cart Debug:', {
+    cartLength: cart.length,
+    cart: cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity })),
+    activeTab,
+    selectedVendor: selectedVendor?.name
+  });
+
+  // 🚨 FONCTION DEBUG POUR AJOUTER DES ARTICLES DE TEST
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).addTestCartItems = () => {
+    const testItems: ExtendedCartItem[] = [
+      {
+        id: 'test-1-' + Date.now(),
+        name: 'Oreiller Test 1',
+        price: 25,
+        originalPrice: 25,
+        quantity: 2,
+        category: 'Oreillers',
+        addedAt: new Date(),
+        offert: false
+      },
+      {
+        id: 'test-2-' + Date.now(),
+        name: 'Couette Test 2',
+        price: 45,
+        originalPrice: 45,
+        quantity: 1,
+        category: 'Couettes',
+        addedAt: new Date(),
+        offert: false
+      }
+    ];
+    
+    setCart(prevCart => [...prevCart, ...testItems]);
+    console.log('✅ Articles de test ajoutés au panier');
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).clearTestCart = () => {
+    setCart([]);
+    console.log('🗑️ Panier vidé');
+  };
+  
   // Hook pour les factures
   const { invoices, stats: invoicesStats, resetInvoices } = useSyncInvoices();
   
@@ -116,7 +161,7 @@ export default function CaisseMyConfortApp() {
   const [selectedColor, setSelectedColor] = useState('');
   
   // État pour les sous-onglets de gestion
-  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide'>('vendeuses');
+  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide' | 'panier'>('vendeuses');
 
   // États pour l'édition et la suppression des vendeuses
   const [editingVendor, setEditingVendor] = useState<string | null>(null);
@@ -1401,6 +1446,38 @@ export default function CaisseMyConfortApp() {
                       ✨
                     </span>
                   </button>
+                  
+                  <button
+                    onClick={() => setGestionActiveTab('panier')}
+                    style={{
+                      flex: 1,
+                      padding: '15px 20px',
+                      border: 'none',
+                      background: gestionActiveTab === 'panier' ? '#477A0C' : 'white',
+                      color: gestionActiveTab === 'panier' ? 'white' : '#495057',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <ShoppingCart size={20} />
+                    Type de Panier
+                    <span style={{
+                      background: gestionActiveTab === 'panier' ? 'rgba(255,255,255,0.2)' : '#477A0C',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      {cartType === 'classique' ? '📋' : '📄'}
+                    </span>
+                  </button>
                 </div>
 
                 {/* Contenu des sous-onglets */}
@@ -1961,6 +2038,14 @@ export default function CaisseMyConfortApp() {
                 {gestionActiveTab === 'guide' && (
                   <GuideUtilisation />
                 )}
+
+                {/* Section Type de Panier */}
+                {gestionActiveTab === 'panier' && (
+                  <CartTypeSelector
+                    cartType={cartType}
+                    onChange={setCartType}
+                  />
+                )}
               </div>
             )}
 
@@ -1982,6 +2067,77 @@ export default function CaisseMyConfortApp() {
 
           </div>
         </main>
+
+        {/* 🚨 INTERFACE DEBUG TEMPORAIRE */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '20px',
+            backgroundColor: '#ff6b6b',
+            color: 'white',
+            padding: '10px',
+            borderRadius: '8px',
+            display: 'flex',
+            gap: '10px',
+            zIndex: 2000,
+            fontSize: '12px'
+          }}>
+            <button
+              onClick={() => {
+                const testItems: ExtendedCartItem[] = [
+                  {
+                    id: 'test-1-' + Date.now(),
+                    name: 'Oreiller Test 1',
+                    price: 25,
+                    originalPrice: 25,
+                    quantity: 2,
+                    category: 'Oreillers',
+                    addedAt: new Date(),
+                    offert: false
+                  },
+                  {
+                    id: 'test-2-' + Date.now(),
+                    name: 'Couette Test 2',
+                    price: 45,
+                    originalPrice: 45,
+                    quantity: 1,
+                    category: 'Couettes',
+                    addedAt: new Date(),
+                    offert: false
+                  }
+                ];
+                setCart(prevCart => [...prevCart, ...testItems]);
+              }}
+              style={{
+                backgroundColor: 'white',
+                color: '#ff6b6b',
+                border: 'none',
+                padding: '8px',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              ➕ Test Items
+            </button>
+            <button
+              onClick={() => setCart([])}
+              style={{
+                backgroundColor: 'white',
+                color: '#ff6b6b',
+                border: 'none',
+                padding: '8px',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              🗑️ Clear
+            </button>
+            <div style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: '8px', borderRadius: '4px' }}>
+              Cart: {cart.length} items
+            </div>
+          </div>
+        )}
 
         {/* Floating Cart */}
         <FloatingCart

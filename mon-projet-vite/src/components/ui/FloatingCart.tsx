@@ -8,7 +8,6 @@ import type {
   CartType 
 } from '../../types';
 import { isMatressProduct } from '../../utils';
-import { CartTypeSelector } from './CartTypeSelector';
 import { ManualInvoiceModal } from './ManualInvoiceModal';
 
 // Interface pour les données de paiement étendues
@@ -57,8 +56,7 @@ export function FloatingCart({
   completeSale,
   updateQuantity,
   toggleOffert,
-  cartType = 'classique',
-  onCartTypeChange
+  cartType = 'classique'
 }: FloatingCartProps) {
   const [isCartMinimized, setIsCartMinimized] = useState(false);
   const [showPaymentPage, setShowPaymentPage] = useState(false);
@@ -67,6 +65,16 @@ export function FloatingCart({
     method?: PaymentMethod;
     checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string };
   } | null>(null);
+
+  // 🚨 DEBUG CART DISPLAY
+  console.log('🛒 FloatingCart Debug:', {
+    activeTab,
+    cartLength: cart.length,
+    cartItemsCount,
+    cartTotal,
+    cart: cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
+    isCartMinimized
+  });
 
   // Calcul des économies
   const totalSavings = useMemo(() => {
@@ -119,8 +127,28 @@ export function FloatingCart({
 
   // Ne pas afficher sur certains onglets
   if (!['produits', 'annulation'].includes(activeTab)) {
+    console.log('🚫 Cart hidden - wrong tab:', activeTab);
     return null;
   }
+
+  console.log('✅ Cart should display - tab:', activeTab);
+
+  // 🆕 Styles du conteneur principal - panier agrandi jusqu'en bas
+  const cartPanelStyles: React.CSSProperties = {
+    position: 'absolute',
+    right: '10px',
+    top: '80px',
+    bottom: '10px', // Toujours jusqu'en bas, plus de place pour le ruban
+    width: '350px',
+    backgroundColor: 'white',
+    borderRadius: '16px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+    border: '2px solid #477A0C',
+    zIndex: 2000,
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden'
+  };
 
   // Mode minimisé - en haut à droite dans l'application
   if (isCartMinimized) {
@@ -181,23 +209,8 @@ export function FloatingCart({
   }
 
   return (
-    <div 
-      style={{
-        position: 'absolute',
-        right: '10px',
-        top: '80px',
-        bottom: '10px',
-        width: '350px',
-        backgroundColor: 'white',
-        borderRadius: '16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-        border: '2px solid #477A0C',
-        zIndex: 1000,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
-      }}
-    >
+    <>
+      <div style={cartPanelStyles}>
       
       {/* Header du panier */}
       <div 
@@ -234,31 +247,35 @@ export function FloatingCart({
             </div>
           </div>
         </div>
-        <button
-          onClick={() => setIsCartMinimized(true)}
-          style={{
-            background: 'rgba(255,255,255,0.2)',
-            border: 'none',
-            color: 'white',
-            borderRadius: '6px',
-            padding: '8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <X size={18} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={() => setIsCartMinimized(true)}
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: 'white',
+              borderRadius: '6px',
+              padding: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       {/* Liste des produits dans le panier */}
-      {cart.length > 0 && (
+      {cart.length > 0 ? (
         <div style={{
           flex: 1,
           padding: '16px',
           overflowY: 'auto',
           borderBottom: '1px solid #e5e7eb'
         }}>
-          {cart.map((item, index) => (
+          {cart.map((item, index) => {
+            console.log(`📦 Rendering item ${index}:`, item.name);
+            return (
             <div
               key={`${item.id}-${index}`}
               style={{
@@ -391,7 +408,19 @@ export function FloatingCart({
                 {item.offert ? '0.00' : (item.price * item.quantity).toFixed(2)}€
               </div>
             </div>
-          ))}
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#6B7280',
+          fontSize: '14px'
+        }}>
+          Votre panier est vide
         </div>
       )}
 
@@ -402,14 +431,6 @@ export function FloatingCart({
         flexDirection: 'column',
         gap: '20px'
       }}>
-        
-        {/* Sélecteur de type de panier */}
-        {onCartTypeChange && (
-          <CartTypeSelector
-            cartType={cartType}
-            onChange={onCartTypeChange}
-          />
-        )}
         
         {/* Section du total */}
         <div style={{ 
@@ -530,7 +551,10 @@ export function FloatingCart({
         cartTotal={cartTotal}
         reason="matelas-classique"
       />
-    </div>
+      </div>
+
+      {/* 🆕 Ruban bas de page supprimé - le panier va maintenant jusqu'en bas */}
+    </>
   );
 }
 
