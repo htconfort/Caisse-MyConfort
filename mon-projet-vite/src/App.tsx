@@ -161,7 +161,7 @@ export default function CaisseMyConfortApp() {
   const [selectedColor, setSelectedColor] = useState('');
   
   // État pour les sous-onglets de gestion
-  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide' | 'panier'>('vendeuses');
+  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide' | 'panier' | 'diagnostic'>('vendeuses');
 
   // États pour l'édition et la suppression des vendeuses
   const [editingVendor, setEditingVendor] = useState<string | null>(null);
@@ -1478,6 +1478,37 @@ export default function CaisseMyConfortApp() {
                       {cartType === 'classique' ? '📋' : '📄'}
                     </span>
                   </button>
+                  
+                  <button
+                    onClick={() => setGestionActiveTab('diagnostic')}
+                    style={{
+                      flex: 1,
+                      padding: '15px 20px',
+                      border: 'none',
+                      background: gestionActiveTab === 'diagnostic' ? '#dc3545' : 'white',
+                      color: gestionActiveTab === 'diagnostic' ? 'white' : '#495057',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    🔧 Diagnostic
+                    <span style={{
+                      background: gestionActiveTab === 'diagnostic' ? 'rgba(255,255,255,0.2)' : '#dc3545',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      iPad
+                    </span>
+                  </button>
                 </div>
 
                 {/* Contenu des sous-onglets */}
@@ -2046,6 +2077,11 @@ export default function CaisseMyConfortApp() {
                     onChange={setCartType}
                   />
                 )}
+
+                {/* Section Diagnostic iPad */}
+                {gestionActiveTab === 'diagnostic' && (
+                  <DiagnosticIPad />
+                )}
               </div>
             )}
 
@@ -2276,6 +2312,297 @@ export default function CaisseMyConfortApp() {
         {/* Build Information */}
         <BuildStamp />
       </div>
+    </div>
+  );
+}
+
+// Composant de diagnostic pour iPad
+function DiagnosticIPad() {
+  const [diagnosticResult, setDiagnosticResult] = useState<string>('');
+  const [isRunning, setIsRunning] = useState(false);
+
+  const runDiagnostic = () => {
+    setIsRunning(true);
+    setDiagnosticResult('🔄 Diagnostic en cours...\n\n');
+
+    try {
+      let result = '🔍 DIAGNOSTIC ENVIRONNEMENT iPad\n';
+      result += '=====================================\n\n';
+
+      // 1. Détection de l'environnement
+      result += '📱 ENVIRONNEMENT:\n';
+      result += `- User Agent: ${navigator.userAgent}\n`;
+      result += `- Plateforme: ${navigator.platform}\n`;
+      result += `- URL actuelle: ${window.location.href}\n`;
+      result += `- Mode DEV: ${import.meta.env.DEV ? 'OUI' : 'NON'}\n`;
+      result += `- Mode PROD: ${import.meta.env.PROD ? 'OUI' : 'NON'}\n\n`;
+
+      // 2. Analyse localStorage
+      result += '💾 LOCALSTORAGE:\n';
+      const localStorageKeys = Object.keys(localStorage);
+      result += `- Nombre de clés: ${localStorageKeys.length}\n`;
+      
+      // Clés spécifiques à analyser
+      const importantKeys = [
+        'myconfort-sales',
+        'myconfort-vendors', 
+        'myconfort-current-vendor',
+        'myconfort-cart',
+        'myconfort-external-invoices'
+      ];
+
+      importantKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) {
+          try {
+            const parsed = JSON.parse(value);
+            if (key === 'myconfort-sales' && Array.isArray(parsed)) {
+              result += `- ${key}: ${parsed.length} ventes\n`;
+            } else if (key === 'myconfort-external-invoices' && Array.isArray(parsed)) {
+              result += `- ${key}: ${parsed.length} factures externes\n`;
+            } else if (key === 'myconfort-vendors' && Array.isArray(parsed)) {
+              result += `- ${key}: ${parsed.length} vendeuses\n`;
+            } else {
+              result += `- ${key}: présent (${typeof parsed})\n`;
+            }
+          } catch {
+            result += `- ${key}: présent (non-JSON)\n`;
+          }
+        } else {
+          result += `- ${key}: absent\n`;
+        }
+      });
+
+      result += '\n';
+
+      // 3. Calcul du CA
+      result += '💰 CALCUL CHIFFRE D\'AFFAIRES:\n';
+      const salesData = localStorage.getItem('myconfort-sales');
+      if (salesData) {
+        try {
+          const sales = JSON.parse(salesData);
+          const today = new Date().toDateString();
+          const todaySales = sales.filter((sale: { timestamp: string }) => 
+            new Date(sale.timestamp).toDateString() === today
+          );
+          const totalCA = todaySales.reduce((sum: number, sale: { total: number }) => sum + sale.total, 0);
+          result += `- Ventes du jour: ${todaySales.length}\n`;
+          result += `- CA du jour: ${totalCA.toFixed(2)}€\n`;
+        } catch (e) {
+          result += `- Erreur lecture ventes: ${e}\n`;
+        }
+      } else {
+        result += '- Aucune donnée de ventes\n';
+      }
+
+      result += '\n';
+
+      // 4. Factures externes
+      result += '📄 FACTURES EXTERNES:\n';
+      const externalInvoicesData = localStorage.getItem('myconfort-external-invoices');
+      if (externalInvoicesData) {
+        try {
+          const invoices = JSON.parse(externalInvoicesData);
+          result += `- Nombre total: ${invoices.length}\n`;
+          const totalExternal = invoices.reduce((sum: number, inv: { amount?: number }) => sum + (inv.amount || 0), 0);
+          result += `- Total externe: ${totalExternal.toFixed(2)}€\n`;
+        } catch (e) {
+          result += `- Erreur lecture factures: ${e}\n`;
+        }
+      } else {
+        result += '- Aucune facture externe\n';
+      }
+
+      result += '\n';
+
+      // 5. Analyse IndexedDB
+      result += '🗄️ INDEXEDDB:\n';
+      if ('indexedDB' in window) {
+        result += '- IndexedDB disponible\n';
+        result += '- Base: MyConfortCaisseV2\n';
+      } else {
+        result += '- IndexedDB non disponible\n';
+      }
+
+      result += '\n';
+
+      // 6. Recommandations
+      result += '🔧 RECOMMANDATIONS:\n';
+      
+      const hasExternalInvoices = externalInvoicesData && JSON.parse(externalInvoicesData).length > 0;
+      const hasSales = salesData && JSON.parse(salesData).length > 0;
+      
+      if (import.meta.env.DEV) {
+        result += '⚠️ MODE DÉVELOPPEMENT DÉTECTÉ\n';
+        result += '- Les données peuvent être contaminées par des tests\n';
+        result += '- Utiliser la production pour des données réelles\n';
+      }
+      
+      if (hasExternalInvoices && !hasSales) {
+        result += '⚠️ INCOHÉRENCE DÉTECTÉE\n';
+        result += '- Factures externes présentes mais aucune vente locale\n';
+        result += '- Vérifier la synchronisation N8N\n';
+      }
+
+      result += '\n✅ Diagnostic terminé';
+
+      setDiagnosticResult(result);
+    } catch (error) {
+      setDiagnosticResult(`❌ Erreur pendant le diagnostic: ${error}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const clearCache = () => {
+    if (confirm('⚠️ Êtes-vous sûr de vouloir vider le cache ?\n\nCela supprimera toutes les données locales.')) {
+      localStorage.clear();
+      if ('indexedDB' in window) {
+        indexedDB.deleteDatabase('MyConfortCaisseV2');
+      }
+      alert('✅ Cache vidé ! Rechargez la page.');
+      window.location.reload();
+    }
+  };
+
+  const exportDiagnostic = () => {
+    if (!diagnosticResult) return;
+    
+    const blob = new Blob([diagnosticResult], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `diagnostic-ipad-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div>
+      {/* En-tête */}
+      <div style={{
+        background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)',
+        color: 'white',
+        padding: '20px',
+        borderRadius: '8px',
+        marginBottom: '20px'
+      }}>
+        <h2 style={{ margin: 0, fontSize: '20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          🔧 Diagnostic Environnement iPad
+        </h2>
+        <p style={{ margin: '8px 0 0 0', opacity: 0.9 }}>
+          Analyse complète de l'environnement et des données
+        </p>
+      </div>
+
+      {/* Boutons d'action */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+        gap: '16px',
+        marginBottom: '20px'
+      }}>
+        <button
+          onClick={runDiagnostic}
+          disabled={isRunning}
+          style={{
+            backgroundColor: isRunning ? '#6c757d' : '#dc3545',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: isRunning ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          {isRunning ? '⏳' : '🔍'} {isRunning ? 'Analyse...' : 'Lancer Diagnostic'}
+        </button>
+
+        <button
+          onClick={exportDiagnostic}
+          disabled={!diagnosticResult || isRunning}
+          style={{
+            backgroundColor: (!diagnosticResult || isRunning) ? '#6c757d' : '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: (!diagnosticResult || isRunning) ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          📄 Exporter Rapport
+        </button>
+
+        <button
+          onClick={clearCache}
+          style={{
+            backgroundColor: '#ffc107',
+            color: '#212529',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          🗑️ Vider Cache
+        </button>
+      </div>
+
+      {/* Résultats */}
+      {diagnosticResult && (
+        <div style={{
+          backgroundColor: '#f8f9fa',
+          border: '2px solid #dee2e6',
+          borderRadius: '8px',
+          padding: '20px'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 16px 0', 
+            color: '#495057',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            📋 Rapport de Diagnostic
+          </h3>
+          <pre style={{
+            backgroundColor: '#ffffff',
+            border: '1px solid #dee2e6',
+            borderRadius: '4px',
+            padding: '16px',
+            fontSize: '12px',
+            lineHeight: '1.4',
+            overflow: 'auto',
+            maxHeight: '500px',
+            whiteSpace: 'pre-wrap',
+            fontFamily: 'Monaco, Consolas, "Courier New", monospace'
+          }}>
+            {diagnosticResult}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
