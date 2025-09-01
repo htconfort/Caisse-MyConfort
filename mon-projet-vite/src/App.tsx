@@ -2381,13 +2381,22 @@ function DiagnosticIPad() {
       if (salesData) {
         try {
           const sales = JSON.parse(salesData);
-          const today = new Date().toDateString();
-          const todaySales = sales.filter((sale: { timestamp: string }) => 
-            new Date(sale.timestamp).toDateString() === today
-          );
-          const totalCA = todaySales.reduce((sum: number, sale: { total: number }) => sum + sale.total, 0);
-          result += `- Ventes du jour: ${todaySales.length}\n`;
-          result += `- CA du jour: ${totalCA.toFixed(2)}€\n`;
+          result += `- Type de données: ${Array.isArray(sales) ? 'tableau' : typeof sales}\n`;
+          
+          if (Array.isArray(sales)) {
+            const today = new Date().toDateString();
+            const todaySales = sales.filter((sale: { timestamp: string }) => 
+              new Date(sale.timestamp).toDateString() === today
+            );
+            const totalCA = todaySales.reduce((sum: number, sale: { total: number }) => sum + sale.total, 0);
+            result += `- Ventes du jour: ${todaySales.length}\n`;
+            result += `- CA du jour: ${totalCA.toFixed(2)}€\n`;
+            result += `- Total ventes stockées: ${sales.length}\n`;
+          } else {
+            result += `⚠️ PROBLÈME: Les ventes sont stockées comme ${typeof sales}\n`;
+            result += `- Contenu: ${JSON.stringify(sales).substring(0, 100)}...\n`;
+            result += `- Cela explique pourquoi le CA n'apparaît pas\n`;
+          }
         } catch (e) {
           result += `- Erreur lecture ventes: ${e}\n`;
         }
@@ -2429,8 +2438,16 @@ function DiagnosticIPad() {
       // 6. Recommandations
       result += '🔧 RECOMMANDATIONS:\n';
       
-      const hasExternalInvoices = externalInvoicesData && JSON.parse(externalInvoicesData).length > 0;
-      const hasSales = salesData && JSON.parse(salesData).length > 0;
+      // Vérifier le format des données
+      let salesFormatOk = false;
+      if (salesData) {
+        try {
+          const sales = JSON.parse(salesData);
+          salesFormatOk = Array.isArray(sales);
+        } catch {
+          // Ignore parsing errors
+        }
+      }
       
       if (import.meta.env.DEV) {
         result += '⚠️ MODE DÉVELOPPEMENT DÉTECTÉ\n';
@@ -2438,10 +2455,18 @@ function DiagnosticIPad() {
         result += '- Utiliser la production pour des données réelles\n';
       }
       
-      if (hasExternalInvoices && !hasSales) {
-        result += '⚠️ INCOHÉRENCE DÉTECTÉE\n';
-        result += '- Factures externes présentes mais aucune vente locale\n';
-        result += '- Vérifier la synchronisation N8N\n';
+      if (salesData && !salesFormatOk) {
+        result += '🚨 PROBLÈME CRITIQUE DÉTECTÉ\n';
+        result += '- Les ventes sont stockées dans un mauvais format\n';
+        result += '- Cela empêche l\'affichage du CA et des statistiques\n';
+        result += '- SOLUTION: Utiliser le bouton "Vider Cache" ci-dessous\n';
+        result += '- Puis redémarrer l\'application\n';
+      }
+      
+      if (!salesData || (salesData && salesFormatOk && JSON.parse(salesData).length === 0)) {
+        result += '✅ ENVIRONNEMENT PROPRE\n';
+        result += '- Aucune vente enregistrée (normal pour un nouvel environnement)\n';
+        result += '- Prêt pour utilisation en production\n';
       }
 
       result += '\n✅ Diagnostic terminé';
@@ -2462,6 +2487,43 @@ function DiagnosticIPad() {
       }
       alert('✅ Cache vidé ! Rechargez la page.');
       window.location.reload();
+    }
+  };
+
+  const fixDataFormat = () => {
+    if (confirm('🔧 Corriger le format des données ?\n\nCela va tenter de réparer les données corrompues.')) {
+      try {
+        // Vérifier et corriger le format des ventes
+        const salesData = localStorage.getItem('myconfort-sales');
+        if (salesData) {
+          const sales = JSON.parse(salesData);
+          if (!Array.isArray(sales)) {
+            // Si c'est un objet, essayer de le convertir en tableau
+            if (typeof sales === 'object' && sales !== null) {
+              // Si c'est un objet avec des clés numériques, le convertir
+              const salesArray = Object.values(sales);
+              localStorage.setItem('myconfort-sales', JSON.stringify(salesArray));
+            } else {
+              // Sinon, créer un tableau vide
+              localStorage.setItem('myconfort-sales', JSON.stringify([]));
+            }
+          }
+        }
+
+        // Vérifier les autres données
+        const vendorsData = localStorage.getItem('myconfort-vendors');
+        if (vendorsData) {
+          const vendors = JSON.parse(vendorsData);
+          if (!Array.isArray(vendors)) {
+            localStorage.setItem('myconfort-vendors', JSON.stringify([]));
+          }
+        }
+
+        alert('✅ Format des données corrigé ! Relancez le diagnostic.');
+        setDiagnosticResult('');
+      } catch (error) {
+        alert(`❌ Erreur lors de la correction: ${error}`);
+      }
     }
   };
 
@@ -2500,7 +2562,7 @@ function DiagnosticIPad() {
       {/* Boutons d'action */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: '16px',
         marginBottom: '20px'
       }}>
@@ -2546,6 +2608,27 @@ function DiagnosticIPad() {
           }}
         >
           📄 Exporter Rapport
+        </button>
+
+        <button
+          onClick={fixDataFormat}
+          style={{
+            backgroundColor: '#17a2b8',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          🔧 Corriger Données
         </button>
 
         <button
