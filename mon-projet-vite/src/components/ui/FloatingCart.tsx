@@ -137,7 +137,7 @@ export function FloatingCart({
   const cartPanelStyles: React.CSSProperties = {
     position: 'absolute',
     right: '10px',
-    top: '80px',
+    top: '40px', // ✅ REHAUSSÉ: de 80px à 40px (3cm plus haut)
     bottom: '10px', // Toujours jusqu'en bas, plus de place pour le ruban
     width: '350px',
     backgroundColor: 'white',
