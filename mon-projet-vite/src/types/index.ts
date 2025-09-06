@@ -5,7 +5,7 @@
 // 🔧 TYPES DE BASE - Conservés exactement comme votre original
 // ============================================================================
 
-export type ProductCategory = 'Matelas' | 'Sur-matelas' | 'Couettes' | 'Oreillers' | 'Plateau' | 'Accessoires';
+export type ProductCategory = 'Matelas' | 'Sur-matelas' | 'Couettes' | 'Oreillers' | 'Plateau' | 'Accessoires' | 'Divers';
 
 export type CartType = 'classique' | 'facturier';
 
@@ -103,7 +103,7 @@ export interface Sale {
 }
 
 export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
-export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures' | 'reglements' | 'gestion';
+export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'annulation' | 'ca' | 'raz' | 'factures' | 'reglements' | 'gestion';
 
 // ============================================================================
 // 🗄️ TYPES INDEXEDDB - Simplifiés et compatibles avec le schéma Dexie

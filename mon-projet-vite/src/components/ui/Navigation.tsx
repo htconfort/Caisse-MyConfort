@@ -65,12 +65,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               </span>
             )}
             
-            {tab.id === 'diverses' && (
-              <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full"
-                style={{ backgroundColor: '#8B5CF6' }}>
-              </span>
-            )}
-            
             {tab.id === 'annulation' && cartLength > 0 && (
               <span className="absolute -top-1 -right-1 w-6 h-6 flex items-center justify-center text-xs rounded-full"
                 style={{ backgroundColor: 'var(--warning-red)', color: 'white' }}>

@@ -10,7 +10,6 @@ export const tabs: Array<{id: TabType, label: string, icon: LucideIcon}> = [
   { id: 'reglements', label: 'Règlements', icon: CreditCard },
   { id: 'stock', label: 'Stock', icon: Archive },
   { id: 'ventes', label: 'Ventes', icon: BarChart },
-  { id: 'diverses', label: 'Diverses', icon: FileText },
   { id: 'annulation', label: 'Annulation', icon: RotateCcw },
   { id: 'ca', label: 'CA Instant', icon: BarChart },
   { id: 'gestion', label: 'Gestion', icon: Settings },
@@ -18,7 +17,7 @@ export const tabs: Array<{id: TabType, label: string, icon: LucideIcon}> = [
 ];
 
 // Configuration des catégories de produits
-export const categories = ['Matelas', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Accessoires'] as const;
+export const categories = ['Matelas', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Accessoires', 'Divers'] as const;
 
 // Configuration des moyens de paiement
 export const paymentMethods = [

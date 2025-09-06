@@ -36,8 +36,8 @@ export function FloatingCart({
   const [isOpen, setIsOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState<'cart' | 'payment'>('cart');
 
-  // Ne pas afficher le cart si on n'est pas sur les onglets produits/annulation/diverses
-  const shouldShowCart = ['produits', 'annulation', 'diverses'].includes(activeTab) && cartItemsCount > 0;
+  // Ne pas afficher le cart si on n'est pas sur les onglets produits/annulation
+  const shouldShowCart = ['produits', 'annulation'].includes(activeTab) && cartItemsCount > 0;
 
   if (!shouldShowCart) {
     return null;

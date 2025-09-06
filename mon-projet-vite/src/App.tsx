@@ -28,7 +28,7 @@ type ResetOptionKey =
 
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
-import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab, PaymentsTab } from './components/tabs';
+import { VendorSelection, ProductsTab, SalesTab, CancellationTab, CATab, PaymentsTab } from './components/tabs';
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import InvoicesTabCompact from './components/InvoicesTabCompact';
 import { SuccessNotification, FloatingCart } from './components/ui';
@@ -149,8 +149,6 @@ export default function CaisseMyConfortApp() {
   const { invoices, stats: invoicesStats, resetInvoices } = useSyncInvoices();
   
   // États UI
-  const [miscDescription, setMiscDescription] = useState('');
-  const [miscAmount, setMiscAmount] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
@@ -480,27 +478,6 @@ export default function CaisseMyConfortApp() {
       return () => clearTimeout(timer);
     }
   }, [showSuccess]);
-
-  // Ajout ligne diverse
-  const addMiscToCart = useCallback(() => {
-    if (!miscDescription || !miscAmount) return;
-    
-    const amount = parseFloat(miscAmount);
-    if (isNaN(amount)) return;
-
-    const miscItem: ExtendedCartItem = {
-      id: `misc-${Date.now()}`,
-      name: miscDescription,
-      price: amount,
-      quantity: 1,
-      category: 'Divers',
-      addedAt: new Date()
-    };
-
-    setCart(prev => [...prev, miscItem]);
-    setMiscDescription('');
-    setMiscAmount('');
-  }, [miscDescription, miscAmount, setCart]);
 
   // Fonctions utilitaires pour les couleurs
   const isColorUsed = useCallback((color: string) => {
@@ -1001,17 +978,6 @@ export default function CaisseMyConfortApp() {
               <SalesTab 
                 sales={sales} 
                 invoices={invoices}
-              />
-            )}
-
-            {/* Onglet Diverses */}
-            {activeTab === 'diverses' && (
-              <MiscTab
-                miscDescription={miscDescription}
-                setMiscDescription={setMiscDescription}
-                miscAmount={miscAmount}
-                setMiscAmount={setMiscAmount}
-                addMiscToCart={addMiscToCart}
               />
             )}
 
@@ -2115,7 +2081,7 @@ export default function CaisseMyConfortApp() {
 
 
             {/* Fallback pour les onglets non définis */}
-            {!['vendeuse', 'produits', 'factures', 'reglements', 'stock', 'ventes', 'diverses', 'annulation', 'ca', 'gestion', 'raz'].includes(activeTab) && (
+            {!['vendeuse', 'produits', 'factures', 'reglements', 'stock', 'ventes', 'annulation', 'ca', 'gestion', 'raz'].includes(activeTab) && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-md mx-auto">
                   <p className="text-4xl mb-4">🚧</p>
