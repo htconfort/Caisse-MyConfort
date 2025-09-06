@@ -185,8 +185,8 @@ export function FloatingCart({
     }
   };
 
-  // Ne pas afficher sur certains onglets
-  if (!['produits', 'annulation'].includes(activeTab)) {
+  // Ne pas afficher sur certains onglets (garder visible sur vendeuse, produits, annulation)
+  if (!['vendeuse', 'produits', 'annulation', 'stock'].includes(activeTab)) {
     console.log('🚫 Cart hidden - wrong tab:', activeTab);
     return null;
   }

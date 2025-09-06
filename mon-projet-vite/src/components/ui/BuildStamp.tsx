@@ -1,8 +1,13 @@
 import React from 'react';
-import { BUILD_INFO, APP_VERSION } from '../../version';
-import { GitBranch, Clock, Hash } from 'lucide-react';
+// Imports mis en commentaire car composant masqué
+// import { BUILD_INFO, APP_VERSION } from '../../version';
+// import { GitBranch, Clock, Hash } from 'lucide-react';
 
 export const BuildStamp: React.FC = () => {
+  // Composant masqué sur demande utilisateur
+  return null;
+  
+  /*
   const isProduction = BUILD_INFO.context === 'production';
   
   return (
@@ -30,4 +35,5 @@ export const BuildStamp: React.FC = () => {
       )}
     </div>
   );
+  */
 };

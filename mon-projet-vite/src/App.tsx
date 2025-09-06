@@ -2132,8 +2132,8 @@ export default function CaisseMyConfortApp() {
           </div>
         </main>
 
-        {/* 🚨 INTERFACE DEBUG TEMPORAIRE */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* 🚨 INTERFACE DEBUG TEMPORAIRE - MASQUÉE SUR DEMANDE UTILISATEUR */}
+        {false && process.env.NODE_ENV === 'development' && (
           <div style={{
             position: 'fixed',
             bottom: '20px',
