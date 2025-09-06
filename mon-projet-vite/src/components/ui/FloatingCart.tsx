@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ShoppingCart, X, CreditCard, Plus, Minus, Edit3 } from 'lucide-react';
+import { ShoppingCart, X, CreditCard, Plus, Minus, Edit3, Trash2 } from 'lucide-react';
 import type { 
   TabType, 
   PaymentMethod, 
@@ -308,6 +308,37 @@ export function FloatingCart({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Bouton vider le panier - compact dans l'en-tête */}
+          <button
+            onClick={clearCart}
+            disabled={cart.length === 0}
+            title="Vider le panier"
+            style={{
+              background: cart.length === 0 ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)',
+              border: 'none',
+              color: cart.length === 0 ? 'rgba(255,255,255,0.4)' : 'white',
+              borderRadius: '6px',
+              padding: '8px',
+              cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={(e) => {
+              if (cart.length > 0) {
+                e.currentTarget.style.background = 'rgba(245, 93, 62, 0.8)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (cart.length > 0) {
+                e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
+              }
+            }}
+          >
+            <Trash2 size={16} />
+          </button>
+          
           <button
             onClick={() => setIsCartMinimized(true)}
             style={{
@@ -673,31 +704,6 @@ export function FloatingCart({
           >
             <CreditCard size={18} />
             {!selectedVendor ? 'Sélectionner une vendeuse' : 'Mode de paiement'}
-          </button>
-          
-          {/* Bouton Vider le panier */}
-          <button
-            onClick={clearCart}
-            disabled={cart.length === 0}
-            style={{
-              backgroundColor: 'white',
-              color: '#F55D3E',
-              border: '2px solid #F55D3E',
-              borderRadius: '12px',
-              padding: '14px',
-              fontSize: '15px',
-              fontWeight: 'bold',
-              cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-              opacity: cart.length === 0 ? 0.6 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            <X size={18} />
-            Vider le panier
           </button>
         </div>
       </div>
