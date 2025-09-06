@@ -152,6 +152,7 @@ export default function CaisseMyConfortApp() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [forceExpandCart, setForceExpandCart] = useState(false);
 
   // États pour l'ajout de vendeuses
   const [showAddVendorForm, setShowAddVendorForm] = useState(false);
@@ -279,6 +280,13 @@ export default function CaisseMyConfortApp() {
       },
     ]);
   }, [setCart, selectedVendor, cartType]);
+
+  // Fonction pour déclencher l'expansion du panier
+  const triggerExpandCart = useCallback(() => {
+    setForceExpandCart(true);
+    // Reset après un court délai
+    setTimeout(() => setForceExpandCart(false), 100);
+  }, []);
 
   const updateQuantity = useCallback((itemId: string, newQuantity: number) => {
     setCart(prevCart => {
@@ -952,6 +960,7 @@ export default function CaisseMyConfortApp() {
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 cartType={cartType}
+                triggerExpandCart={triggerExpandCart}
               />
             )}
 
@@ -2181,6 +2190,7 @@ export default function CaisseMyConfortApp() {
           cartType={cartType}
           onCartTypeChange={setCartType}
           onPriceOverride={handlePriceOverride}
+          forceExpand={forceExpandCart}
           clearCart={clearCart}
           completeSale={completeSale}
         />

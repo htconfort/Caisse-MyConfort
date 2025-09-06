@@ -10,6 +10,7 @@ export type ProductCategory = 'Matelas' | 'Sur-matelas' | 'Couettes' | 'Oreiller
 export type CartType = 'classique' | 'facturier';
 
 export interface CatalogProduct {
+  id?: string;
   name: string;
   category: ProductCategory;
   priceTTC: number; // 0 = non vendu seul

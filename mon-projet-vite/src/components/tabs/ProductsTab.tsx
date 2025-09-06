@@ -25,6 +25,7 @@ interface ProductsTabProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   cartType?: CartType;
+  triggerExpandCart?: () => void;
 }
 
 export function ProductsTab({
@@ -33,7 +34,8 @@ export function ProductsTab({
   addToCart,
   searchTerm,
   setSearchTerm,
-  cartType = 'classique'
+  cartType = 'classique',
+  triggerExpandCart
 }: ProductsTabProps) {
   // --- état catégorie + modal prix libre pour produits du catalogue
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | 'Tous'>('Matelas');
@@ -127,6 +129,8 @@ export function ProductsTab({
                   return;
                 }
                 setSelectedCategory(category as ProductCategory);
+                // Déclencher l'expansion du panier à chaque sélection de catégorie
+                triggerExpandCart?.();
               }}
               className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all touch-feedback ${
                 selectedCategory === category

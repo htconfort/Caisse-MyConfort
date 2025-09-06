@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ShoppingCart, X, CreditCard, Plus, Minus, Edit3, Trash2 } from 'lucide-react';
 import type { 
   TabType, 
@@ -49,6 +49,8 @@ interface FloatingCartProps {
   onCartTypeChange?: (type: CartType) => void;
   // ▼ NOUVEAU: Callback pour sauvegarder les prix négociés
   onPriceOverride?: (itemId: string, override: PriceOverrideMeta) => void;
+  // ▼ NOUVEAU: Fonction pour forcer l'expansion du panier
+  forceExpand?: boolean;
 }
 
 export function FloatingCart({
@@ -62,7 +64,8 @@ export function FloatingCart({
   updateQuantity,
   toggleOffert,
   cartType = 'classique',
-  onPriceOverride
+  onPriceOverride,
+  forceExpand
 }: FloatingCartProps) {
   const [isCartMinimized, setIsCartMinimized] = useState(false);
   const [showPaymentPage, setShowPaymentPage] = useState(false);
@@ -75,6 +78,13 @@ export function FloatingCart({
   // ▼ NOUVEAU: États pour l'édition des prix
   const [showPriceEditor, setShowPriceEditor] = useState(false);
   const [editingItem, setEditingItem] = useState<ExtendedCartItemWithNegotiation | null>(null);
+
+  // ▼ NOUVEAU: Effet pour forcer l'expansion du panier depuis l'extérieur
+  useEffect(() => {
+    if (forceExpand) {
+      setIsCartMinimized(false);
+    }
+  }, [forceExpand]);
 
   // 🚨 DEBUG CART DISPLAY
   console.log('🛒 FloatingCart Debug:', {
