@@ -29,6 +29,43 @@ export interface ExtendedCartItem {
   originalPrice?: number;
 }
 
+// ===== TYPES SYSTÈME PRIX NÉGOCIÉS v1.0.0 =====
+// 🎯 Fonctionnalité: Prix personnalisés avec validation et traçabilité
+
+export type DiscountType = 'amount' | 'percent' | 'override';
+
+/**
+ * 💰 Métadonnées des prix négociés par ligne de panier
+ * Traçabilité complète pour audit et contrôle
+ */
+export interface PriceOverrideMeta {
+  enabled: boolean;           // true si un prix personnalisé est appliqué
+  type: DiscountType;         // 'amount' = remise € ; 'percent' = % ; 'override' = saisir le prix TTC
+  value: number;              // valeur positive (ex: 10 = -10€ ou -10%)
+  reason?: string;            // raison de l'ajustement
+  author?: string;            // id/nom de la vendeuse
+  approvedBy?: string;        // id/nom du responsable (si PIN demandé)
+  ts?: number;                // timestamp de création
+  originalPrice?: number;     // prix catalogue original pour comparaison
+}
+
+/**
+ * 🛒 Article panier étendu avec système prix négociés
+ * Compatible avec le système existant (ExtendedCartItem)
+ */
+export interface ExtendedCartItemWithNegotiation {
+  id: string;
+  name: string;
+  price: number;              // prix actuel (peut être négocié)
+  quantity: number;
+  category: string;
+  addedAt: Date;
+  offert?: boolean;
+  originalPrice?: number;     // prix catalogue original
+  // ▼ NOUVEAU: Système prix négociés
+  priceOverride?: PriceOverrideMeta;
+}
+
 export interface Vendor {
   id: string;
   name: string;

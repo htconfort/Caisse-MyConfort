@@ -6,8 +6,9 @@ import type {
   ExtendedCartItem, 
   Sale,
   CatalogProduct,
-  CartType
-} from './types';
+  CartType,
+  PriceOverrideMeta
+} from './types/index';
 import { 
   vendors, 
   STORAGE_KEYS 
@@ -315,6 +316,33 @@ export default function CaisseMyConfortApp() {
               ...item,
               offert: false,
               price: item.originalPrice || item.price
+            };
+          }
+        }
+        return item;
+      })
+    );
+  }, [setCart]);
+
+  // ▼ NOUVEAU: Gestion des prix négociés
+  const handlePriceOverride = useCallback((itemId: string, override: PriceOverrideMeta) => {
+    setCart(prevCart => 
+      prevCart.map(item => {
+        if (item.id === itemId) {
+          if (!override.enabled) {
+            // Retour au prix original
+            return {
+              ...item,
+              price: item.originalPrice || item.price,
+              priceOverride: undefined
+            };
+          } else {
+            // Application du nouveau prix
+            return {
+              ...item,
+              price: override.value,
+              originalPrice: item.originalPrice || item.price,
+              priceOverride: override
             };
           }
         }
@@ -2186,6 +2214,7 @@ export default function CaisseMyConfortApp() {
           toggleOffert={toggleOffert}
           cartType={cartType}
           onCartTypeChange={setCartType}
+          onPriceOverride={handlePriceOverride}
           clearCart={clearCart}
           completeSale={completeSale}
         />

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ShoppingCart, X, CreditCard, Plus, Minus } from 'lucide-react';
+import { ShoppingCart, X, CreditCard, Plus, Minus, Edit3 } from 'lucide-react';
 import type { 
   TabType, 
   PaymentMethod, 
@@ -7,8 +7,11 @@ import type {
   ExtendedCartItem,
   CartType 
 } from '../../types';
+import { ExtendedCartItemWithNegotiation, PriceOverrideMeta } from '../../types';
 import { isMatressProduct } from '../../utils';
 import { ManualInvoiceModal } from './ManualInvoiceModal';
+import SimplePriceEditor from './SimplePriceEditor';
+import { formatPriceDisplay, calculateFinalPrice } from '../../utils/CartUtils';
 
 // Interface pour les données de paiement étendues
 interface PaymentData {
@@ -34,7 +37,7 @@ interface PaymentData {
 
 interface FloatingCartProps {
   activeTab: TabType;
-  cart: ExtendedCartItem[];
+  cart: ExtendedCartItemWithNegotiation[];  // ✅ Support prix négociés
   cartItemsCount: number;
   cartTotal: number;
   selectedVendor: Vendor | null;
@@ -44,6 +47,8 @@ interface FloatingCartProps {
   toggleOffert?: (itemId: string) => void;
   cartType?: CartType;
   onCartTypeChange?: (type: CartType) => void;
+  // ▼ NOUVEAU: Callback pour sauvegarder les prix négociés
+  onPriceOverride?: (itemId: string, override: PriceOverrideMeta) => void;
 }
 
 export function FloatingCart({
@@ -56,7 +61,8 @@ export function FloatingCart({
   completeSale,
   updateQuantity,
   toggleOffert,
-  cartType = 'classique'
+  cartType = 'classique',
+  onPriceOverride
 }: FloatingCartProps) {
   const [isCartMinimized, setIsCartMinimized] = useState(false);
   const [showPaymentPage, setShowPaymentPage] = useState(false);
@@ -65,6 +71,10 @@ export function FloatingCart({
     method?: PaymentMethod;
     checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string };
   } | null>(null);
+  
+  // ▼ NOUVEAU: États pour l'édition des prix
+  const [showPriceEditor, setShowPriceEditor] = useState(false);
+  const [editingItem, setEditingItem] = useState<ExtendedCartItemWithNegotiation | null>(null);
 
   // 🚨 DEBUG CART DISPLAY
   console.log('🛒 FloatingCart Debug:', {
@@ -75,6 +85,56 @@ export function FloatingCart({
     cart: cart.map(item => ({ id: item.id, name: item.name, quantity: item.quantity, price: item.price })),
     isCartMinimized
   });
+
+  // ▼ NOUVEAU: Fonctions gestion prix négociés
+  const handleEditPrice = (item: ExtendedCartItemWithNegotiation) => {
+    setEditingItem(item);
+    setShowPriceEditor(true);
+  };
+
+  const handleSavePriceOverride = (itemId: string, override: PriceOverrideMeta) => {
+    if (onPriceOverride) {
+      onPriceOverride(itemId, override);
+    }
+    setShowPriceEditor(false);
+    setEditingItem(null);
+  };
+
+  const handleClosePriceEditor = () => {
+    setShowPriceEditor(false);
+    setEditingItem(null);
+  };
+
+  // ▼ NOUVEAU: Calcul total avec négociations
+  const cartTotals = useMemo(() => {
+    let negotiatedTotal = 0;
+    let originalTotal = 0;
+    let negotiationSavings = 0;
+    let negotiatedItemsCount = 0;
+
+    cart.forEach(item => {
+      const finalPrice = calculateFinalPrice(item);
+      const originalPrice = item.originalPrice || item.price;
+      const lineTotal = item.offert ? 0 : finalPrice * item.quantity;
+      const originalLineTotal = item.offert ? 0 : originalPrice * item.quantity;
+
+      negotiatedTotal += lineTotal;
+      originalTotal += originalLineTotal;
+
+      if (item.priceOverride?.enabled) {
+        negotiatedItemsCount++;
+        negotiationSavings += (originalPrice - finalPrice) * item.quantity;
+      }
+    });
+
+    return {
+      negotiatedTotal,
+      originalTotal,
+      negotiationSavings,
+      negotiatedItemsCount,
+      totalWithNegotiations: negotiatedTotal // Le vrai total à afficher
+    };
+  }, [cart]);
 
   // Calcul des économies
   const totalSavings = useMemo(() => {
@@ -139,7 +199,7 @@ export function FloatingCart({
     right: '10px',
     top: '40px', // ✅ REHAUSSÉ: de 80px à 40px (3cm plus haut)
     bottom: '10px', // Toujours jusqu'en bas, plus de place pour le ruban
-    width: '350px',
+    width: '370px', // ✅ ÉLARGI: de 350px à 370px (2cm plus large pour affichage prix)
     backgroundColor: 'white',
     borderRadius: '16px',
     boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
@@ -275,6 +335,11 @@ export function FloatingCart({
         }}>
           {cart.map((item, index) => {
             console.log(`📦 Rendering item ${index}:`, item.name);
+            
+            // ▼ NOUVEAU: Calcul des prix négociés
+            const priceInfo = formatPriceDisplay(item);
+            const finalPrice = calculateFinalPrice(item);
+            
             return (
             <div
               key={`${item.id}-${index}`}
@@ -291,14 +356,16 @@ export function FloatingCart({
                   fontSize: '14px', 
                   fontWeight: '600',
                   color: '#14281D',
-                  marginBottom: '4px'
+                  marginBottom: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}>
                   {item.name}
                   {item.offert && (
                     <span style={{
-                      marginLeft: '8px',
-                      fontSize: '12px',
-                      padding: '2px 6px',
+                      fontSize: '10px',
+                      padding: '2px 5px',
                       backgroundColor: '#dcfce7',
                       color: '#166534',
                       borderRadius: '4px',
@@ -307,14 +374,104 @@ export function FloatingCart({
                       🎁 Offert
                     </span>
                   )}
+                  {/* ▼ NOUVEAU: Badge prix modifié ultra-discret et élégant */}
+                  {priceInfo.hasOverride && (
+                    <span style={{
+                      fontSize: '8px',
+                      padding: '1px 3px',
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      borderRadius: '2px',
+                      fontWeight: '600',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.3px'
+                    }}>
+                      ✏️
+                    </span>
+                  )}
                 </div>
+                {/* ▼ NOUVEAU: Affichage prix optimisé et plus visible */}
                 <div style={{ 
-                  fontSize: '13px', 
-                  color: '#6B7280'
+                  fontSize: '14px', 
+                  color: '#374151',
+                  fontWeight: '500',
+                  marginTop: '2px'
                 }}>
-                  {item.offert ? '0.00' : item.price.toFixed(2)}€ × {item.quantity}
+                  {item.offert ? (
+                    <span style={{ color: '#059669', fontWeight: '600' }}>
+                      GRATUIT × {item.quantity}
+                    </span>
+                  ) : priceInfo.hasOverride ? (
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <span style={{ 
+                        textDecoration: 'line-through', 
+                        color: '#9CA3AF', 
+                        fontSize: '11px',
+                        opacity: 0.7
+                      }}>
+                        {priceInfo.originalPrice.toFixed(2)}€
+                      </span>
+                      <span style={{ 
+                        color: '#1d4ed8', 
+                        fontWeight: '700',
+                        fontSize: '15px'
+                      }}>
+                        {finalPrice.toFixed(2)}€ × {item.quantity}
+                      </span>
+                    </div>
+                  ) : (
+                    <span style={{ fontWeight: '600' }}>
+                      {finalPrice.toFixed(2)}€ × {item.quantity}
+                    </span>
+                  )}
                 </div>
               </div>
+              
+              {/* ▼ NOUVEAU: Bouton édition prix élégant et discret */}
+              {!item.offert && onPriceOverride && (
+                <button
+                  onClick={() => handleEditPrice(item)}
+                  style={{
+                    backgroundColor: priceInfo.hasOverride ? '#dbeafe' : 'transparent',
+                    color: priceInfo.hasOverride ? '#1d4ed8' : '#6B7280',
+                    border: priceInfo.hasOverride ? '1px solid #3b82f6' : '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    marginRight: '6px',
+                    transition: 'all 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    minWidth: '28px',
+                    justifyContent: 'center',
+                    boxShadow: priceInfo.hasOverride ? '0 1px 3px rgba(59, 130, 246, 0.2)' : 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = priceInfo.hasOverride ? '#bfdbfe' : '#f9fafb';
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = priceInfo.hasOverride ? '#dbeafe' : 'transparent';
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = priceInfo.hasOverride ? '0 1px 3px rgba(59, 130, 246, 0.2)' : 'none';
+                  }}
+                  title="Modifier le prix"
+                >
+                  <Edit3 size={10} />
+                  {priceInfo.hasOverride && (
+                    <span style={{ fontSize: '9px' }}>✓</span>
+                  )}
+                </button>
+              )}
               
               {/* Bouton Offert */}
               {toggleOffert && (
@@ -449,16 +606,30 @@ export function FloatingCart({
             color: '#477A0C',
             lineHeight: 1
           }}>
-            {cartTotal.toFixed(2).replace('.', ',')}€
+            {cartTotals.totalWithNegotiations.toFixed(2).replace('.', ',')}€
           </div>
+          
+          {/* ▼ NOUVEAU: Affichage des économies simplifiées */}
+          {cartTotals.negotiationSavings > 0 && (
+            <div style={{ 
+              fontSize: '14px', 
+              color: '#0369a1', 
+              marginTop: '8px',
+              fontWeight: '600'
+            }}>
+              Économie: -{cartTotals.negotiationSavings.toFixed(2)}€
+            </div>
+          )}
+          
+          {/* Économies matelas existantes */}
           {totalSavings > 0 && (
             <div style={{ 
               fontSize: '14px', 
               color: '#F55D3E', 
-              marginTop: '8px',
+              marginTop: cartTotals.negotiationSavings > 0 ? '4px' : '8px',
               fontWeight: '600'
             }}>
-              Économie: {totalSavings.toFixed(2)}€
+              Économie matelas: -{totalSavings.toFixed(2)}€
             </div>
           )}
         </div>
@@ -552,6 +723,14 @@ export function FloatingCart({
         reason="matelas-classique"
       />
       </div>
+
+      {/* ▼ NOUVEAU: Modal d'édition des prix simplifiée */}
+      <SimplePriceEditor
+        isOpen={showPriceEditor}
+        item={editingItem}
+        onClose={handleClosePriceEditor}
+        onSave={handleSavePriceOverride}
+      />
 
       {/* 🆕 Ruban bas de page supprimé - le panier va maintenant jusqu'en bas */}
     </>
