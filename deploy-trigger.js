@@ -1,9 +1,10 @@
 const triggerTimestamp = Date.now();
 console.log(`Netlify deploy trigger: ${triggerTimestamp}`);
 console.log('Features deployed:');
-console.log('- ✨ CSS ÉLÉGANT PRIX ÉDITABLE v2.0.0');
-console.log('- Modal repositionnée coin supérieur droit');  
-console.log('- Badges prix modifiés ultra-discrets');
-console.log('- Affichage prix optimisé et plus visible');
-console.log('- Animations CSS modernes et fluides');
+console.log('- 🚫 MASQUAGE INTERFACE DEBUG v2.1.0');
+console.log('- Version v3.01 masquée en haut à gauche');  
+console.log('- BuildStamp debug masqué en bas à gauche');
+console.log('- Interface test masquée: Test Items, Clear, Cart');
+console.log('- Panier visible sur onglet vendeuse');
+console.log('- Interface épurée et professionnelle');
 export { triggerTimestamp };
