@@ -83,6 +83,7 @@ export interface Sale {
   items: ExtendedCartItem[];
   totalAmount: number;
   paymentMethod: PaymentMethod;
+  paymentDetails?: PaymentDetails;
   // Autoriser Date ou string pour tolérer des données non normalisées reçues
   date: Date | string;
   canceled: boolean;
@@ -103,7 +104,26 @@ export interface Sale {
   };
 }
 
-export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'check' | 'multiple_checks' | 'mixed' | 'installment';
+
+export interface PaymentDetails {
+  // Pour les chèques multiples
+  numberOfChecks?: number;
+  amountPerCheck?: number;
+  
+  // Pour les acomptes
+  downPayment?: number;
+  remainingAmount?: number;
+  
+  // Détails généraux
+  description?: string;
+  
+  // Pour les paiements mixtes
+  mixedPayments?: Array<{
+    method: PaymentMethod;
+    amount: number;
+  }>;
+}
 export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'annulation' | 'ca' | 'raz' | 'factures' | 'reglements' | 'gestion';
 
 // ============================================================================

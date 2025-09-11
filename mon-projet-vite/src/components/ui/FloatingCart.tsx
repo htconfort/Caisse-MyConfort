@@ -5,13 +5,17 @@ import type {
   PaymentMethod, 
   Vendor,
   ExtendedCartItem,
-  CartType 
+  CartType,
+  PaymentDetails 
 } from '../../types';
 import { ExtendedCartItemWithNegotiation, PriceOverrideMeta } from '../../types';
 import { isMatressProduct } from '../../utils';
 import { ManualInvoiceModal } from './ManualInvoiceModal';
+import { PaymentDetailsModal } from './PaymentDetailsModal';
+import { FacturassionPaymentPage } from './FacturassionPaymentPage';
 import SimplePriceEditor from './SimplePriceEditor';
 import { formatPriceDisplay, calculateFinalPrice } from '../../utils/CartUtils';
+import { getPaymentMessage } from '../../data/constants';
 
 // Interface pour les données de paiement étendues
 interface PaymentData {
@@ -718,12 +722,16 @@ export function FloatingCart({
         </div>
       </div>
 
-      {/* Page complète de paiement */}
+      {/* Page complète de paiement - Interface Facturassion */}
       {showPaymentPage && (
-        <StepPaymentNoScroll 
+        <FacturassionPaymentPage 
           cartTotal={cartTotal}
           onBack={() => setShowPaymentPage(false)}
-          onSelectPayment={handleCompleteSale}
+          onSelectPayment={(method, details) => {
+            // Adapter l'appel pour inclure les détails PaymentDetails
+            handleCompleteSale(method);
+            setShowPaymentPage(false);
+          }}
         />
       )}
 
@@ -768,9 +776,33 @@ function StepPaymentNoScroll({
   const [showAlmaPage, setShowAlmaPage] = useState(false);
   const [showChequesPage, setShowChequesPage] = useState(false);
   const [checkDetails, setCheckDetails] = useState<{ count: number; amount: number; totalAmount: number; notes?: string } | null>(null);
+  
+  // États pour les nouveaux modes de paiement Facturassion
+  const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState(false);
+  const [pendingPaymentMethod, setPendingPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
 
   const restePay = Math.max(0, cartTotal - acompte);
   const isValidPayment = !!selectedMethod && acompte >= 0 && acompte <= cartTotal;
+
+  // Fonction pour gérer les modes de paiement nécessitant des détails
+  const handlePaymentWithDetails = (method: PaymentMethod) => {
+    setPendingPaymentMethod(method);
+    setShowPaymentDetailsModal(true);
+  };
+
+  // Fonction appelée quand les détails sont confirmés
+  const handlePaymentDetailsConfirm = (details: PaymentDetails) => {
+    setPaymentDetails(details);
+    setShowPaymentDetailsModal(false);
+    
+    if (pendingPaymentMethod) {
+      setSelectedMethod(pendingPaymentMethod);
+      // Appeler directement onSelectPayment avec les détails
+      // Note: Nous devrons adapter la signature pour supporter PaymentDetails
+      onSelectPayment(pendingPaymentMethod);
+    }
+  };
 
   // Pages secondaires pour Alma
   if (showAlmaPage) {
@@ -985,28 +1017,76 @@ function StepPaymentNoScroll({
             }}
           />
 
-          {/* Virement */}
-          <PaymentCard
-            active={selectedMethod === 'Virement'}
-            title="Virement"
-            subtitle="Banque à banque"
-            emoji="🏦"
-            onClick={() => {
-              setSelectedMethod('Virement');
-              onSelectPayment('multi'); // On garde 'multi' pour les méthodes étendues
-            }}
-          />
-
           {/* Carte bleue */}
           <PaymentCard
             active={selectedMethod === 'Carte Bleue'}
             title="Carte bleue"
-            subtitle="CB comptant"
+            subtitle="Paiement par carte bancaire"
             emoji="💳"
             onClick={() => {
               setSelectedMethod('Carte Bleue');
               onSelectPayment('card');
             }}
+          />
+
+          {/* Virement */}
+          <PaymentCard
+            active={selectedMethod === 'Virement'}
+            title="Virement"
+            subtitle="Virement bancaire"
+            emoji="🏦"
+            onClick={() => {
+              setSelectedMethod('Virement');
+              onSelectPayment('transfer');
+            }}
+          />
+
+          {/* Chèque unique */}
+          <PaymentCard
+            active={selectedMethod === 'Chèque unique'}
+            title="Chèque unique"
+            subtitle="Paiement par chèque"
+            emoji="📝"
+            onClick={() => {
+              setSelectedMethod('Chèque unique');
+              onSelectPayment('check');
+            }}
+          />
+
+          {/* Chèques multiples */}
+          <PaymentCard
+            active={selectedMethod === 'Chèques multiples'}
+            title="Chèques multiples"
+            subtitle="Paiement échelonné ⚙️"
+            emoji="📝"
+            onClick={() => {
+              handlePaymentWithDetails('multiple_checks');
+            }}
+            highlight="orange"
+          />
+
+          {/* Paiement mixte */}
+          <PaymentCard
+            active={selectedMethod === 'Paiement mixte'}
+            title="Paiement mixte"
+            subtitle="Combinaison de modes ⚙️"
+            emoji="🔄"
+            onClick={() => {
+              handlePaymentWithDetails('mixed');
+            }}
+            highlight="blue"
+          />
+
+          {/* Acompte + Solde */}
+          <PaymentCard
+            active={selectedMethod === 'Acompte + Solde'}
+            title="Acompte + Solde"
+            subtitle="Paiement avec acompte ⚙️"
+            emoji="💰"
+            onClick={() => {
+              handlePaymentWithDetails('installment');
+            }}
+            highlight="green"
           />
 
           {/* Alma */}
