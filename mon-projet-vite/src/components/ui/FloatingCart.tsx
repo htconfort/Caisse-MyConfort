@@ -696,7 +696,8 @@ export function FloatingCart({
                 alert('⚠️ Le panier est vide');
                 return;
               }
-              setShowPaymentPage(true);
+              // Ouvrir la page de règlement Facturassion en plein écran
+              window.location.href = '/reglement.html';
             }}
             disabled={!selectedVendor || cart.length === 0}
             style={{
