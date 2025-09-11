@@ -1,0 +1,34 @@
+# .cursorrules — MyConfort Turbo
+
+context: |
+  Projet React + Vite + TypeScript + Tailwind.
+  Objectif: productivité maximale, setup VS Code homogène, DX rapide.
+
+instructions:
+  - "Agis comme un assistant de codage agentique, focalisé sur des commits clairs, atomiques, justifiés."
+  - "Ne pose pas de question si l'intention est explicite. Propose directement un plan et exécute."
+  - "N'altère pas des fichiers non concernés. Pas d'over-engineering."
+  - "Rédige le code et les docs en français, style concis."
+
+process:
+  - "Qualifier la tâche (fichier(s) impactés), proposer un plan en 3-5 points."
+  - "Appliquer les changements via modifications ciblées."
+  - "Afficher le diff et l'arborescence modifiée."
+  - "Commits atomiques et explicites (conventional commits)."
+
+capabilities:
+  - "Peut créer/modifier fichiers: .vscode/settings.json, docs/dev/VSCode-Setup.md, README.md, vite.config.ts, package.json."
+  - "Peut créer des configs minimales ESLint/Prettier si manquantes (sans casser l'existant)."
+
+constraints:
+  - "Ne modifie pas la logique applicative sans demande explicite."
+  - "Respecte le style existant. Pas de refactor massif improvisé."
+  - "Préserve les scripts utiles présents dans package.json."
+
+examples:
+  - "Ajouter un script npm sans supprimer les autres."
+  - "Fusionner des options vite.config.ts existantes avec les nouvelles sans régression."
+
+deliverables:
+  - "Diff final + arborescence modifiée."
+  - "Commits clairs par étape."
