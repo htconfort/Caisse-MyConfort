@@ -2,19 +2,19 @@
 // Schéma IndexedDB optimisé pour MyConfort avec Dexie v4.x
 import Dexie, { Table } from 'dexie';
 import type {
-  Sale,
-  ExtendedCartItem,
-  ProductCategory,
-  SaleDB,
-  VendorDB,
-  CartItemDB,
-  StockDB,
-  StockMovement,
-  VendorAnalytics,
-  ProductAnalytics,
-  SystemSettings,
-  CacheEntry,
-  SessionDB
+    CacheEntry,
+    CartItemDB,
+    ExtendedCartItem,
+    ProductAnalytics,
+    ProductCategory,
+    Sale,
+    SaleDB,
+    SessionDB,
+    StockDB,
+    StockMovement,
+    SystemSettings,
+    VendorAnalytics,
+    VendorDB
 } from '../types';
 
 /**
@@ -208,7 +208,7 @@ export class MyConfortDB extends Dexie {
     return newSession;
   }
 
-  async openSessionSafe(vendorNameOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
+  async openSessionSafe(vendorNameOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string; eventLocation?: string }): Promise<SessionDB> {
     // Vérifier s'il y a déjà une session active
     const currentSession = await this.getCurrentSession();
     if (currentSession) {
@@ -216,16 +216,63 @@ export class MyConfortDB extends Dexie {
       return currentSession;
     }
 
-    // Déterminer le vendeur
+    // Déterminer le vendeur et les métadonnées éventuelles
     let vendorName = 'Système';
+    let eventName: string | undefined;
+    let eventStartMs: number | undefined;
+    let eventEndMs: number | undefined;
+    let eventLocation: string | undefined;
+
     if (typeof vendorNameOrOpts === 'string') {
       vendorName = vendorNameOrOpts;
-    } else if (vendorNameOrOpts?.openedBy) {
-      vendorName = vendorNameOrOpts.openedBy;
+    } else if (vendorNameOrOpts) {
+      if (vendorNameOrOpts.openedBy) vendorName = vendorNameOrOpts.openedBy;
+      if (vendorNameOrOpts.eventName) eventName = vendorNameOrOpts.eventName;
+      if (vendorNameOrOpts.eventStart !== undefined) {
+        const v = vendorNameOrOpts.eventStart;
+        eventStartMs = typeof v === 'number' ? v : new Date(v as any).getTime();
+      }
+      if (vendorNameOrOpts.eventEnd !== undefined) {
+        const v = vendorNameOrOpts.eventEnd;
+        eventEndMs = typeof v === 'number' ? v : new Date(v as any).getTime();
+      }
+      if (vendorNameOrOpts.eventLocation) eventLocation = vendorNameOrOpts.eventLocation;
     }
 
-    console.log(`🔓 Ouverture de session sécurisée pour: ${vendorName}`);
-    return this.openSession(vendorName);
+    // Si une date d'événement (début) est fournie, l'utiliser comme date d'ouverture
+    const openedAt = eventStartMs ?? Date.now();
+
+    console.log(`🔓 Ouverture de session sécurisée pour: ${vendorName} — openedAt=${new Date(openedAt).toISOString()}`);
+
+    // Vérifier qu'aucune session 'open' n'existe puis créer avec métadonnées
+    const existingSessions = await this.sessions.where('status').equals('open').toArray();
+    if (existingSessions.length > 0) {
+      throw new Error('Une session de caisse est déjà ouverte');
+    }
+
+    const newSession: SessionDB = {
+      id: `session_${openedAt}`,
+      status: 'open',
+      openedAt,
+      openedBy: vendorName,
+      ...(eventName ? { eventName } : {}),
+      ...(eventStartMs ? { eventStart: eventStartMs } : {}),
+      ...(eventEndMs ? { eventEnd: eventEndMs } : {}),
+      ...(eventLocation ? { eventLocation } : {})
+    } as SessionDB;
+
+    await this.sessions.add(newSession);
+    await this.settings.put({ 
+      key: 'current_session_id', 
+      value: newSession.id, 
+      lastUpdate: openedAt, 
+      version: '1.0',
+      darkMode: false,
+      outletName: ''
+    } as SystemSettings);
+
+    console.log(`🔓 Session (safe) ouverte: ${newSession.id}`);
+    return newSession;
   }
 
   async closeSession(): Promise<void> {

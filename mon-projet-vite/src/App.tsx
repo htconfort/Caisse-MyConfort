@@ -1,20 +1,21 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { 
-  TabType, 
-  PaymentMethod, 
-  Vendor, 
-  ExtendedCartItem, 
-  Sale,
-  CatalogProduct,
-  CartType
-} from './types';
-import { 
-  vendors, 
-  STORAGE_KEYS 
-} from './data';
 import { useIndexedStorage } from '@/hooks/storage/useIndexedStorage';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    STORAGE_KEYS,
+    vendors
+} from './data';
 import { useSyncInvoices } from './hooks/useSyncInvoices';
 import { triggerN8NSync } from './services/n8nSyncService';
+import type {
+    CartType,
+    CatalogProduct,
+    ExtendedCartItem,
+    PaymentMethod,
+    PriceOverrideMeta,
+    Sale,
+    TabType,
+    Vendor
+} from './types/index';
 
 // Type pour les options de RAZ
 type ResetOptionKey =
@@ -25,24 +26,24 @@ type ResetOptionKey =
   | 'vendorStats'
   | 'allData';
 
+import { getDB } from '@/db/index';
+import { sessionService } from '@/services';
+import { AlertTriangle, Book, Check, CheckCircle, Edit3, Package, Palette, Plus, RefreshCw, Save, Settings, ShoppingCart, Trash2, Users, X } from 'lucide-react';
+import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
+import { GuideUtilisation } from './components/GuideUtilisation';
+import InvoicesTabCompact from './components/InvoicesTabCompact';
+import { CancellationTab, CATab, PaymentsTab, ProductsTab, SalesTab, VendorSelection } from './components/tabs';
+import { StockTabElegant } from './components/tabs/StockTabElegant';
+import { FloatingCart, SuccessNotification } from './components/ui';
+import { BuildStamp } from './components/ui/BuildStamp';
+import { CartTypeSelector } from './components/ui/CartTypeSelector';
+import { DebugDataPanel } from './components/ui/DebugDataPanel';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
-import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab, PaymentsTab } from './components/tabs';
-import { StockTabElegant } from './components/tabs/StockTabElegant';
-import InvoicesTabCompact from './components/InvoicesTabCompact';
-import VSCodeSyncComponent from './components/VSCodeSync';
-import { SuccessNotification, FloatingCart } from './components/ui';
-import { CartTypeSelector } from './components/ui/CartTypeSelector';
+import { ProductsManagement } from './components/ui/ProductsManagement';
 import { VendorDiagnostics } from './components/ui/VendorDiagnostics';
-import { BuildStamp } from './components/ui/BuildStamp';
-import { DebugDataPanel, type DexieLike } from './components/ui/DebugDataPanel';
-import { GuideUtilisation } from './components/GuideUtilisation';
-import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle, Book, Users, ShoppingCart } from 'lucide-react';
-import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import './styles/invoices-tab.css';
 import './styles/print.css';
-import { sessionService } from '@/services';
-import { getDB } from '@/db/index';
 
 // Styles pour les animations RAZ
 const razAnimationStyles = `
@@ -149,11 +150,10 @@ export default function CaisseMyConfortApp() {
   const { invoices, stats: invoicesStats, resetInvoices } = useSyncInvoices();
   
   // États UI
-  const [miscDescription, setMiscDescription] = useState('');
-  const [miscAmount, setMiscAmount] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
+  const [forceExpandCart, setForceExpandCart] = useState(false);
 
   // États pour l'ajout de vendeuses
   const [showAddVendorForm, setShowAddVendorForm] = useState(false);
@@ -162,7 +162,7 @@ export default function CaisseMyConfortApp() {
   const [selectedColor, setSelectedColor] = useState('');
   
   // État pour les sous-onglets de gestion
-  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide' | 'panier' | 'diagnostic' | 'vscode'>('vendeuses');
+  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'produits' | 'guide' | 'panier' | 'diagnostic'>('vendeuses');
 
   // États pour l'édition et la suppression des vendeuses
   const [editingVendor, setEditingVendor] = useState<string | null>(null);
@@ -282,6 +282,13 @@ export default function CaisseMyConfortApp() {
     ]);
   }, [setCart, selectedVendor, cartType]);
 
+  // Fonction pour déclencher l'expansion du panier
+  const triggerExpandCart = useCallback(() => {
+    setForceExpandCart(true);
+    // Reset après un court délai
+    setTimeout(() => setForceExpandCart(false), 100);
+  }, []);
+
   const updateQuantity = useCallback((itemId: string, newQuantity: number) => {
     setCart(prevCart => {
       if (newQuantity <= 0) {
@@ -316,6 +323,33 @@ export default function CaisseMyConfortApp() {
               ...item,
               offert: false,
               price: item.originalPrice || item.price
+            };
+          }
+        }
+        return item;
+      })
+    );
+  }, [setCart]);
+
+  // ▼ NOUVEAU: Gestion des prix négociés
+  const handlePriceOverride = useCallback((itemId: string, override: PriceOverrideMeta) => {
+    setCart(prevCart => 
+      prevCart.map(item => {
+        if (item.id === itemId) {
+          if (!override.enabled) {
+            // Retour au prix original
+            return {
+              ...item,
+              price: item.originalPrice || item.price,
+              priceOverride: undefined
+            };
+          } else {
+            // Application du nouveau prix
+            return {
+              ...item,
+              price: override.value,
+              originalPrice: item.originalPrice || item.price,
+              priceOverride: override
             };
           }
         }
@@ -453,27 +487,6 @@ export default function CaisseMyConfortApp() {
       return () => clearTimeout(timer);
     }
   }, [showSuccess]);
-
-  // Ajout ligne diverse
-  const addMiscToCart = useCallback(() => {
-    if (!miscDescription || !miscAmount) return;
-    
-    const amount = parseFloat(miscAmount);
-    if (isNaN(amount)) return;
-
-    const miscItem: ExtendedCartItem = {
-      id: `misc-${Date.now()}`,
-      name: miscDescription,
-      price: amount,
-      quantity: 1,
-      category: 'Divers',
-      addedAt: new Date()
-    };
-
-    setCart(prev => [...prev, miscItem]);
-    setMiscDescription('');
-    setMiscAmount('');
-  }, [miscDescription, miscAmount, setCart]);
 
   // Fonctions utilitaires pour les couleurs
   const isColorUsed = useCallback((color: string) => {
@@ -948,6 +961,7 @@ export default function CaisseMyConfortApp() {
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 cartType={cartType}
+                triggerExpandCart={triggerExpandCart}
               />
             )}
 
@@ -974,17 +988,6 @@ export default function CaisseMyConfortApp() {
               <SalesTab 
                 sales={sales} 
                 invoices={invoices}
-              />
-            )}
-
-            {/* Onglet Diverses */}
-            {activeTab === 'diverses' && (
-              <MiscTab
-                miscDescription={miscDescription}
-                setMiscDescription={setMiscDescription}
-                miscAmount={miscAmount}
-                setMiscAmount={setMiscAmount}
-                addMiscToCart={addMiscToCart}
               />
             )}
 
@@ -1417,6 +1420,38 @@ export default function CaisseMyConfortApp() {
                   </button>
                   
                   <button
+                    onClick={() => setGestionActiveTab('produits')}
+                    style={{
+                      flex: 1,
+                      padding: '15px 20px',
+                      border: 'none',
+                      background: gestionActiveTab === 'produits' ? '#f59e0b' : 'white',
+                      color: gestionActiveTab === 'produits' ? 'white' : '#495057',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <Package size={20} />
+                    Gestion des Produits
+                    <span style={{
+                      background: gestionActiveTab === 'produits' ? 'rgba(255,255,255,0.2)' : '#f59e0b',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      📦
+                    </span>
+                  </button>
+                  
+                  <button
                     onClick={() => setGestionActiveTab('guide')}
                     style={{
                       flex: 1,
@@ -1508,37 +1543,6 @@ export default function CaisseMyConfortApp() {
                       fontWeight: 'bold'
                     }}>
                       iPad
-                    </span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setGestionActiveTab('vscode')}
-                    style={{
-                      flex: 1,
-                      padding: '15px 20px',
-                      border: 'none',
-                      background: gestionActiveTab === 'vscode' ? '#007ACC' : 'white',
-                      color: gestionActiveTab === 'vscode' ? 'white' : '#495057',
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    ⚙️ VS Code
-                    <span style={{
-                      background: gestionActiveTab === 'vscode' ? 'rgba(255,255,255,0.2)' : '#007ACC',
-                      color: 'white',
-                      borderRadius: '12px',
-                      padding: '2px 8px',
-                      fontSize: '12px',
-                      fontWeight: 'bold'
-                    }}>
-                      Sync
                     </span>
                   </button>
                 </div>
@@ -2096,6 +2100,11 @@ export default function CaisseMyConfortApp() {
                 )}
                   </div>
                 )}
+
+                {/* Section Gestion des produits */}
+                {gestionActiveTab === 'produits' && (
+                  <ProductsManagement />
+                )}
                 
                 {/* Section Guide d'utilisation */}
                 {gestionActiveTab === 'guide' && (
@@ -2114,19 +2123,12 @@ export default function CaisseMyConfortApp() {
                 {gestionActiveTab === 'diagnostic' && (
                   <DiagnosticIPad />
                 )}
-                
-                {/* Section VS Code Sync */}
-                {gestionActiveTab === 'vscode' && (
-                  <div style={{ margin: '20px 0' }}>
-                    <VSCodeSyncComponent />
-                  </div>
-                )}
               </div>
             )}
 
 
             {/* Fallback pour les onglets non définis */}
-            {!['vendeuse', 'produits', 'factures', 'reglements', 'stock', 'ventes', 'diverses', 'annulation', 'ca', 'gestion', 'raz'].includes(activeTab) && (
+            {!['vendeuse', 'produits', 'factures', 'reglements', 'stock', 'ventes', 'annulation', 'ca', 'gestion', 'raz'].includes(activeTab) && (
               <div className="flex flex-col items-center justify-center h-full text-center">
                 <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 max-w-md mx-auto">
                   <p className="text-4xl mb-4">🚧</p>
@@ -2143,8 +2145,8 @@ export default function CaisseMyConfortApp() {
           </div>
         </main>
 
-        {/* 🚨 INTERFACE DEBUG TEMPORAIRE */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* 🚨 INTERFACE DEBUG TEMPORAIRE - MASQUÉE SUR DEMANDE UTILISATEUR */}
+        {false && process.env.NODE_ENV === 'development' && (
           <div style={{
             position: 'fixed',
             bottom: '20px',
@@ -2225,6 +2227,8 @@ export default function CaisseMyConfortApp() {
           toggleOffert={toggleOffert}
           cartType={cartType}
           onCartTypeChange={setCartType}
+          onPriceOverride={handlePriceOverride}
+          forceExpand={forceExpandCart}
           clearCart={clearCart}
           completeSale={completeSale}
         />

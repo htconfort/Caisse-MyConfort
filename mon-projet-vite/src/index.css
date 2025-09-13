@@ -617,28 +617,40 @@ header div {
 }
 
 /* Panier en mode survol - HAUTEUR RÉDUITE pour voir les onglets */
+/* Conteneur du panier flottant - version agrandi complet */
 .floating-cart {
-  position: absolute;
-  top: 200px; /* ✅ MODIFIÉ: commence plus bas, au niveau des cartes produits */
-  bottom: 0; /* ✅ MODIFIÉ: descend jusqu'en bas de l'écran */
-  right: 0;
-  width: 260px; /* ✅ RÉDUIT: largeur réduite de 280px à 260px pour libérer l'onglet Accessoires */
-  height: auto; /* ✅ MODIFIÉ: hauteur automatique */
+  position: fixed;
+  right: 10px;
+  top: 80px;
+  bottom: 10px;
+  width: 350px;
   background: white;
-  border-left: 2px solid #477A0C;
-  border-top: 2px solid #477A0C; /* ✅ AJOUTÉ: bordure du haut */
-  border-radius: 8px 0 0 0; /* ✅ MODIFIÉ: coin arrondi seulement en haut à gauche */
-  z-index: 100;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  border: 2px solid #477A0C;
+  z-index: 2000;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  transition: all 0.3s ease;
-  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
 }
 
 .floating-cart.minimized {
-  width: 60px;
-  top: 200px; /* ✅ MODIFIÉ: même position que le panier ouvert */
-  bottom: 0; /* ✅ MODIFIÉ: descend jusqu'en bas */
-  height: auto; /* ✅ MODIFIÉ: hauteur automatique */
+  width: 80px;
+  height: 80px;
+  top: 80px;
+  right: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #477A0C;
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+  box-shadow: 0 4px 16px rgba(71, 122, 12, 0.3);
+  overflow: visible;
 }
 
 .floating-cart.minimized .cart-content {

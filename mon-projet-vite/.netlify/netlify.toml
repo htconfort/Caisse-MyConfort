@@ -7,13 +7,17 @@ headers = []
 [functions."*"]
 
 [build]
-publish = "/Users/brunopriem/CAISSE MYCONFORT/Caisse-MyConfort-3/mon-projet-vite/dist"
+publish = "/Users/brunopriem/CAISSE MYCONFORT/Caisse-MyConfort/mon-projet-vite/dist"
 publishOrigin = "config"
 commandOrigin = "config"
+base = "/Users/brunopriem/CAISSE MYCONFORT/Caisse-MyConfort/mon-projet-vite"
 command = "npm ci && npm run build"
 
 [build.environment]
 NODE_VERSION = "20"
+VITE_COMMIT_REF = "${COMMIT_REF}"
+VITE_BRANCH = "${BRANCH}"
+VITE_CONTEXT = "${CONTEXT}"
 
 [build.processing]
 

@@ -5,11 +5,12 @@
 // 🔧 TYPES DE BASE - Conservés exactement comme votre original
 // ============================================================================
 
-export type ProductCategory = 'Matelas' | 'Sur-matelas' | 'Couettes' | 'Oreillers' | 'Plateau' | 'Accessoires';
+export type ProductCategory = 'Matelas' | 'Sur-matelas' | 'Couettes' | 'Oreillers' | 'Plateau' | 'Accessoires' | 'Divers';
 
 export type CartType = 'classique' | 'facturier';
 
 export interface CatalogProduct {
+  id?: string;
   name: string;
   category: ProductCategory;
   priceTTC: number; // 0 = non vendu seul
@@ -29,6 +30,43 @@ export interface ExtendedCartItem {
   originalPrice?: number;
 }
 
+// ===== TYPES SYSTÈME PRIX NÉGOCIÉS v1.0.0 =====
+// 🎯 Fonctionnalité: Prix personnalisés avec validation et traçabilité
+
+export type DiscountType = 'amount' | 'percent' | 'override';
+
+/**
+ * 💰 Métadonnées des prix négociés par ligne de panier
+ * Traçabilité complète pour audit et contrôle
+ */
+export interface PriceOverrideMeta {
+  enabled: boolean;           // true si un prix personnalisé est appliqué
+  type: DiscountType;         // 'amount' = remise € ; 'percent' = % ; 'override' = saisir le prix TTC
+  value: number;              // valeur positive (ex: 10 = -10€ ou -10%)
+  reason?: string;            // raison de l'ajustement
+  author?: string;            // id/nom de la vendeuse
+  approvedBy?: string;        // id/nom du responsable (si PIN demandé)
+  ts?: number;                // timestamp de création
+  originalPrice?: number;     // prix catalogue original pour comparaison
+}
+
+/**
+ * 🛒 Article panier étendu avec système prix négociés
+ * Compatible avec le système existant (ExtendedCartItem)
+ */
+export interface ExtendedCartItemWithNegotiation {
+  id: string;
+  name: string;
+  price: number;              // prix actuel (peut être négocié)
+  quantity: number;
+  category: string;
+  addedAt: Date;
+  offert?: boolean;
+  originalPrice?: number;     // prix catalogue original
+  // ▼ NOUVEAU: Système prix négociés
+  priceOverride?: PriceOverrideMeta;
+}
+
 export interface Vendor {
   id: string;
   name: string;
@@ -45,6 +83,7 @@ export interface Sale {
   items: ExtendedCartItem[];
   totalAmount: number;
   paymentMethod: PaymentMethod;
+  paymentDetails?: PaymentDetails;
   // Autoriser Date ou string pour tolérer des données non normalisées reçues
   date: Date | string;
   canceled: boolean;
@@ -65,8 +104,27 @@ export interface Sale {
   };
 }
 
-export type PaymentMethod = 'cash' | 'card' | 'check' | 'multi';
-export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'diverses' | 'annulation' | 'ca' | 'raz' | 'factures' | 'reglements' | 'gestion';
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'check' | 'multiple_checks' | 'mixed' | 'installment';
+
+export interface PaymentDetails {
+  // Pour les chèques multiples
+  numberOfChecks?: number;
+  amountPerCheck?: number;
+  
+  // Pour les acomptes
+  downPayment?: number;
+  remainingAmount?: number;
+  
+  // Détails généraux
+  description?: string;
+  
+  // Pour les paiements mixtes
+  mixedPayments?: Array<{
+    method: PaymentMethod;
+    amount: number;
+  }>;
+}
+export type TabType = 'vendeuse' | 'produits' | 'stock' | 'ventes' | 'annulation' | 'ca' | 'raz' | 'factures' | 'reglements' | 'gestion';
 
 // ============================================================================
 // 🗄️ TYPES INDEXEDDB - Simplifiés et compatibles avec le schéma Dexie
@@ -310,6 +368,7 @@ export interface SessionDB {
   eventLocation?: string;    // Lieu de l'événement
   eventStart?: number;       // Timestamp du premier jour (00:00)
   eventEnd?: number;         // Timestamp du dernier jour (00:00)
+  eventLocation?: string;    // Lieu de l'événement (ex: Foire de Strasbourg)
 }
 
 // ============================================================================
@@ -381,9 +440,9 @@ export interface MigrationResult {
 
 // Réexports existants - conservés
 export * from '@/services/syncService';
-export * from '../hooks/useSyncInvoices';
-export * from '../hooks/useStockManagement';
 export * from '../hooks/useNotifications';
+export * from '../hooks/useStockManagement';
+export * from '../hooks/useSyncInvoices';
 
 // Nouveaux réexports IndexedDB - prêts pour les prochaines étapes
 // (Ces lignes seront décommentées au fur et à mesure)

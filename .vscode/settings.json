@@ -1,0 +1,36 @@
+{
+  "workbench.startupEditor": "none",
+  "workbench.editor.enablePreview": false,
+  "editor.minimap.enabled": false,
+  "editor.cursorSmoothCaretAnimation": "smooth",
+  "editor.smoothScrolling": true,
+  "editor.inlineSuggest.enabled": true,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "github.copilot.inlineSuggest.enable": true,
+  "github.copilot.enable": {
+    "*": true,
+    "markdown": false,
+    "plaintext": false
+  },
+  "typescript.tsserver.log": "off",
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.format.enable": true,
+  "prettier.requireConfig": true,
+  "explorer.confirmDelete": false,
+  "explorer.confirmDragAndDrop": false,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.DS_Store": true,
+    "**/node_modules": true,
+    "**/dist": true
+  },
+  "vite.enableProjectAutoDetection": true,
+  "vite.autoStart": false,
+  "editor.accessibilitySupport": "off"
+}

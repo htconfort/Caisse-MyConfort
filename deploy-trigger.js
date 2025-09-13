@@ -1,7 +1,10 @@
 const triggerTimestamp = Date.now();
 console.log(`Netlify deploy trigger: ${triggerTimestamp}`);
 console.log('Features deployed:');
-console.log('- A4 Portrait print format for RAZ sheets');
-console.log('- CSS print optimizations');  
-console.log('- VS Code performance improvements');
+console.log('- 🚫 MASQUAGE INTERFACE DEBUG v2.1.0');
+console.log('- Version v3.01 masquée en haut à gauche');  
+console.log('- BuildStamp debug masqué en bas à gauche');
+console.log('- Interface test masquée: Test Items, Clear, Cart');
+console.log('- Panier visible sur onglet vendeuse');
+console.log('- Interface épurée et professionnelle');
 export { triggerTimestamp };
