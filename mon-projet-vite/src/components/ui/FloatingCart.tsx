@@ -172,7 +172,7 @@ export function FloatingCart({
   const [showMixedModal, setShowMixedModal] = useState(false);
   const [mixedPart1, setMixedPart1] = useState<{ method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number }>({ method: 'Carte Bleue', amount: 0 });
   const [mixedPart2, setMixedPart2] = useState<{ method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number }>({ method: 'Espèces', amount: 0 });
-  const [mixedPaymentsState, setMixedPaymentsState] = useState<PaymentDetails['mixedPayments']>();
+  const [mixedPaymentsState, setMixedPaymentsState] = useState<PaymentDetails['mixedPayments']>([]);
 
   const uiToPaymentMethod = (label: string): PaymentMethod => {
     if (label === 'Carte Bleue') return 'card';
@@ -1277,7 +1277,7 @@ function StepPaymentNoScroll({
               <PaymentCard
                 active={selectedMethod === 'Paiement mixte'}
                 title="Paiement mixte"
-                subtitle={mixedPaymentsState ? 'Répartition configurée ✓' : 'Deux parts (2 clientes) →'}
+                subtitle={(mixedPaymentsState?.length ?? 0) > 0 ? 'Répartition configurée ✓' : 'Deux parts (2 clientes) →'}
                 emoji="🔀"
                 onClick={() => {
                   // Pré-remplir 50/50
@@ -1353,7 +1353,7 @@ function StepPaymentNoScroll({
                   else if (selectedMethod === 'Carte Bleue') method = 'card';
                   else if (selectedMethod.startsWith('Virement')) method = 'transfer';
                   else if (selectedMethod.includes('Chèque')) method = 'check';
-                  else if (selectedMethod === 'Paiement mixte' && mixedPaymentsState && mixedPaymentsState.length > 0) {
+                  else if (selectedMethod === 'Paiement mixte' && (mixedPaymentsState?.length ?? 0) > 0) {
                     method = 'mixed';
                     paymentDetailsArg = { mixedPayments: mixedPaymentsState };
                   }
