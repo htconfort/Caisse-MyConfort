@@ -59,15 +59,15 @@
 }
 
 .compact-stock-tab-button::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: #FFE6E0;
   border-radius: 2px;
 }
 
 .compact-stock-tab-button::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: #F55D3E;
   border-radius: 2px;
 }
 
 .compact-stock-tab-button::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: #d94f34;
 }

@@ -41,16 +41,16 @@ code {
 }
 
 ::-webkit-scrollbar-track {
-  background: #F2EFE2;
+  background: #FFE6E0; /* piste douce assortie */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #C4D144;
+  background: #F55D3E; /* pouce rouge-orangé demandé */
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #477A0C;
+  background: #d94f34; /* hover légèrement plus sombre */
 }
 
 /* Désactiver la sélection de texte sur iPad */

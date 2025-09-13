@@ -91,18 +91,18 @@ button {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--gray-100);
+  background: #FFE6E0;
   border-radius: var(--border-radius-md);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--gray-400);
+  background: #F55D3E;
   border-radius: var(--border-radius-md);
   transition: var(--transition-normal);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--gray-500);
+  background: #d94f34;
 }
 
 /* === ANIMATIONS GLOBALES === */
