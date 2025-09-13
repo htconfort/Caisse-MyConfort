@@ -4,6 +4,18 @@
 
 **⚠️ IMPORTANT** : Utiliser UNIQUEMENT le projet Vite dans le dossier `mon-projet-vite/`
 
+## ⚡ VS Code Turbo – MyConfort
+
+Configuration optimisée pour une productivité maximale avec React + Vite + TypeScript + Tailwind.
+
+**📋 Setup complet :** [`docs/dev/VSCode-Setup.md`](./docs/dev/VSCode-Setup.md)
+
+**TL;DR :**
+- 🚀 Startup épuré, format automatique on save
+- 🤖 Copilot activé pour le code uniquement  
+- 🎯 Port 5173 exclusif, optimisations Vite
+- 🎤 Flow dictée sans interférences VS Code
+
 ### 🚀 Démarrage
 
 ```bash

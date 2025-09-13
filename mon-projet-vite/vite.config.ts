@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { defineConfig } from 'vite';
 
 const isProd = process.env.NODE_ENV === 'production';
 const enableSourceMap = !!process.env.VITE_SOURCEMAP; // mets VITE_SOURCEMAP=1 pour build avec sourcemap
@@ -22,6 +22,10 @@ export default defineConfig({
     // hmr: { clientPort: 5173 },
     // Pour activer https local (si besoin de PWA/secure context) :
     // https: true, // nécessite cert (mkcert)
+  },
+
+  optimizeDeps: {
+    include: ['react', 'react-dom']
   },
 
   preview: {

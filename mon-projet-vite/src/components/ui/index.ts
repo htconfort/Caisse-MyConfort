@@ -6,3 +6,5 @@ export { SearchBar } from './SearchBar';
 export { FloatingCart } from './FloatingCart';
 export { PinProtection } from './PinProtection';
 export { PinModal } from './PinModal';
+export { PaymentDetailsModal } from './PaymentDetailsModal';
+export { FacturassionPaymentPage } from './FacturassionPaymentPage';
