@@ -32,3 +32,35 @@ examples:
 deliverables:
   - "Diff final + arborescence modifiée."
   - "Commits clairs par étape."
+
+# ==============================
+# SECTION : Gestion des dépendances & builds
+# ==============================
+dev_tools:
+  package_managers:
+    - npm
+    - pnpm
+    - yarn
+
+  vite:
+    default_port: 5173
+    fallback_port: 5174
+    troubleshooting:
+      - "Si le port 5173 est occupé, suggère de tuer le process ou d'utiliser 5174."
+      - "Toujours proposer vite.config.js/ts avec 'strictPort: true' pour éviter les conflits."
+
+  netlify:
+    troubleshooting:
+      - "Si déploiement échoue à cause du cache, proposer 'Clear cache & redeploy'."
+      - "Toujours vérifier les headers 'Cache-Control' dans netlify.toml."
+      - "Proposer d'ajouter [[headers]] avec no-cache pour éviter que l’iPad charge un vieux bundle."
+
+  commands:
+    reinstall: |
+      rm -rf node_modules package-lock.json && npm install
+    run_dev: |
+      npm run dev
+    run_build: |
+      npm run build
+    clear_netlify_cache: |
+      netlify build --clearCache
