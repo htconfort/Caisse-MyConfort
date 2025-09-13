@@ -11,6 +11,8 @@
     "dev:ipad": "vite --host --port 5173", 
     "build": "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) vite build",
     "preview": "vite preview",
+    "preview:netlify": "netlify dev",
+    "serve:netlify": "npm run build && netlify serve",
     "type-check": "tsc --noEmit",
     "build:verify": "npm run type-check",
     "lint": "eslint --ext .ts,.tsx src",
