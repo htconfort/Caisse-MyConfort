@@ -9,6 +9,12 @@
   NODE_VERSION = "20.18.0"
   NPM_VERSION  = "10.8.2"
 
+[dev]
+  command = "npm run dev"
+  port = 5173
+  targetPort = 5173
+  autoLaunch = true
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
@@ -25,6 +31,9 @@
 [[headers]]
 for = "/*"
   [headers.values]
+  Cache-Control = "no-cache, no-store, must-revalidate"
+  Pragma = "no-cache"
+  Expires = "0"
   X-Frame-Options = "DENY"
   X-Content-Type-Options = "nosniff"
   X-XSS-Protection = "1; mode=block"
@@ -35,3 +44,9 @@ for = "/*"
 for = "/assets/*"
   [headers.values]
   Cache-Control = "public, max-age=31536000, immutable"
+
+# ✅ Images: cache long mais modifiable
+[[headers]]
+for = "/images/*"
+  [headers.values]
+  Cache-Control = "public, max-age=604800"
