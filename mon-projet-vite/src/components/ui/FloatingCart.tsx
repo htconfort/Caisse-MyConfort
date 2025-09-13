@@ -871,7 +871,8 @@ function StepPaymentNoScroll({
   onBack: () => void;
   onSelectPayment: (
     method: PaymentMethod,
-    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }
+    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string },
+    paymentDetails?: PaymentDetails
   ) => void;
 }) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentData['method']>('');
@@ -882,6 +883,20 @@ function StepPaymentNoScroll({
     count: number; amount: number; totalAmount: number; notes?: string
   } | null>(null);
   const [acompteMethod, setAcompteMethod] = useState<'card' | 'check' | 'cash' | ''>('');
+
+  // Paiement mixte (local)
+  const [showMixedModal, setShowMixedModal] = useState(false);
+  const [mixedPart1, setMixedPart1] = useState<{ method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number }>({ method: 'Carte Bleue', amount: 0 });
+  const [mixedPart2, setMixedPart2] = useState<{ method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number }>({ method: 'Espèces', amount: 0 });
+  const [mixedPaymentsState, setMixedPaymentsState] = useState<PaymentDetails['mixedPayments']>([]);
+
+  const uiToPaymentMethod = (label: string): PaymentMethod => {
+    if (label === 'Carte Bleue') return 'card';
+    if (label === 'Espèces') return 'cash';
+    if (label === 'Virement') return 'transfer';
+    if (label === 'Chèque' || label.includes('Chèque')) return 'check';
+    return 'mixed';
+  };
 
   const restePay = Math.max(0, cartTotal - acompte);
   const isValidPayment = !!selectedMethod && acompte >= 0 && acompte <= cartTotal;
@@ -1359,9 +1374,9 @@ function StepPaymentNoScroll({
                   }
 
                   if (selectedMethod === 'Chèque à venir' && checkDetails) {
-                    onSelectPayment(method, checkDetails);
+                    onSelectPayment(method, checkDetails, paymentDetailsArg);
                   } else {
-                    onSelectPayment(method, undefined, paymentDetailsArg as any);
+                    onSelectPayment(method, undefined, paymentDetailsArg);
                   }
                 }
               }}
@@ -1384,6 +1399,24 @@ function StepPaymentNoScroll({
           </div>
         </div>
       </div>
+      <MixedPaymentModal
+        open={showMixedModal}
+        total={restePay}
+        part1={mixedPart1}
+        part2={mixedPart2}
+        onChange={(p1, p2) => { setMixedPart1(p1); setMixedPart2(p2); }}
+        onClose={() => setShowMixedModal(false)}
+        onConfirm={() => {
+          const details: PaymentDetails = {
+            mixedPayments: [
+              { method: uiToPaymentMethod(mixedPart1.method), amount: mixedPart1.amount },
+              { method: uiToPaymentMethod(mixedPart2.method), amount: mixedPart2.amount },
+            ]
+          };
+          setMixedPaymentsState(details.mixedPayments);
+          setShowMixedModal(false);
+        }}
+      />
     </div>
   );
 }
