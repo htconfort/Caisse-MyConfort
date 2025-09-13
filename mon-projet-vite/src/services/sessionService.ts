@@ -8,7 +8,7 @@ import type { SessionDB } from '@/types';
 // Types mirroring DB API
 export type SessionTotals = { card: number; cash: number; cheque: number };
 export type SessionCloseArg = SessionTotals | { closedBy?: string; note?: string; totals?: SessionTotals };
-export type SessionOpenArg = string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string };
+export type SessionOpenArg = string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string; eventLocation?: string };
 
 class SessionService {
   /** Ensure an open session, opening one if needed (safe variant) */
@@ -36,7 +36,7 @@ class SessionService {
   }
 
   /** Update current session's event details (only first day) */
-  async updateCurrentSessionEvent(args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
+  async updateCurrentSessionEvent(args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string; eventLocation?: string }): Promise<SessionDB> {
     return (db as any).updateCurrentSessionEvent(args);
   }
 
@@ -79,6 +79,6 @@ export default sessionService;
 export const ensureSession = (openedByOrOpts?: SessionOpenArg) => sessionService.ensureSession(openedByOrOpts);
 export const getCurrentSession = () => sessionService.getCurrentSession();
 export const openSession = (openedByOrOpts?: SessionOpenArg) => sessionService.openSession(openedByOrOpts);
-export const updateCurrentSessionEvent = (args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }) => sessionService.updateCurrentSessionEvent(args);
+export const updateCurrentSessionEvent = (args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string; eventLocation?: string }) => sessionService.updateCurrentSessionEvent(args);
 export const closeCurrentSession = (arg?: SessionCloseArg) => sessionService.closeCurrentSession(arg);
 export const computeTodayTotalsFromDB = () => sessionService.computeTodayTotalsFromDB();

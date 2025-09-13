@@ -367,6 +367,7 @@ export interface SessionDB {
   eventName?: string;        // Nom de l'événement (saisi le premier jour)
   eventStart?: number;       // Timestamp du premier jour (00:00)
   eventEnd?: number;         // Timestamp du dernier jour (00:00)
+  eventLocation?: string;    // Lieu de l'événement (ex: Foire de Strasbourg)
 }
 
 // ============================================================================
@@ -438,9 +439,9 @@ export interface MigrationResult {
 
 // Réexports existants - conservés
 export * from '@/services/syncService';
-export * from '../hooks/useSyncInvoices';
-export * from '../hooks/useStockManagement';
 export * from '../hooks/useNotifications';
+export * from '../hooks/useStockManagement';
+export * from '../hooks/useSyncInvoices';
 
 // Nouveaux réexports IndexedDB - prêts pour les prochaines étapes
 // (Ces lignes seront décommentées au fur et à mesure)

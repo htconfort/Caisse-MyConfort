@@ -1,16 +1,16 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Mail, Eye, EyeOff, RefreshCw, PlayCircle, XCircle, Printer } from 'lucide-react';
-import type { Sale, Vendor } from '../types';
-import type { Invoice } from '@/services/syncService';
-import { externalInvoiceService } from '../services/externalInvoiceService';
-import WhatsAppIntegrated from './WhatsAppIntegrated';
-import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper } from '@/services/sessionService';
-import type { SessionDB } from '@/types';
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
-import { RAZGuardModal } from './RAZGuardModal';
+import { closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, ensureSession as ensureSessionHelper, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper } from '@/services/sessionService';
+import type { Invoice } from '@/services/syncService';
+import type { SessionDB } from '@/types';
+import { Eye, EyeOff, Mail, PlayCircle, Printer, RefreshCw, XCircle } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
+import { externalInvoiceService } from '../services/externalInvoiceService';
+import type { Sale, Vendor } from '../types';
 import { printHtmlA4 } from '../utils/printA4';
 import { FeuilleCaissePrintable } from './FeuilleCaissePrintable';
-import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
+import { RAZGuardModal } from './RAZGuardModal';
+import WhatsAppIntegrated from './WhatsAppIntegrated';
 
 // Normalisation d'une ligne de chèque pour tables UI + impression
 type ChequeRow = {
@@ -845,7 +845,22 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                       </div>
                     )}
                   </div>
-                  <div style={{ color: '#991B1B', fontWeight: 600 }}>Gestion de session en bas de page</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span
+                      style={{
+                        backgroundColor: '#16a34a',
+                        color: '#fff',
+                        borderRadius: 9999,
+                        padding: '4px 10px',
+                        fontWeight: 800
+                      }}
+                    >
+                      Session ouverte ✓
+                    </span>
+                    <span style={{ color: '#065F46', fontWeight: 700 }}>
+                      {new Date(session.openedAt).toLocaleDateString('fr-FR')} {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
                 </div>
                 {/* Si premier jour: permettre de fixer/modifier l'événement */}
                 {isTodayFirstDayOf(session.openedAt) && (
