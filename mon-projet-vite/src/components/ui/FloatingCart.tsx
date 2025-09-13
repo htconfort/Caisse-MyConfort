@@ -3,10 +3,11 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { ExtendedCartItemWithNegotiation, PriceOverrideMeta } from '../../types';
 import type {
-  CartType,
-  PaymentMethod,
-  TabType,
-  Vendor
+    CartType,
+    PaymentDetails,
+    PaymentMethod,
+    TabType,
+    Vendor
 } from '../../types/index';
 import { isMatressProduct } from '../../utils';
 import { calculateFinalPrice, formatPriceDisplay } from '../../utils/CartUtils';
@@ -46,7 +47,7 @@ interface FloatingCartProps {
   cartTotal: number;
   selectedVendor: Vendor | null;
   clearCart: () => void;
-  completeSale: (paymentMethod?: PaymentMethod, checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }, manualInvoiceData?: { clientName: string; invoiceNumber: string }) => void;
+  completeSale: (paymentMethod?: PaymentMethod, checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }, manualInvoiceData?: { clientName: string; invoiceNumber: string }, paymentDetails?: PaymentDetails) => void;
   updateQuantity?: (itemId: string, newQuantity: number) => void;
   toggleOffert?: (itemId: string) => void;
   cartType?: CartType;
@@ -167,9 +168,24 @@ export function FloatingCart({
     return cart.some(item => isMatressProduct(item.category));
   }, [cart]);
 
+  // Paiement mixte (2 parts)
+  const [showMixedModal, setShowMixedModal] = useState(false);
+  const [mixedPart1, setMixedPart1] = useState<{ method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number }>({ method: 'Carte Bleue', amount: 0 });
+  const [mixedPart2, setMixedPart2] = useState<{ method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number }>({ method: 'Espèces', amount: 0 });
+  const [mixedPaymentsState, setMixedPaymentsState] = useState<PaymentDetails['mixedPayments']>();
+
+  const uiToPaymentMethod = (label: string): PaymentMethod => {
+    if (label === 'Carte Bleue') return 'card';
+    if (label === 'Espèces') return 'cash';
+    if (label === 'Virement') return 'transfer';
+    if (label === 'Chèque' || label.includes('Chèque')) return 'check';
+    return 'mixed';
+  };
+
   const handleCompleteSale = (
     paymentMethod?: PaymentMethod, 
-    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }
+    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string },
+    paymentDetails?: PaymentDetails
   ) => {
     // Fermer la page de paiement d'abord
     setShowPaymentPage(false);
@@ -182,7 +198,7 @@ export function FloatingCart({
     }
 
     // Sinon, vente normale
-    completeSale(paymentMethod, checkDetails);
+    completeSale(paymentMethod, checkDetails, undefined, paymentDetails);
   };
 
   // Fonction appelée après saisie des infos client/facture
@@ -770,6 +786,81 @@ export function FloatingCart({
   );
 }
 
+// Petit modal inline pour configurer un paiement mixte 2 parts
+function MixedPaymentModal({
+  open,
+  total,
+  part1,
+  part2,
+  onChange,
+  onClose,
+  onConfirm
+}: {
+  open: boolean;
+  total: number;
+  part1: { method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number };
+  part2: { method: 'Carte Bleue' | 'Espèces' | 'Virement' | 'Chèque'; amount: number };
+  onChange: (p1: typeof part1, p2: typeof part2) => void;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+  const methods = ['Carte Bleue', 'Espèces', 'Virement', 'Chèque'] as const;
+  const sum = Number((part1.amount + part2.amount).toFixed(2));
+  const valid = Math.abs(sum - total) < 0.01;
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.35)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999 }}>
+      <div style={{ background:'#fff', borderRadius:12, padding:20, width:420, boxShadow:'0 8px 24px rgba(0,0,0,0.2)', border:'2px solid #e5e7eb' }}>
+        <h3 style={{ marginTop:0, marginBottom:12, fontSize:18, fontWeight:800, color:'#14281D' }}>Paiement mixte (2 parts)</h3>
+        <p style={{ marginTop:0, color:'#6B7280' }}>Total à répartir: <strong>{total.toFixed(2)}€</strong></p>
+
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+          {[{label:'Partie 1', val:part1}, {label:'Partie 2', val:part2}].map((row, idx) => (
+            <div key={idx} style={{ border:'1px solid #e5e7eb', borderRadius:8, padding:12 }}>
+              <div style={{ fontSize:12, color:'#6B7280', marginBottom:8 }}>{row.label}</div>
+              <select
+                value={row.val.method}
+                onChange={e => {
+                  const next = { ...row.val, method: e.target.value as typeof row.val.method };
+                  if (idx === 0) onChange(next, part2); else onChange(part1, next);
+                }}
+                style={{ width:'100%', padding:'8px', borderRadius:6, border:'1px solid #d1d5db', marginBottom:8 }}
+              >
+                {methods.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={0}
+                step={0.01}
+                value={row.val.amount}
+                onChange={e => {
+                  const amount = Number(e.target.value) || 0;
+                  const next = { ...row.val, amount };
+                  if (idx === 0) onChange(next, part2); else onChange(part1, next);
+                }}
+                style={{ width:'100%', padding:'8px', borderRadius:6, border:'1px solid #d1d5db' }}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop:12, fontSize:13, color: valid ? '#166534' : '#92400e' }}>
+          Somme des parts: <strong>{sum.toFixed(2)}€</strong> {valid ? '✓' : `(doit égaler ${total.toFixed(2)}€)`}
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:16 }}>
+          <button onClick={onClose} style={{ padding:'8px 12px', borderRadius:8, border:'1px solid #e5e7eb', background:'#fff' }}>Annuler</button>
+          <button onClick={onConfirm} disabled={!valid} style={{ padding:'8px 16px', borderRadius:8, border:'none', background: valid ? '#16a34a' : '#9CA3AF', color:'#fff', fontWeight:700 }}>
+            Valider
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 // Composant de paiement complet - Version adaptée pour FloatingCart
 function StepPaymentNoScroll({
   cartTotal,
@@ -1145,12 +1236,22 @@ function StepPaymentNoScroll({
               />
 
               <PaymentCard
-                active={selectedMethod === 'Virement'}
-                title="Virement"
+                active={selectedMethod === 'Virement 1'}
+                title="Virement 1"
                 subtitle="Banque à banque"
                 emoji="🏦"
                 onClick={() => {
-                  setSelectedMethod('Virement');
+                  setSelectedMethod('Virement 1');
+                }}
+              />
+
+              <PaymentCard
+                active={selectedMethod === 'Virement 2'}
+                title="Virement 2"
+                subtitle="Banque à banque"
+                emoji="🏦"
+                onClick={() => {
+                  setSelectedMethod('Virement 2');
                 }}
               />
 
@@ -1171,6 +1272,22 @@ function StepPaymentNoScroll({
                 emoji="💳"
                 onClick={() => setShowAlmaPage(true)}
                 highlight="blue"
+              />
+
+              <PaymentCard
+                active={selectedMethod === 'Paiement mixte'}
+                title="Paiement mixte"
+                subtitle={mixedPaymentsState ? 'Répartition configurée ✓' : 'Deux parts (2 clientes) →'}
+                emoji="🔀"
+                onClick={() => {
+                  // Pré-remplir 50/50
+                  const half = Number((restePay / 2).toFixed(2));
+                  setMixedPart1(prev => ({ ...prev, amount: half }));
+                  setMixedPart2(prev => ({ ...prev, amount: Number((restePay - half).toFixed(2)) }));
+                  setSelectedMethod('Paiement mixte');
+                  setShowMixedModal(true);
+                }}
+                highlight="green"
               />
 
               <PaymentCard
@@ -1231,14 +1348,20 @@ function StepPaymentNoScroll({
               onClick={() => {
                 if (isValidPayment && selectedMethod) {
                   let method: PaymentMethod = 'multi';
+                  let paymentDetailsArg: PaymentDetails | undefined = undefined;
                   if (selectedMethod === 'Espèces') method = 'cash';
                   else if (selectedMethod === 'Carte Bleue') method = 'card';
+                  else if (selectedMethod.startsWith('Virement')) method = 'transfer';
                   else if (selectedMethod.includes('Chèque')) method = 'check';
+                  else if (selectedMethod === 'Paiement mixte' && mixedPaymentsState && mixedPaymentsState.length > 0) {
+                    method = 'mixed';
+                    paymentDetailsArg = { mixedPayments: mixedPaymentsState };
+                  }
 
                   if (selectedMethod === 'Chèque à venir' && checkDetails) {
                     onSelectPayment(method, checkDetails);
                   } else {
-                    onSelectPayment(method);
+                    onSelectPayment(method, undefined, paymentDetailsArg as any);
                   }
                 }
               }}

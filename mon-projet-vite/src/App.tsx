@@ -44,6 +44,7 @@ import { ProductsManagement } from './components/ui/ProductsManagement';
 import { VendorDiagnostics } from './components/ui/VendorDiagnostics';
 import './styles/invoices-tab.css';
 import './styles/print.css';
+import type { PaymentDetails } from './types';
 
 // Styles pour les animations RAZ
 const razAnimationStyles = `
@@ -366,7 +367,8 @@ export default function CaisseMyConfortApp() {
   const completeSale = useCallback((
     paymentMethod: PaymentMethod = 'card', 
     checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string },
-    manualInvoiceData?: { clientName: string; invoiceNumber: string }
+    manualInvoiceData?: { clientName: string; invoiceNumber: string },
+    paymentDetails?: PaymentDetails
   ) => {
     if (!selectedVendor || cart.length === 0) return;
 
@@ -382,6 +384,7 @@ export default function CaisseMyConfortApp() {
       cartMode: cartType, // 🎯 Ajouter le mode panier pour déterminer la synchronisation
       // Ajouter les détails des chèques si fournis
       ...(checkDetails && { checkDetails }),
+      ...(paymentDetails && { paymentDetails }),
       // Ajouter les données de facture manuelle si fournies
       ...(manualInvoiceData && { 
         manualInvoiceData: {
