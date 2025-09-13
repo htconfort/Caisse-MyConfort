@@ -1,10 +1,13 @@
 [build]
+  # Le build se fait dans le dossier mon-projet-vite
   base = "mon-projet-vite"
-  publish = "mon-projet-vite/dist"
+  publish = "dist"
   command = "npm ci && npm run build"
 
-  [build.environment]
-    NODE_VERSION = "20"
+[build.environment]
+  # Runtime Node et NPM pour Netlify
+  NODE_VERSION = "20.18.0"
+  NPM_VERSION  = "10.8.2"
 
 [[redirects]]
   from = "/api/*"
@@ -17,17 +20,6 @@
   status = 200
 
 # Configuration Netlify optimisée pour MyConfort SPA
-
-[build]
-  # Le build se fait dans le dossier mon-projet-vite
-  base = "mon-projet-vite"
-  publish = "dist"
-  command = "npm ci && npm run build"
-
-[build.environment]
-  # Force le runtime compatible avec ton projet
-  NODE_VERSION = "20.18.0"
-  NPM_VERSION  = "10.8.2"
 
 # ✅ Sécurité basique côté CDN
 [[headers]]
