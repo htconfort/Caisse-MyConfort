@@ -1,5 +1,5 @@
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
-import { closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, ensureSession as ensureSessionHelper, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper } from '@/services/sessionService';
+import { closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, ensureSession as ensureSessionHelper, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper, updateSession as updateSessionHelper } from '@/services/sessionService';
 import type { Invoice } from '@/services/syncService';
 import type { SessionDB } from '@/types';
 import { Eye, EyeOff, Mail, PlayCircle, Printer, RefreshCw, XCircle } from 'lucide-react';
@@ -848,82 +848,66 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             </p>
           </div>
 
-          {/* Session - ouverture/statut (haut de page) */}
-          <div style={{ background: '#fff', border: '2px solid #DC2626', borderRadius: 10, padding: 16, marginBottom: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
-            {sessLoading ? (
-              <div style={{ color: '#991B1B', fontWeight: 600 }}>Chargement de la session...</div>
-            ) : !session ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <div style={{ color: '#991B1B', fontWeight: 700, fontSize: 16 }}>Aucune session de caisse ouverte</div>
-                  <div style={{ color: '#7F1D1D' }}>Ouvrez une session pour enregistrer les ventes du jour.</div>
+          {/* Session - Header compact coloré (format feuille de caisse) */}
+          <div style={{
+            background: session 
+              ? 'linear-gradient(135deg, #065F46 0%, #047857 50%, #059669 100%)' 
+              : 'linear-gradient(135deg, #7C2D12 0%, #DC2626 50%, #EF4444 100%)',
+            color: 'white',
+            padding: 16,
+            borderRadius: 10,
+            marginBottom: 20,
+            boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
+          }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+              <div>
+                <div style={{ margin: 0, fontSize: 20, fontWeight: 800, display:'flex', alignItems:'center', gap:8 }}>
+                  📍 {session?.eventName || 'Aucune session active'}
                 </div>
-                {/* Champs événement (facultatifs) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px', gap: 10 }}>
-                  <input placeholder="Nom de l'événement (ex: Foire de Perpignan)" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
-                  <input type="date" placeholder="Début" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
-                  <input type="date" placeholder="Fin" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
+                <div style={{ marginTop: 6, opacity: 0.95, fontWeight: 600 }}>
+                  {session 
+                    ? `Session ${session.status ?? 'ouverte'} • ${session.eventStart ? new Date(session.eventStart).toLocaleDateString('fr-FR') : '—'} - ${session.eventEnd ? new Date(session.eventEnd).toLocaleDateString('fr-FR') : '—'}`
+                    : `Créez une session pour démarrer l'enregistrement des ventes`
+                  }
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button 
-                    onClick={openSession} 
+              </div>
+              <div style={{ display:'flex', gap:10 }}>
+                {!session && (
+                  <button
+                    onClick={openSession}
                     disabled={openingSession}
-                    style={{ 
-                      ...btn(openingSession ? '#9CA3AF' : '#16A34A'), 
-                      minWidth: 200,
-                      opacity: openingSession ? 0.7 : 1,
-                      cursor: openingSession ? 'not-allowed' : 'pointer'
+                    style={{
+                      background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
+                      padding:'10px 16px', borderRadius:8, fontWeight:800, cursor: openingSession ? 'not-allowed':'pointer'
                     }}
                   >
-                    <PlayCircle size={20} /> {openingSession ? 'Ouverture...' : 'Ouvrir la session'}
+                    Ouvrir une session
                   </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <div style={{ color: '#065F46', fontWeight: 700, fontSize: 16 }}>Session ouverte</div>
-                    <div style={{ color: '#7F1D1D' }}>Depuis {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-                    {session.eventName && (
-                      <div style={{ marginTop: 6, color: '#7F1D1D', fontWeight: 600 }}>
-                        Événement : {session.eventName}
-                        {session.eventStart && session.eventEnd && (
-                          <span> (du {new Date(session.eventStart).toLocaleDateString('fr-FR')} au {new Date(session.eventEnd).toLocaleDateString('fr-FR')})</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span
-                      style={{
-                        backgroundColor: '#16a34a',
-                        color: '#fff',
-                        borderRadius: 9999,
-                        padding: '4px 10px',
-                        fontWeight: 800
-                      }}
-                    >
-                      Session ouverte ✓
-                    </span>
-                    <span style={{ color: '#065F46', fontWeight: 700 }}>
-                      {new Date(session.openedAt).toLocaleDateString('fr-FR')} {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                </div>
-                {/* Si premier jour: permettre de fixer/modifier l'événement */}
-                {isTodayFirstDayOf(session.openedAt) && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px auto', gap: 10, alignItems: 'center' }}>
-                    <input placeholder="Nom de l'événement" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
-                    <input type="date" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
-                    <input type="date" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
-                    <button onClick={onSaveEventFirstDay} style={btn('#16A34A')}>
-                      Enregistrer l'événement
-                    </button>
-                  </div>
+                )}
+                {session && (
+                  <button
+                    onClick={() => {
+                      const name = prompt('Nom de la foire', eventName || session.eventName || '');
+                      if (!name) return;
+                      const start = prompt('Date de début (yyyy-mm-dd)', toInputDate(session.eventStart));
+                      const end = prompt('Date de fin (yyyy-mm-dd)', toInputDate(session.eventEnd));
+                      const patch: Partial<SessionDB> = {
+                        eventName: name.trim(),
+                        eventStart: start ? new Date(start).getTime() : session.eventStart,
+                        eventEnd: end ? new Date(end).getTime() : session.eventEnd,
+                      };
+                      updateSessionHelper(session.id, patch).then(() => refreshSession());
+                    }}
+                    style={{
+                      background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
+                      padding:'10px 16px', borderRadius:8, fontWeight:800, cursor:'pointer'
+                    }}
+                  >
+                    Modifier
+                  </button>
                 )}
               </div>
-            )}
+            </div>
           </div>
 
           {/* Boutons - Interface Améliorée */}

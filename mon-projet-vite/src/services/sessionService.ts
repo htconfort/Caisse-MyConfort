@@ -40,6 +40,21 @@ class SessionService {
     return (db as any).updateCurrentSessionEvent(args);
   }
 
+  /** Update a session by id with partial data */
+  async updateSession(sessionId: string, updateData: Partial<SessionDB>): Promise<SessionDB | undefined> {
+    // Normalise potential date strings to numbers
+    const processed: Partial<SessionDB> = { ...updateData };
+    if (typeof processed.eventStart === 'string') {
+      processed.eventStart = new Date(processed.eventStart).getTime();
+    }
+    if (typeof processed.eventEnd === 'string') {
+      processed.eventEnd = new Date(processed.eventEnd).getTime();
+    }
+
+    await (db as any).sessions.update(sessionId, processed);
+    return (db as any).sessions.get(sessionId);
+  }
+
   /**
    * Close the current session if open.
    * Accepts either totals directly, or an object with closedBy/note/totals.
@@ -80,5 +95,6 @@ export const ensureSession = (openedByOrOpts?: SessionOpenArg) => sessionService
 export const getCurrentSession = () => sessionService.getCurrentSession();
 export const openSession = (openedByOrOpts?: SessionOpenArg) => sessionService.openSession(openedByOrOpts);
 export const updateCurrentSessionEvent = (args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string; eventLocation?: string }) => sessionService.updateCurrentSessionEvent(args);
+export const updateSession = (sessionId: string, updateData: Partial<SessionDB>) => sessionService.updateSession(sessionId, updateData);
 export const closeCurrentSession = (arg?: SessionCloseArg) => sessionService.closeCurrentSession(arg);
 export const computeTodayTotalsFromDB = () => sessionService.computeTodayTotalsFromDB();
