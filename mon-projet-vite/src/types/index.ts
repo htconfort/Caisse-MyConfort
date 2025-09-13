@@ -307,6 +307,7 @@ export interface SessionDB {
   totals?: { card: number; cash: number; cheque: number }; // totaux lors de la clôture
   // Nouveaux champs événement
   eventName?: string;        // Nom de l'événement (saisi le premier jour)
+  eventLocation?: string;    // Lieu de l'événement
   eventStart?: number;       // Timestamp du premier jour (00:00)
   eventEnd?: number;         // Timestamp du dernier jour (00:00)
 }

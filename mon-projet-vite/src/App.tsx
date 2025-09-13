@@ -30,6 +30,7 @@ import { Navigation } from './components/ui/Navigation';
 import { VendorSelection, ProductsTab, SalesTab, MiscTab, CancellationTab, CATab, PaymentsTab } from './components/tabs';
 import { StockTabElegant } from './components/tabs/StockTabElegant';
 import InvoicesTabCompact from './components/InvoicesTabCompact';
+import VSCodeSyncComponent from './components/VSCodeSync';
 import { SuccessNotification, FloatingCart } from './components/ui';
 import { CartTypeSelector } from './components/ui/CartTypeSelector';
 import { VendorDiagnostics } from './components/ui/VendorDiagnostics';
@@ -161,7 +162,7 @@ export default function CaisseMyConfortApp() {
   const [selectedColor, setSelectedColor] = useState('');
   
   // État pour les sous-onglets de gestion
-  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide' | 'panier' | 'diagnostic'>('vendeuses');
+  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide' | 'panier' | 'diagnostic' | 'vscode'>('vendeuses');
 
   // États pour l'édition et la suppression des vendeuses
   const [editingVendor, setEditingVendor] = useState<string | null>(null);
@@ -1509,6 +1510,37 @@ export default function CaisseMyConfortApp() {
                       iPad
                     </span>
                   </button>
+                  
+                  <button
+                    onClick={() => setGestionActiveTab('vscode')}
+                    style={{
+                      flex: 1,
+                      padding: '15px 20px',
+                      border: 'none',
+                      background: gestionActiveTab === 'vscode' ? '#007ACC' : 'white',
+                      color: gestionActiveTab === 'vscode' ? 'white' : '#495057',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    ⚙️ VS Code
+                    <span style={{
+                      background: gestionActiveTab === 'vscode' ? 'rgba(255,255,255,0.2)' : '#007ACC',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      Sync
+                    </span>
+                  </button>
                 </div>
 
                 {/* Contenu des sous-onglets */}
@@ -2081,6 +2113,13 @@ export default function CaisseMyConfortApp() {
                 {/* Section Diagnostic iPad */}
                 {gestionActiveTab === 'diagnostic' && (
                   <DiagnosticIPad />
+                )}
+                
+                {/* Section VS Code Sync */}
+                {gestionActiveTab === 'vscode' && (
+                  <div style={{ margin: '20px 0' }}>
+                    <VSCodeSyncComponent />
+                  </div>
                 )}
               </div>
             )}

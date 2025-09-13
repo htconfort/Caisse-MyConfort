@@ -1,16 +1,17 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Mail, Eye, EyeOff, RefreshCw, PlayCircle, XCircle, Printer } from 'lucide-react';
+import { Mail, Eye, EyeOff, RefreshCw, XCircle, Printer } from 'lucide-react';
 import type { Sale, Vendor } from '../types';
 import type { Invoice } from '@/services/syncService';
 import { externalInvoiceService } from '../services/externalInvoiceService';
 import WhatsAppIntegrated from './WhatsAppIntegrated';
-import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper } from '@/services/sessionService';
+import { ensureSession as ensureSessionHelper, closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper, updateSession as updateSessionHelper } from '@/services/sessionService';
 import type { SessionDB } from '@/types';
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
 import { RAZGuardModal } from './RAZGuardModal';
 import { printHtmlA4 } from '../utils/printA4';
 import { FeuilleCaissePrintable } from './FeuilleCaissePrintable';
 import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
+import { SessionManager } from './SessionManager';
 
 // Normalisation d'une ligne de chèque pour tables UI + impression
 type ChequeRow = {
@@ -139,7 +140,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // 🆕 États pour le tableau des chèques
   const [chequesTab, setChequesTab] = useState<'classique' | 'facturier'>('classique');
   const [editableChecks, setEditableChecks] = useState<Record<string, { nbCheques: number; perChequeAmount: number; product?: string }>>({});
-  const [openingSession, setOpeningSession] = useState(false);
+  const [openingSession] = useState(false);
   // Champs événement (saisis le premier jour)
   const [eventName, setEventName] = useState('');
   const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
@@ -173,12 +174,6 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     return d.getTime();
   };
 
-  const isTodayFirstDayOf = (openedAt?: number) => {
-    if (!openedAt) return false;
-    const o = new Date(openedAt); o.setHours(0,0,0,0);
-    const t = new Date(); t.setHours(0,0,0,0);
-    return o.getTime() === t.getTime();
-  };
 
   const refreshSession = useCallback(async () => {
     try {
@@ -311,37 +306,63 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     })();
   }, []);
 
-  const openSession = useCallback(async () => {
-    setOpeningSession(true);
+
+  // Nouvelle fonction pour le SessionManager
+  const handleSessionCreate = useCallback(async (sessionData: {
+    eventName: string;
+    eventStart: string;
+    eventEnd: string;
+    note?: string;
+  }) => {
     try {
-      console.log('🔄 Ouverture de session...', { eventName, eventStart, eventEnd });
+      console.log('🔄 Création de session interactive...', sessionData);
       
       // Convertir les dates en format approprié
-      const eventStartMs = eventStart ? new Date(eventStart).getTime() : undefined;
-      const eventEndMs = eventEnd ? new Date(eventEnd).getTime() : undefined;
+      const eventStartMs = new Date(sessionData.eventStart).getTime();
+      const eventEndMs = new Date(sessionData.eventEnd).getTime();
       
-      // Passer les infos d'événement si fournies
+      // Paramètres de session
       const sessionParams = {
         openedBy: 'system',
-        ...(eventName && { eventName }),
-        ...(eventStartMs && { eventStart: eventStartMs }),
-        ...(eventEndMs && { eventEnd: eventEndMs })
+        eventName: sessionData.eventName,
+        eventStart: eventStartMs,
+        eventEnd: eventEndMs,
+        ...(sessionData.note && { note: sessionData.note })
       };
       
-      console.log('📝 Paramètres session:', sessionParams);
+      console.log('📝 Paramètres session interactive:', sessionParams);
       
       await ensureSessionHelper(sessionParams);
-      console.log('✅ Session ouverte avec succès');
+      console.log('✅ Session interactive créée avec succès');
       
       await refreshSession();
     } catch (e) {
-      console.error('❌ Erreur ouverture session:', e);
-      alert("Erreur lors de l'ouverture de la session: " + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setOpeningSession(false);
+      console.error('❌ Erreur création session interactive:', e);
+      throw e; // Laisser le composant gérer l'erreur
     }
-  }, [eventName, eventStart, eventEnd, refreshSession]);
+  }, [refreshSession]);
 
+  const handleSessionUpdate = useCallback(async (sessionData: Partial<SessionDB>) => {
+    try {
+      console.log('🔄 Mise à jour de session...', sessionData);
+      
+      if (!session?.id) {
+        throw new Error('Aucune session active à mettre à jour');
+      }
+      
+      // Mettre à jour la session avec les nouvelles données
+      const updatedSession = await updateSessionHelper(session.id, sessionData);
+      console.log('✅ Session mise à jour avec succès:', updatedSession);
+      
+      // Rafraîchir les données
+      await refreshSession();
+    } catch (e) {
+      console.error('❌ Erreur mise à jour session:', e);
+      throw e;
+    }
+  }, [session?.id, refreshSession]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const onSaveEventFirstDay = useCallback(async () => {
     try {
       console.log('📝 Enregistrement événement:', { eventName, eventStart, eventEnd });
@@ -799,68 +820,13 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             </p>
           </div>
 
-          {/* Session - ouverture/statut (haut de page) */}
-          <div style={{ background: '#fff', border: '2px solid #DC2626', borderRadius: 10, padding: 16, marginBottom: 20, boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
-            {sessLoading ? (
-              <div style={{ color: '#991B1B', fontWeight: 600 }}>Chargement de la session...</div>
-            ) : !session ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div>
-                  <div style={{ color: '#991B1B', fontWeight: 700, fontSize: 16 }}>Aucune session de caisse ouverte</div>
-                  <div style={{ color: '#7F1D1D' }}>Ouvrez une session pour enregistrer les ventes du jour.</div>
-                </div>
-                {/* Champs événement (facultatifs) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px', gap: 10 }}>
-                  <input placeholder="Nom de l'événement (ex: Foire de Perpignan)" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
-                  <input type="date" placeholder="Début" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
-                  <input type="date" placeholder="Fin" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                  <button 
-                    onClick={openSession} 
-                    disabled={openingSession}
-                    style={{ 
-                      ...btn(openingSession ? '#9CA3AF' : '#16A34A'), 
-                      minWidth: 200,
-                      opacity: openingSession ? 0.7 : 1,
-                      cursor: openingSession ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    <PlayCircle size={20} /> {openingSession ? 'Ouverture...' : 'Ouvrir la session'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                  <div>
-                    <div style={{ color: '#065F46', fontWeight: 700, fontSize: 16 }}>Session ouverte</div>
-                    <div style={{ color: '#7F1D1D' }}>Depuis {new Date(session.openedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</div>
-                    {session.eventName && (
-                      <div style={{ marginTop: 6, color: '#7F1D1D', fontWeight: 600 }}>
-                        Événement : {session.eventName}
-                        {session.eventStart && session.eventEnd && (
-                          <span> (du {new Date(session.eventStart).toLocaleDateString('fr-FR')} au {new Date(session.eventEnd).toLocaleDateString('fr-FR')})</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ color: '#991B1B', fontWeight: 600 }}>Gestion de session en bas de page</div>
-                </div>
-                {/* Si premier jour: permettre de fixer/modifier l'événement */}
-                {isTodayFirstDayOf(session.openedAt) && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 160px 160px auto', gap: 10, alignItems: 'center' }}>
-                    <input placeholder="Nom de l'événement" value={eventName} onChange={e=>setEventName(e.target.value)} style={inputStyle} />
-                    <input type="date" value={eventStart} onChange={e=>setEventStart(e.target.value)} style={inputStyle} />
-                    <input type="date" value={eventEnd} onChange={e=>setEventEnd(e.target.value)} style={inputStyle} />
-                    <button onClick={onSaveEventFirstDay} style={btn('#16A34A')}>
-                      Enregistrer l'événement
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          {/* Gestion de Session Interactive */}
+          <SessionManager
+            session={session}
+            onSessionCreate={handleSessionCreate}
+            onSessionUpdate={handleSessionUpdate}
+            loading={sessLoading || openingSession}
+          />
 
           {/* Boutons - Interface Améliorée */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15, marginBottom: 30 }}>
@@ -1236,13 +1202,6 @@ const btnDisabled = (bg: string, white = true, color?: string) => ({
   opacity: 0.6
 });
 
-const inputStyle: React.CSSProperties = {
-  padding: '10px 12px',
-  border: '1px solid #e5e7eb',
-  borderRadius: 8,
-  outline: 'none',
-  fontSize: '0.95em'
-};
 
 interface FeuilleImprimableProps {
   calculs: {

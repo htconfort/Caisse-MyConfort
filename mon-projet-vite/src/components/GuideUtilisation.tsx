@@ -31,7 +31,13 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
         - Intégration : N8N pour la synchronisation des factures
         - UI : Lucide React (icônes) + CSS moderne
         
-        **Application accessible sur :** http://localhost:5173
+        **Application accessible sur :** http://localhost:5173 (ou port alternatif 5174)
+        
+        **Nouvelles fonctionnalités v3.0+ :**
+        - Panier full-height avec interface simplifiée
+        - Bouton panier minimisé rouge pour meilleure visibilité
+        - Sélecteur de type de panier intégré à l'onglet Gestion
+        - Interface de paiement améliorée avec options étendues
       `
     },
     {
@@ -43,13 +49,47 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
         1. **👩‍💼 Vendeuse** - Sélection obligatoire de la vendeuse active
         2. **📦 Produits** - Catalogue de 49 produits (recherche + ajout panier)
         3. **📄 Factures** - Consultation factures N8N + mode élégant
-        4. **📊 Stock** - Gestion inventaires (4 sous-onglets + 3 modes vue)
-        5. **🛒 Ventes** - Historique des transactions
-        6. **➕ Diverses** - Articles personnalisés hors catalogue
-        7. **❌ Annulation** - Gestion panier + annulation ventes
-        8. **💰 CA** - Chiffre d'affaires et classement vendeuses
-        9. **⚙️ Gestion** - Administration des vendeuses (vous êtes ici !)
-        10. **🔄 RAZ** - Remise à zéro et rapports
+        4. **💰 Règlements** - Gestion des paiements et échéanciers
+        5. **📊 Stock** - Gestion inventaires (4 sous-onglets + 3 modes vue)
+        6. **🛒 Ventes** - Historique des transactions
+        7. **➕ Diverses** - Articles personnalisés hors catalogue
+        8. **❌ Annulation** - Gestion panier + annulation ventes
+        9. **💰 CA** - Chiffre d'affaires et classement vendeuses
+        10. **⚙️ Gestion** - Administration (3 sous-onglets)
+        11. **🔄 RAZ** - Remise à zéro et rapports
+        
+        **Sous-onglets de Gestion :**
+        - **👥 Gestion des Vendeuses** - Ajout/modification/suppression vendeuses
+        - **📖 Guide d'Utilisation** - Documentation interactive (ici)
+        - **🛒 Type de Panier** - Configuration panier classique/facturier
+      `
+    },
+    {
+      id: 'panier',
+      title: '🛒 Panier et types de vente',
+      content: `
+        **Panier flottant amélioré v3.0+ :**
+        - Interface full-height (de haut en bas de l'écran)
+        - Bouton de minimisation rouge pour meilleure visibilité
+        - Badge blanc avec bordure rouge sur panier minimisé
+        - Gestion des articles offerts et quantités
+        - Calcul automatique des économies (produits matelas)
+        
+        **Types de panier (configurable via Gestion > Type de Panier) :**
+        
+        **� Panier Classique** (par défaut) :
+        - Ticket de caisse standard
+        - Gestion automatique des numéros
+        - Idéal pour les ventes courantes
+        - Impression rapide
+        
+        **📄 Panier Facturier** :
+        - Facture personnalisée
+        - Saisie client obligatoire
+        - Numérotation manuelle
+        - Traçabilité complète
+        
+        **Règle spéciale :** Les produits matelas/sur-matelas en panier classique forcent la saisie manuelle client/facture.
       `
     },
     {
@@ -58,16 +98,43 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
       content: `
         **Processus standard :**
         
-        1. **Sélectionner une vendeuse** (onglet Vendeuse) - OBLIGATOIRE
-        2. **Ajouter des produits** (onglet Produits ou Diverses)
-        3. **Vérifier le panier** (visible en permanence en bas)
-        4. **Finaliser la vente** (bouton Valider dans le panier)
-        5. **Choisir le moyen de paiement** (Carte/Espèces/Chèque/Mixte)
+        1. **Configurer le type de panier** (Gestion > Type de Panier) - OPTIONNEL
+        2. **Sélectionner une vendeuse** (onglet Vendeuse) - OBLIGATOIRE
+        3. **Ajouter des produits** (onglet Produits ou Diverses)
+        4. **Vérifier le panier** (visible en permanence à droite)
+        5. **Finaliser la vente** (bouton "Mode de paiement" dans le panier)
+        6. **Choisir le règlement** (interface de paiement complète)
         
-        **Le panier flottant** reste accessible sur tous les onglets et affiche :
-        - Nombre d'articles
-        - Total en euros
-        - Actions : Modifier quantités, Vider, Valider
+        **Options de paiement étendues :**
+        - Espèces, Carte bleue, Virement
+        - Chèque comptant, Chèques à venir (configurables)
+        - Alma 2x/3x/4x avec calcul automatique
+        - Gestion d'acomptes avec saisie suggérée (20%, 30%, 40%, 50%)
+      `
+    },
+    {
+      id: 'gestion',
+      title: '⚙️ Onglet Gestion',
+      content: `
+        **3 sous-sections disponibles :**
+        
+        **👥 Gestion des Vendeuses :**
+        - Ajout de nouvelles vendeuses (nom + email + couleur)
+        - Modification en ligne (double-clic)
+        - Suppression avec confirmation
+        - Compteur automatique des vendeuses actives
+        
+        **📖 Guide d'Utilisation :**
+        - Documentation interactive (cette page)
+        - Sections extensibles/réductibles
+        - Liens vers guides externes
+        
+        **🛒 Type de Panier :**
+        - Interface visuelle pour changer le mode de panier
+        - Cartes interactives avec descriptions détaillées
+        - Indication du mode actuel
+        - Changement immédiat pour tous les nouveaux paniers
+        - Informations sur l'impact de chaque mode
       `
     },
     {
@@ -87,6 +154,7 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
         - **Vue Horizontale** : Boutons compacts sur une ligne
         
         **Déduction automatique :** Les factures N8N déduisent automatiquement du stock général.
+        **Synchronisation :** Mise à jour temps réel entre les différents types de stock.
       `
     },
     {
@@ -108,6 +176,10 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
         - VITE_N8N_ENABLED=true/false
         - VITE_N8N_URL=/api/n8n
         - VITE_N8N_TARGET=http://localhost:5678
+        
+        **Intégration avec types de panier :**
+        - Panier facturier : synchronisation automatique
+        - Panier classique : génération de factures simples
       `
     },
     {
@@ -125,6 +197,37 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
         
         **Export automatique :** Sauvegarde JSON proposée avant chaque RAZ.
         **Gestion des sessions :** Clôture/ouverture automatique avec totaux.
+        **Conservation :** Le type de panier configuré est préservé lors des RAZ.
+      `
+    },
+    {
+      id: 'nouveautes',
+      title: '🆕 Nouveautés récentes',
+      content: `
+        **Version 3.0+ - Améliorations majeures :**
+        
+        **Interface Panier :**
+        - Panier full-height pour maximiser l'espace d'affichage
+        - Bouton minimisé rouge (#F55D3E) pour meilleure visibilité
+        - Badge blanc avec bordure rouge pour contraste optimal
+        - Suppression des éléments complexes (dock mode)
+        
+        **Gestion centralisée :**
+        - Sélecteur de type de panier déplacé vers Gestion
+        - Interface visuelle avec cartes interactives
+        - Documentation des différences entre modes
+        - Configuration persistante
+        
+        **Paiements étendus :**
+        - Interface de paiement redessinée
+        - Support Alma 2x/3x/4x avec calculs automatiques
+        - Chèques à venir configurables (2 à 10 chèques)
+        - Gestion avancée des acomptes
+        
+        **Expérience utilisateur :**
+        - Navigation plus fluide entre les onglets
+        - Feedback visuel amélioré
+        - Guide d'utilisation mis à jour en temps réel
       `
     },
     {
@@ -133,16 +236,20 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
       content: `
         **Problèmes courants :**
         
-        - **Port occupé :** lsof -ti:5173 puis kill -9 <PID>
+        - **Port occupé :** lsof -ti:5173 puis kill -9 <PID> (ou utiliser port 5174)
+        - **Panier rouge invisible :** Vérifier le contraste du badge (maintenant blanc sur rouge)
+        - **Type de panier non sauvé :** Aller dans Gestion > Type de Panier pour configurer
         - **N8N ECONNREFUSED :** Normal si N8N pas démarré
         - **Cache Vite :** rm -rf node_modules/.vite puis npm run dev --force
         - **Données perdues :** Vérifier IndexedDB (F12 → Application → IndexedDB)
         
         **Logs utiles :**
-        - Console navigateur : Logs Dexie, Session, RAZ
+        - Console navigateur : Logs Dexie, Session, RAZ, Panier
         - Variables debug : VITE_LOG_LEVEL=debug
+        - Debug panier : Logs préfixés "🛒 FloatingCart Debug"
         
-        **Reset IndexedDB :** indexedDB.deleteDatabase('MyConfortCaisseV2')
+        **Reset complet :** indexedDB.deleteDatabase('MyConfortCaisseV2')
+        **Configuration panier :** Persistent dans CART_TYPE (IndexedDB)
       `
     }
   ];

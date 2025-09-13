@@ -8,7 +8,7 @@ import type { SessionDB } from '@/types';
 // Types mirroring DB API
 export type SessionTotals = { card: number; cash: number; cheque: number };
 export type SessionCloseArg = SessionTotals | { closedBy?: string; note?: string; totals?: SessionTotals };
-export type SessionOpenArg = string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string };
+export type SessionOpenArg = string | { openedBy?: string; note?: string; eventName?: string; eventLocation?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string };
 
 class SessionService {
   /** Ensure an open session, opening one if needed (safe variant) */
@@ -38,6 +38,27 @@ class SessionService {
   /** Update current session's event details (only first day) */
   async updateCurrentSessionEvent(args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }): Promise<SessionDB> {
     return (db as any).updateCurrentSessionEvent(args);
+  }
+
+  /** Update session data */
+  async updateSession(sessionId: string, updateData: Partial<SessionDB>): Promise<SessionDB | undefined> {
+    console.log('🔍 SessionService.updateSession appelé avec:', { sessionId, updateData });
+    
+    if (!db) {
+      throw new Error('❌ Instance db non disponible');
+    }
+    
+    // Convertir les dates si nécessaire
+    const processedData = { ...updateData };
+    if (processedData.eventStart && typeof processedData.eventStart === 'string') {
+      processedData.eventStart = new Date(processedData.eventStart).getTime();
+    }
+    if (processedData.eventEnd && typeof processedData.eventEnd === 'string') {
+      processedData.eventEnd = new Date(processedData.eventEnd).getTime();
+    }
+    
+    await (db as any).sessions.update(sessionId, processedData);
+    return await (db as any).sessions.get(sessionId);
   }
 
   /**
@@ -80,5 +101,6 @@ export const ensureSession = (openedByOrOpts?: SessionOpenArg) => sessionService
 export const getCurrentSession = () => sessionService.getCurrentSession();
 export const openSession = (openedByOrOpts?: SessionOpenArg) => sessionService.openSession(openedByOrOpts);
 export const updateCurrentSessionEvent = (args: { eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }) => sessionService.updateCurrentSessionEvent(args);
+export const updateSession = (sessionId: string, updateData: Partial<SessionDB>) => sessionService.updateSession(sessionId, updateData);
 export const closeCurrentSession = (arg?: SessionCloseArg) => sessionService.closeCurrentSession(arg);
 export const computeTodayTotalsFromDB = () => sessionService.computeTodayTotalsFromDB();

@@ -570,18 +570,19 @@ export default getDB;
 
   /** Ouvre une session si aucune n'est ouverte. Retourne la session courante. */
   async openSession(
-    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
+    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventLocation?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
   ): Promise<SessionDB> {
-    const { openedBy, note, eventName, eventStart, eventEnd } =
+    const { openedBy, note, eventName, eventLocation, eventStart, eventEnd } =
       typeof openedByOrOpts === 'object' && openedByOrOpts !== null
         ? {
             openedBy: openedByOrOpts.openedBy,
             note: openedByOrOpts.note,
             eventName: openedByOrOpts.eventName,
+            eventLocation: openedByOrOpts.eventLocation,
             eventStart: openedByOrOpts.eventStart,
             eventEnd: openedByOrOpts.eventEnd,
           }
-        : { openedBy: openedByOrOpts as string | undefined, note: undefined, eventName: undefined, eventStart: undefined, eventEnd: undefined };
+        : { openedBy: openedByOrOpts as string | undefined, note: undefined, eventName: undefined, eventLocation: undefined, eventStart: undefined, eventEnd: undefined };
 
     // Normalisation dates (début/fin de journée)
     const toStartOfDay = (v?: number | Date | string) => {
@@ -603,6 +604,7 @@ export default getDB;
         openedBy,
         ...(note ? { note } : {}),
         ...(eventName ? { eventName } : {}),
+        ...(eventLocation ? { eventLocation } : {}),
         ...(toStartOfDay(eventStart) ? { eventStart: toStartOfDay(eventStart) } : {}),
         ...(toStartOfDay(eventEnd) ? { eventEnd: toStartOfDay(eventEnd) } : {}),
       };
@@ -616,9 +618,9 @@ export default getDB;
 
   /** Version sûre: évite toute double session ouverte, ferme les doublons au besoin */
   async openSessionSafe(
-    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
+    openedByOrOpts?: string | { openedBy?: string; note?: string; eventName?: string; eventLocation?: string; eventStart?: number | Date | string; eventEnd?: number | Date | string }
   ): Promise<SessionDB> {
-    const { openedBy, note, eventName, eventStart, eventEnd } =
+    const { openedBy, note, eventName, eventLocation, eventStart, eventEnd } =
       typeof openedByOrOpts === 'object' && openedByOrOpts !== null
         ? {
             openedBy: openedByOrOpts.openedBy,

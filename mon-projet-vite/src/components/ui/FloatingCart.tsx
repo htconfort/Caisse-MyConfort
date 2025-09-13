@@ -164,7 +164,7 @@ export function FloatingCart({
         <button
           onClick={() => setIsCartMinimized(false)}
           style={{
-            backgroundColor: '#477A0C',
+            backgroundColor: '#F55D3E',
             color: 'white',
             border: 'none',
             borderRadius: '50%',
@@ -175,7 +175,7 @@ export function FloatingCart({
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            boxShadow: '0 4px 12px rgba(245, 93, 62, 0.4)',
             transition: 'all 0.3s ease'
           }}
           onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
@@ -188,8 +188,8 @@ export function FloatingCart({
                 position: 'absolute',
                 top: '-5px',
                 right: '-5px',
-                backgroundColor: '#F55D3E',
-                color: 'white',
+                backgroundColor: '#FFFFFF',
+                color: '#F55D3E',
                 borderRadius: '50%',
                 width: '20px',
                 height: '20px',
@@ -197,7 +197,8 @@ export function FloatingCart({
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontSize: '10px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                border: '2px solid #F55D3E'
               }}
             >
               {cartItemsCount}
