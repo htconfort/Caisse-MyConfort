@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Package, Search, AlertTriangle, CheckCircle, Lock } from 'lucide-react';
-import type { ProductCategory, CatalogProduct } from '../../../types';
-import { PinModal } from '../../ui/PinModal';
+import { AlertTriangle, CheckCircle, Lock, Package, Search } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { productCatalog } from '../../../data';
 import '../../../styles/general-stock-compact.css';
+import type { CatalogProduct, ProductCategory } from '../../../types';
+import { PinModal } from '../../ui/PinModal';
 
 interface GeneralStockItem {
   productName: string;
@@ -25,7 +25,10 @@ export const GeneralStockTab: React.FC = () => {
   const [isEditUnlocked, setIsEditUnlocked] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [stockQuantities, setStockQuantities] = useState<Record<string, number>>({});
+  const [stockQuantities, setStockQuantities] = useState<Record<string, number>>({
+    'Protège-matelas 180 x 200': 129,
+    'Protège-matelas 90 x 200': 66
+  });
 
   // Générer les données de stock à partir du catalogue de produits
   const generateStockFromCatalog = (): GeneralStockItem[] => {

@@ -1,6 +1,6 @@
 import type { CatalogProduct, Vendor } from '../types';
 
-// Données complètes du catalogue - EXACTEMENT SELON VOTRE LISTE (49 produits)
+// Données complètes du catalogue - EXACTEMENT SELON VOTRE LISTE (51 produits)
 export const productCatalog: CatalogProduct[] = [
   // Matelas (10)
   { category: 'Matelas', name: 'MATELAS BAMBOU 70 x 190', priceTTC: 900, autoCalculateHT: true },
@@ -53,12 +53,14 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 180 x 200', priceTTC: 220, autoCalculateHT: true },
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 200 x 200', priceTTC: 230, autoCalculateHT: true },
   
-  // Accessoires (5)
+  // Accessoires (7)
   { category: 'Accessoires', name: 'Le régule jambes', priceTTC: 70, autoCalculateHT: true },
   { category: 'Accessoires', name: 'PACK 2 Taies d\'oreiller fraîcheur Actif Cool', priceTTC: 20, autoCalculateHT: true },
   { category: 'Accessoires', name: 'Protège-matelas 80 x 200', priceTTC: 80, autoCalculateHT: true },
+  { category: 'Accessoires', name: 'Protège-matelas 90 x 200', priceTTC: 90, autoCalculateHT: true },
   { category: 'Accessoires', name: 'Protège-matelas 140 x 190', priceTTC: 140, autoCalculateHT: true },
-  { category: 'Accessoires', name: 'Protège-matelas 160 x 200', priceTTC: 160, autoCalculateHT: true }
+  { category: 'Accessoires', name: 'Protège-matelas 160 x 200', priceTTC: 160, autoCalculateHT: true },
+  { category: 'Accessoires', name: 'Protège-matelas 180 x 200', priceTTC: 180, autoCalculateHT: true }
 ];
 
 // Vendeuses disponibles avec couleurs de la charte MyConfort

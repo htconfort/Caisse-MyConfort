@@ -1,21 +1,21 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import type { 
-  TabType, 
-  PaymentMethod, 
-  Vendor, 
-  ExtendedCartItem, 
-  Sale,
-  CatalogProduct,
-  CartType,
-  PriceOverrideMeta
-} from './types/index';
-import { 
-  vendors, 
-  STORAGE_KEYS 
-} from './data';
 import { useIndexedStorage } from '@/hooks/storage/useIndexedStorage';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+    STORAGE_KEYS,
+    vendors
+} from './data';
 import { useSyncInvoices } from './hooks/useSyncInvoices';
 import { triggerN8NSync } from './services/n8nSyncService';
+import type {
+    CartType,
+    CatalogProduct,
+    ExtendedCartItem,
+    PaymentMethod,
+    PriceOverrideMeta,
+    Sale,
+    TabType,
+    Vendor
+} from './types/index';
 
 // Type pour les options de RAZ
 type ResetOptionKey =
@@ -26,23 +26,24 @@ type ResetOptionKey =
   | 'vendorStats'
   | 'allData';
 
+import { getDB } from '@/db/index';
+import { sessionService } from '@/services';
+import { AlertTriangle, Book, Check, CheckCircle, Edit3, Package, Palette, Plus, RefreshCw, Save, Settings, ShoppingCart, Trash2, Users, X } from 'lucide-react';
+import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
+import { GuideUtilisation } from './components/GuideUtilisation';
+import InvoicesTabCompact from './components/InvoicesTabCompact';
+import { CancellationTab, CATab, PaymentsTab, ProductsTab, SalesTab, VendorSelection } from './components/tabs';
+import { StockTabElegant } from './components/tabs/StockTabElegant';
+import { FloatingCart, SuccessNotification } from './components/ui';
+import { BuildStamp } from './components/ui/BuildStamp';
+import { CartTypeSelector } from './components/ui/CartTypeSelector';
+import { DebugDataPanel } from './components/ui/DebugDataPanel';
 import { Header } from './components/ui/Header';
 import { Navigation } from './components/ui/Navigation';
-import { VendorSelection, ProductsTab, SalesTab, CancellationTab, CATab, PaymentsTab } from './components/tabs';
-import { StockTabElegant } from './components/tabs/StockTabElegant';
-import InvoicesTabCompact from './components/InvoicesTabCompact';
-import { SuccessNotification, FloatingCart } from './components/ui';
-import { CartTypeSelector } from './components/ui/CartTypeSelector';
+import { ProductsManagement } from './components/ui/ProductsManagement';
 import { VendorDiagnostics } from './components/ui/VendorDiagnostics';
-import { BuildStamp } from './components/ui/BuildStamp';
-import { DebugDataPanel, type DexieLike } from './components/ui/DebugDataPanel';
-import { GuideUtilisation } from './components/GuideUtilisation';
-import { Settings, Plus, Save, X, Palette, Check, Edit3, Trash2, RefreshCw, AlertTriangle, CheckCircle, Book, Users, ShoppingCart } from 'lucide-react';
-import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import './styles/invoices-tab.css';
 import './styles/print.css';
-import { sessionService } from '@/services';
-import { getDB } from '@/db/index';
 
 // Styles pour les animations RAZ
 const razAnimationStyles = `
@@ -161,7 +162,7 @@ export default function CaisseMyConfortApp() {
   const [selectedColor, setSelectedColor] = useState('');
   
   // État pour les sous-onglets de gestion
-  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'guide' | 'panier' | 'diagnostic'>('vendeuses');
+  const [gestionActiveTab, setGestionActiveTab] = useState<'vendeuses' | 'produits' | 'guide' | 'panier' | 'diagnostic'>('vendeuses');
 
   // États pour l'édition et la suppression des vendeuses
   const [editingVendor, setEditingVendor] = useState<string | null>(null);
@@ -1419,6 +1420,38 @@ export default function CaisseMyConfortApp() {
                   </button>
                   
                   <button
+                    onClick={() => setGestionActiveTab('produits')}
+                    style={{
+                      flex: 1,
+                      padding: '15px 20px',
+                      border: 'none',
+                      background: gestionActiveTab === 'produits' ? '#f59e0b' : 'white',
+                      color: gestionActiveTab === 'produits' ? 'white' : '#495057',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <Package size={20} />
+                    Gestion des Produits
+                    <span style={{
+                      background: gestionActiveTab === 'produits' ? 'rgba(255,255,255,0.2)' : '#f59e0b',
+                      color: 'white',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      📦
+                    </span>
+                  </button>
+                  
+                  <button
                     onClick={() => setGestionActiveTab('guide')}
                     style={{
                       flex: 1,
@@ -2066,6 +2099,11 @@ export default function CaisseMyConfortApp() {
                   </div>
                 )}
                   </div>
+                )}
+
+                {/* Section Gestion des produits */}
+                {gestionActiveTab === 'produits' && (
+                  <ProductsManagement />
                 )}
                 
                 {/* Section Guide d'utilisation */}

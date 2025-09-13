@@ -1,17 +1,17 @@
-import { useState, useMemo, useEffect } from 'react';
-import { ShoppingCart, X, CreditCard, Plus, Minus, Edit3, Trash2 } from 'lucide-react';
-import type { 
-  TabType, 
-  PaymentMethod, 
-  Vendor,
-  ExtendedCartItem,
-  CartType 
-} from '../../types';
+import { CreditCard, Edit3, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import type {
+  CartType,
+  PaymentMethod,
+  TabType,
+  Vendor
+} from '../../types/index';
 import { ExtendedCartItemWithNegotiation, PriceOverrideMeta } from '../../types';
 import { isMatressProduct } from '../../utils';
+import { calculateFinalPrice, formatPriceDisplay } from '../../utils/CartUtils';
 import { ManualInvoiceModal } from './ManualInvoiceModal';
 import SimplePriceEditor from './SimplePriceEditor';
-import { formatPriceDisplay, calculateFinalPrice } from '../../utils/CartUtils';
 
 // Interface pour les données de paiement étendues
 interface PaymentData {
@@ -27,7 +27,11 @@ interface PaymentData {
     | 'Acompte'
     | 'Alma 2x'
     | 'Alma 3x'
-    | 'Alma 4x';
+    | 'Alma 4x'
+    | 'Chèque unique'
+    | 'Chèques multiples'
+    | 'Paiement mixte'
+    | 'Acompte + Solde';
   depositAmount?: number;
   almaInstallments?: number;
   chequesCount?: number;
@@ -204,7 +208,7 @@ export function FloatingCart({
   console.log('✅ Cart should display - tab:', activeTab);
 
   // 🆕 Styles du conteneur principal - panier agrandi jusqu'en bas
-  const cartPanelStyles: React.CSSProperties = {
+  const cartPanelStyles: CSSProperties = {
     position: 'absolute',
     right: '10px',
     top: '40px', // ✅ REHAUSSÉ: de 80px à 40px (3cm plus haut)
@@ -692,6 +696,7 @@ export function FloatingCart({
                 alert('⚠️ Le panier est vide');
                 return;
               }
+              // Ouvrir directement la page de paiement dans une nouvelle fenêtre ou modal
               setShowPaymentPage(true);
             }}
             disabled={!selectedVendor || cart.length === 0}
@@ -718,13 +723,24 @@ export function FloatingCart({
         </div>
       </div>
 
-      {/* Page complète de paiement */}
+      {/* Page complète de paiement en plein écran */}
       {showPaymentPage && (
-        <StepPaymentNoScroll 
-          cartTotal={cartTotal}
-          onBack={() => setShowPaymentPage(false)}
-          onSelectPayment={handleCompleteSale}
-        />
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'white',
+          zIndex: 9999,
+          overflow: 'auto'
+        }}>
+          <StepPaymentNoScroll 
+            cartTotal={cartTotal}
+            onBack={() => setShowPaymentPage(false)}
+            onSelectPayment={handleCompleteSale}
+          />
+        </div>
       )}
 
       {/* Modale de saisie manuelle client/facture */}
@@ -754,353 +770,433 @@ export function FloatingCart({
 }
 
 // Composant de paiement complet - Version adaptée pour FloatingCart
-function StepPaymentNoScroll({ 
-  cartTotal, 
-  onBack, 
-  onSelectPayment 
-}: { 
-  cartTotal: number; 
-  onBack: () => void; 
-  onSelectPayment: (method: PaymentMethod, checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }) => void; 
+function StepPaymentNoScroll({
+  cartTotal,
+  onBack,
+  onSelectPayment
+}: {
+  cartTotal: number;
+  onBack: () => void;
+  onSelectPayment: (
+    method: PaymentMethod,
+    checkDetails?: { count: number; amount: number; totalAmount: number; notes?: string }
+  ) => void;
 }) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentData['method']>('');
   const [acompte, setAcompte] = useState<number>(0);
   const [showAlmaPage, setShowAlmaPage] = useState(false);
   const [showChequesPage, setShowChequesPage] = useState(false);
-  const [checkDetails, setCheckDetails] = useState<{ count: number; amount: number; totalAmount: number; notes?: string } | null>(null);
+  const [checkDetails, setCheckDetails] = useState<{
+    count: number; amount: number; totalAmount: number; notes?: string
+  } | null>(null);
 
   const restePay = Math.max(0, cartTotal - acompte);
   const isValidPayment = !!selectedMethod && acompte >= 0 && acompte <= cartTotal;
 
-  // Pages secondaires pour Alma
+  // Sous-pages : restent confinées DANS le cadre
   if (showAlmaPage) {
     return (
-      <AlmaDetailsPage
-        totalAmount={cartTotal}
-        acompte={acompte}
-        onBack={() => setShowAlmaPage(false)}
-        onSelect={(installments) => {
-          const method = `Alma ${installments}x` as PaymentData['method'];
-          setSelectedMethod(method);
-          setShowAlmaPage(false);
-        }}
-      />
+      <div className="ipad-frame">
+        <div className="h-screen flex flex-col gradient-bg" style={{ position: 'relative' }}>
+          <AlmaDetailsPage
+            totalAmount={cartTotal}
+            acompte={acompte}
+            onBack={() => setShowAlmaPage(false)}
+            onSelect={(installments) => {
+              const method = `Alma ${installments}x` as PaymentData['method'];
+              setSelectedMethod(method);
+              setShowAlmaPage(false);
+            }}
+          />
+        </div>
+      </div>
     );
   }
 
-  // Pages secondaires pour Chèques
   if (showChequesPage) {
     return (
-      <ChequesDetailsPage
-        totalAmount={cartTotal}
-        acompte={acompte}
-        onBack={() => setShowChequesPage(false)}
-        onComplete={(data: { count: number; amount: number; notes: string }) => {
-          const totalAmount = data.count * data.amount;
-          const checkInfo = {
-            count: data.count,
-            amount: data.amount,
-            totalAmount: totalAmount,
-            notes: data.notes
-          };
-          setCheckDetails(checkInfo);
-          setSelectedMethod('Chèque à venir');
-          setShowChequesPage(false);
-          console.log('Chèques configurés:', checkInfo);
-        }}
-      />
+      <div className="ipad-frame">
+        <div className="h-screen flex flex-col gradient-bg" style={{ position: 'relative' }}>
+          <ChequesDetailsPage
+            totalAmount={cartTotal}
+            acompte={acompte}
+            onBack={() => setShowChequesPage(false)}
+            onComplete={(data: { count: number; amount: number; notes: string }) => {
+              const totalAmount = data.count * data.amount;
+              const details = { count: data.count, amount: data.amount, totalAmount, notes: data.notes };
+              setCheckDetails(details);
+              setSelectedMethod('Chèque à venir');
+              setShowChequesPage(false);
+            }}
+          />
+        </div>
+      </div>
     );
   }
 
+  // Page principale de paiement DANS le cadre iPad
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: '#f8f9fa',
-      zIndex: 1200,
-      overflowY: 'auto'
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '20px',
-        borderBottom: '2px solid #e5e7eb',
-        backgroundColor: 'white',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
-          <h1 style={{ 
-            fontSize: '28px', 
-            fontWeight: 'bold', 
-            color: '#14281D',
-            margin: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px'
-          }}>
-            💳 Mode de Règlement
-          </h1>
-          <p style={{ 
-            color: '#6B7280', 
-            fontSize: '16px',
-            margin: '4px 0 0 0' 
-          }}>
-            Total : {cartTotal.toFixed(2)}€ TTC
-          </p>
-        </div>
-        <button
-          onClick={onBack}
+    <div className="ipad-frame">
+      <div className="h-screen flex flex-col gradient-bg">
+        {/* Header */}
+        <div
           style={{
-            background: 'none',
-            border: 'none',
-            fontSize: '24px',
-            cursor: 'pointer',
-            color: '#6B7280',
-            padding: '8px'
+            padding: '20px',
+            borderBottom: '2px solid #e5e7eb',
+            backgroundColor: 'white',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
           }}
         >
-          ✕
-        </button>
-      </div>
-
-      {/* Content */}
-      <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-        
-        {/* Summary */}
-        <div style={{
-          backgroundColor: '#f0f9ff',
-          padding: '20px',
-          borderRadius: '16px',
-          border: '2px solid #bfdbfe',
-          marginBottom: '24px'
-        }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: '1fr 1fr 1fr', 
-            gap: '16px', 
-            textAlign: 'center' 
-          }}>
-            <div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#14281D' }}>
-                {cartTotal.toFixed(2)}€
-              </div>
-              <div style={{ fontSize: '14px', color: '#6B7280' }}>Total TTC</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#3b82f6' }}>
-                {acompte.toFixed(2)}€
-              </div>
-              <div style={{ fontSize: '14px', color: '#6B7280' }}>Acompte</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b' }}>
-                {restePay.toFixed(2)}€
-              </div>
-              <div style={{ fontSize: '14px', color: '#6B7280' }}>Reste à payer</div>
-            </div>
+          <div>
+            <h1
+              style={{
+                fontSize: '28px',
+                fontWeight: 'bold',
+                color: '#14281D',
+                margin: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}
+            >
+              💳 Mode de Règlement
+            </h1>
+            <p style={{ color: '#6B7280', fontSize: '16px', margin: '4px 0 0 0' }}>
+              Total : {cartTotal.toFixed(2)}€ TTC
+            </p>
           </div>
-        </div>
-
-        {/* Acompte */}
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ 
-            display: 'block', 
-            fontSize: '16px', 
-            fontWeight: '600', 
-            color: '#14281D', 
-            marginBottom: '12px' 
-          }}>
-            Acompte (€) *
-          </label>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(4, 1fr)', 
-            gap: '8px', 
-            marginBottom: '12px' 
-          }}>
-            {[20, 30, 40, 50].map(pct => {
-              const suggested = Math.round((cartTotal * pct) / 100);
-              return (
-                <button
-                  key={pct}
-                  onClick={() => setAcompte(suggested)}
-                  style={{
-                    padding: '12px 8px',
-                    backgroundColor: '#dbeafe',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#bfdbfe'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dbeafe'}
-                >
-                  {pct}% ({suggested}€)
-                </button>
-              );
-            })}
-          </div>
-          <input
-            type="number"
-            value={acompte}
-            onChange={(e) => setAcompte(Number(e.target.value) || 0)}
-            min={0}
-            max={cartTotal}
-            placeholder="0"
-            style={{
-              width: '100%',
-              fontSize: '20px',
-              fontWeight: 'bold',
-              border: '2px solid #d1d5db',
-              borderRadius: '8px',
-              padding: '12px',
-              textAlign: 'center',
-              backgroundColor: 'white'
-            }}
-          />
-        </div>
-
-        {/* Payment methods */}
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-          gap: '12px' 
-        }}>
-          
-          {/* Espèces */}
-          <PaymentCard
-            active={selectedMethod === 'Espèces'}
-            title="Espèces"
-            subtitle="Paiement comptant"
-            emoji="💵"
-            onClick={() => {
-              setSelectedMethod('Espèces');
-              onSelectPayment('cash');
-            }}
-          />
-
-          {/* Virement */}
-          <PaymentCard
-            active={selectedMethod === 'Virement'}
-            title="Virement"
-            subtitle="Banque à banque"
-            emoji="🏦"
-            onClick={() => {
-              setSelectedMethod('Virement');
-              onSelectPayment('multi'); // On garde 'multi' pour les méthodes étendues
-            }}
-          />
-
-          {/* Carte bleue */}
-          <PaymentCard
-            active={selectedMethod === 'Carte Bleue'}
-            title="Carte bleue"
-            subtitle="CB comptant"
-            emoji="💳"
-            onClick={() => {
-              setSelectedMethod('Carte Bleue');
-              onSelectPayment('card');
-            }}
-          />
-
-          {/* Alma */}
-          <PaymentCard
-            active={selectedMethod?.startsWith('Alma')}
-            title={selectedMethod?.startsWith('Alma') ? selectedMethod : 'Alma'}
-            subtitle={selectedMethod?.startsWith('Alma') ? 'Configuré ✓' : '2x, 3x ou 4x →'}
-            emoji="💳"
-            onClick={() => setShowAlmaPage(true)}
-            highlight="blue"
-          />
-
-          {/* Chèque comptant */}
-          <PaymentCard
-            active={selectedMethod === 'Chèque au comptant'}
-            title="Chèque (comptant)"
-            subtitle="Remis à la commande"
-            emoji="🧾"
-            onClick={() => {
-              setSelectedMethod('Chèque au comptant');
-              onSelectPayment('check');
-            }}
-          />
-
-          {/* Chèques à venir */}
-          <PaymentCard
-            active={selectedMethod === 'Chèque à venir'}
-            title="Chèques à venir"
-            subtitle={checkDetails ? `${checkDetails.count} chèques de ${checkDetails.amount}€ ✓` : "Planifier le paiement échelonné →"}
-            emoji="📄"
-            onClick={() => setShowChequesPage(true)}
-            highlight="amber"
-          />
-        </div>
-
-        {/* Footer avec validation */}
-        <div style={{
-          marginTop: '32px',
-          padding: '20px',
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          border: '2px solid #e5e7eb',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
           <button
             onClick={onBack}
+            style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#6B7280', padding: '8px' }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content en mode paysage - Structure linéaire */}
+        <div style={{ 
+          flex: 1, 
+          padding: '20px', 
+          maxWidth: '1200px',
+          margin: '0 auto',
+          overflowY: 'auto'
+        }}>
+          {/* LIGNE 1 - Montant à payer */}
+          <div
             style={{
-              backgroundColor: '#f3f4f6',
-              color: '#6B7280',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: 'pointer'
+              backgroundColor: '#f0f9ff',
+              padding: '20px',
+              borderRadius: '12px',
+              border: '2px solid #bfdbfe',
+              marginBottom: '24px',
+              textAlign: 'center'
             }}
           >
-            ← Retour
-          </button>
-          
-          <button
-            onClick={() => {
-              if (isValidPayment && selectedMethod) {
-                // Mapper les méthodes vers PaymentMethod
-                let paymentMethod: PaymentMethod = 'multi';
-                if (selectedMethod === 'Espèces') paymentMethod = 'cash';
-                else if (selectedMethod === 'Carte Bleue') paymentMethod = 'card';
-                else if (selectedMethod.includes('Chèque')) paymentMethod = 'check';
-                
-                // Passer les détails des chèques si c'est un paiement par chèques à venir
-                if (selectedMethod === 'Chèque à venir' && checkDetails) {
-                  onSelectPayment(paymentMethod, checkDetails);
-                } else {
-                  onSelectPayment(paymentMethod);
+            <h2 style={{ 
+              fontSize: '32px', 
+              fontWeight: 'bold', 
+              color: '#14281D', 
+              margin: '0 0 8px 0' 
+            }}>
+              💰 {cartTotal.toFixed(2)}€ TTC
+            </h2>
+            <p style={{ 
+              fontSize: '16px', 
+              color: '#6B7280', 
+              margin: 0 
+            }}>
+              Montant total à encaisser
+            </p>
+          </div>
+
+          {/* LIGNE 2 - Section Acompte avec 3 petits onglets */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '12px',
+            border: '2px solid #e5e7eb',
+            marginBottom: '24px' 
+          }}>
+            <h3 style={{ 
+              fontSize: '20px', 
+              fontWeight: '600', 
+              color: '#14281D', 
+              margin: '0 0 16px 0' 
+            }}>
+              💳 Acompte (optionnel)
+            </h3>
+            
+            <div style={{ 
+              display: 'flex', 
+              gap: '20px', 
+              alignItems: 'center',
+              flexWrap: 'wrap'
+            }}>
+              {/* Champ montant acompte */}
+              <div style={{ flex: '0 0 200px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#6B7280', 
+                  marginBottom: '6px' 
+                }}>
+                  Montant (€)
+                </label>
+                <input
+                  type="number"
+                  value={acompte}
+                  onChange={(e) => setAcompte(Number(e.target.value) || 0)}
+                  min={0}
+                  max={cartTotal}
+                  placeholder="0"
+                  style={{
+                    width: '100%',
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    border: '2px solid #d1d5db',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    textAlign: 'center',
+                    backgroundColor: '#f9fafb'
+                  }}
+                />
+              </div>
+
+              {/* 3 petits onglets simples pour l'acompte */}
+              <div style={{ flex: 1, minWidth: '300px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  fontSize: '14px', 
+                  fontWeight: '500', 
+                  color: '#6B7280', 
+                  marginBottom: '6px' 
+                }}>
+                  Mode de paiement de l'acompte
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    💳 Carte bleue
+                  </button>
+                  <button
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    🧾 Chèque
+                  </button>
+                  <button
+                    style={{
+                      padding: '10px 16px',
+                      backgroundColor: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    💵 Espèce
+                  </button>
+                </div>
+              </div>
+
+              {/* Affichage reste à payer */}
+              <div style={{ 
+                flex: '0 0 150px',
+                textAlign: 'center',
+                backgroundColor: '#fef3c7',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid #fbbf24'
+              }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#92400e' }}>
+                  Reste à payer
+                </div>
+                <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#92400e' }}>
+                  {restePay.toFixed(2)}€
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* LIGNE 3 - Tous les modes de règlement */}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '12px',
+            border: '2px solid #e5e7eb',
+            marginBottom: '24px' 
+          }}>
+            <h3 style={{ 
+              fontSize: '20px', 
+              fontWeight: '600', 
+              color: '#14281D', 
+              margin: '0 0 16px 0' 
+            }}>
+              🎯 Mode de règlement pour le solde ({restePay.toFixed(2)}€)
+            </h3>
+            
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+              gap: '12px' 
+            }}>
+              <PaymentCard
+                active={selectedMethod === 'Espèces'}
+                title="Espèces"
+                subtitle="Paiement comptant"
+                emoji="💵"
+                onClick={() => {
+                  setSelectedMethod('Espèces');
+                }}
+              />
+
+              <PaymentCard
+                active={selectedMethod === 'Virement'}
+                title="Virement"
+                subtitle="Banque à banque"
+                emoji="🏦"
+                onClick={() => {
+                  setSelectedMethod('Virement');
+                }}
+              />
+
+              <PaymentCard
+                active={selectedMethod === 'Carte Bleue'}
+                title="Carte bleue"
+                subtitle="CB comptant"
+                emoji="💳"
+                onClick={() => {
+                  setSelectedMethod('Carte Bleue');
+                }}
+              />
+
+              <PaymentCard
+                active={selectedMethod?.startsWith('Alma') || false}
+                title={selectedMethod?.startsWith('Alma') ? (selectedMethod as string) : 'Alma'}
+                subtitle={selectedMethod?.startsWith('Alma') ? 'Configuré ✓' : '2x, 3x ou 4x →'}
+                emoji="💳"
+                onClick={() => setShowAlmaPage(true)}
+                highlight="blue"
+              />
+
+              <PaymentCard
+                active={selectedMethod === 'Chèque au comptant'}
+                title="Chèque (comptant)"
+                subtitle="Remis à la commande"
+                emoji="🧾"
+                onClick={() => {
+                  setSelectedMethod('Chèque au comptant');
+                }}
+              />
+
+              <PaymentCard
+                active={selectedMethod === 'Chèque à venir'}
+                title="Chèques à venir"
+                subtitle={
+                  checkDetails
+                    ? `${checkDetails.count} chèques de ${checkDetails.amount}€ ✓`
+                    : 'Planifier le paiement échelonné →'
                 }
-              }
-            }}
-            disabled={!isValidPayment}
+                emoji="📄"
+                onClick={() => setShowChequesPage(true)}
+                highlight="amber"
+              />
+            </div>
+          </div>
+
+          {/* LIGNE 4 - Boutons de validation */}
+          <div
             style={{
-              backgroundColor: isValidPayment ? '#477A0C' : '#9CA3AF',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '12px 24px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: isValidPayment ? 'pointer' : 'not-allowed',
-              opacity: isValidPayment ? 1 : 0.6
+              backgroundColor: '#f8fafc',
+              padding: '20px',
+              borderRadius: '12px',
+              border: '2px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '20px'
             }}
           >
-            Valider le paiement →
-          </button>
+            <button
+              onClick={onBack}
+              style={{
+                backgroundColor: '#6b7280',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              ← Annuler
+            </button>
+
+            <button
+              onClick={() => {
+                if (isValidPayment && selectedMethod) {
+                  let method: PaymentMethod = 'multi';
+                  if (selectedMethod === 'Espèces') method = 'cash';
+                  else if (selectedMethod === 'Carte Bleue') method = 'card';
+                  else if (selectedMethod.includes('Chèque')) method = 'check';
+
+                  if (selectedMethod === 'Chèque à venir' && checkDetails) {
+                    onSelectPayment(method, checkDetails);
+                  } else {
+                    onSelectPayment(method);
+                  }
+                }
+              }}
+              disabled={!isValidPayment}
+              style={{
+                backgroundColor: isValidPayment ? '#16a34a' : '#9CA3AF',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '16px 40px',
+                fontSize: '20px',
+                fontWeight: 'bold',
+                cursor: isValidPayment ? 'pointer' : 'not-allowed',
+                opacity: isValidPayment ? 1 : 0.6,
+                boxShadow: isValidPayment ? '0 4px 12px rgba(22, 163, 74, 0.3)' : 'none'
+              }}
+            >
+              💳 ENCAISSER
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1114,23 +1210,30 @@ function PaymentCard({
   subtitle,
   emoji,
   onClick,
-  highlight,
+  highlight
 }: {
   active: boolean;
   title: string;
   subtitle: string;
   emoji?: string;
   onClick: () => void;
-  highlight?: 'amber' | 'blue';
+  highlight?: 'amber' | 'blue' | 'green' | 'orange';
 }) {
-  const getActiveStyles = () => {
-    if (highlight === 'amber') {
-      return 'border: 2px solid #f59e0b; backgroundColor: #fef3c7; boxShadow: 0 4px 12px rgba(245, 158, 11, 0.3)';
-    } else if (highlight === 'blue') {
-      return 'border: 2px solid #3b82f6; backgroundColor: #dbeafe; boxShadow: 0 4px 12px rgba(59, 130, 246, 0.3)';
+  const baseInactive: CSSProperties = { border: '2px solid #d1d5db', backgroundColor: 'white' };
+  const activeStyles: CSSProperties = (() => {
+    switch (highlight) {
+      case 'amber':
+        return { border: '2px solid #f59e0b', backgroundColor: '#fef3c7', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' };
+      case 'blue':
+        return { border: '2px solid #3b82f6', backgroundColor: '#dbeafe', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' };
+      case 'green':
+        return { border: '2px solid #22c55e', backgroundColor: '#dcfce7', boxShadow: '0 4px 12px rgba(34,197,94,0.3)' };
+      case 'orange':
+        return { border: '2px solid #fb923c', backgroundColor: '#ffedd5', boxShadow: '0 4px 12px rgba(251,146,60,0.3)' };
+      default:
+        return { border: '2px solid #477A0C', backgroundColor: '#f0f9ff', boxShadow: '0 4px 12px rgba(71, 122, 12, 0.3)' };
     }
-    return 'border: 2px solid #477A0C; backgroundColor: #f0f9ff; boxShadow: 0 4px 12px rgba(71, 122, 12, 0.3)';
-  };
+  })();
 
   return (
     <button
@@ -1138,13 +1241,11 @@ function PaymentCard({
       style={{
         padding: '16px',
         borderRadius: '12px',
-        border: active ? undefined : '2px solid #d1d5db',
-        backgroundColor: active ? undefined : 'white',
+        ...(active ? activeStyles : baseInactive),
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         textAlign: 'left',
-        width: '100%',
-        ...(active && { cssText: getActiveStyles() })
+        width: '100%'
       }}
       onMouseEnter={(e) => {
         if (!active) {
