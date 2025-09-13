@@ -1,13 +1,13 @@
 import { CreditCard, Edit3, Minus, Plus, ShoppingCart, Trash2, X } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { ExtendedCartItemWithNegotiation, PriceOverrideMeta } from '../../types';
 import type {
   CartType,
   PaymentMethod,
   TabType,
   Vendor
 } from '../../types/index';
-import { ExtendedCartItemWithNegotiation, PriceOverrideMeta } from '../../types';
 import { isMatressProduct } from '../../utils';
 import { calculateFinalPrice, formatPriceDisplay } from '../../utils/CartUtils';
 import { ManualInvoiceModal } from './ManualInvoiceModal';
@@ -789,6 +789,7 @@ function StepPaymentNoScroll({
   const [checkDetails, setCheckDetails] = useState<{
     count: number; amount: number; totalAmount: number; notes?: string
   } | null>(null);
+  const [acompteMethod, setAcompteMethod] = useState<'card' | 'check' | 'cash' | ''>('');
 
   const restePay = Math.max(0, cartTotal - acompte);
   const isValidPayment = !!selectedMethod && acompte >= 0 && acompte <= cartTotal;
@@ -978,55 +979,115 @@ function StepPaymentNoScroll({
                 </label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button
+                    onClick={() => setAcompteMethod('card')}
+                    disabled={acompteMethod === 'card'}
                     style={{
                       padding: '10px 16px',
-                      backgroundColor: '#3b82f6',
+                      backgroundColor: acompteMethod === 'card' ? '#9CA3AF' : '#3b82f6',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '600',
-                      cursor: 'pointer',
+                      cursor: acompteMethod === 'card' ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '6px',
+                      opacity: acompteMethod === 'card' ? 0.7 : 1
                     }}
+                    title={acompteMethod === 'card' ? 'Sélectionné' : 'Sélectionner Carte bleue'}
                   >
                     💳 Carte bleue
+                    {acompteMethod === 'card' && (
+                      <span
+                        style={{
+                          marginLeft: '8px',
+                          backgroundColor: '#16a34a',
+                          color: 'white',
+                          borderRadius: '9999px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          lineHeight: 1
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
                   </button>
                   <button
+                    onClick={() => setAcompteMethod('check')}
+                    disabled={acompteMethod === 'check'}
                     style={{
                       padding: '10px 16px',
-                      backgroundColor: '#f59e0b',
+                      backgroundColor: acompteMethod === 'check' ? '#9CA3AF' : '#f59e0b',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '600',
-                      cursor: 'pointer',
+                      cursor: acompteMethod === 'check' ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '6px',
+                      opacity: acompteMethod === 'check' ? 0.7 : 1
                     }}
+                    title={acompteMethod === 'check' ? 'Sélectionné' : 'Sélectionner Chèque'}
                   >
                     🧾 Chèque
+                    {acompteMethod === 'check' && (
+                      <span
+                        style={{
+                          marginLeft: '8px',
+                          backgroundColor: '#16a34a',
+                          color: 'white',
+                          borderRadius: '9999px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          lineHeight: 1
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
                   </button>
                   <button
+                    onClick={() => setAcompteMethod('cash')}
+                    disabled={acompteMethod === 'cash'}
                     style={{
                       padding: '10px 16px',
-                      backgroundColor: '#10b981',
+                      backgroundColor: acompteMethod === 'cash' ? '#9CA3AF' : '#10b981',
                       color: 'white',
                       border: 'none',
                       borderRadius: '8px',
                       fontSize: '14px',
                       fontWeight: '600',
-                      cursor: 'pointer',
+                      cursor: acompteMethod === 'cash' ? 'not-allowed' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px'
+                      gap: '6px',
+                      opacity: acompteMethod === 'cash' ? 0.7 : 1
                     }}
+                    title={acompteMethod === 'cash' ? 'Sélectionné' : 'Sélectionner Espèce'}
                   >
                     💵 Espèce
+                    {acompteMethod === 'cash' && (
+                      <span
+                        style={{
+                          marginLeft: '8px',
+                          backgroundColor: '#16a34a',
+                          color: 'white',
+                          borderRadius: '9999px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          lineHeight: 1
+                        }}
+                      >
+                        ✓
+                      </span>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1245,7 +1306,8 @@ function PaymentCard({
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         textAlign: 'left',
-        width: '100%'
+        width: '100%',
+        position: 'relative'
       }}
       onMouseEnter={(e) => {
         if (!active) {
@@ -1260,6 +1322,24 @@ function PaymentCard({
         }
       }}
     >
+      {active && (
+        <span
+          style={{
+            position: 'absolute',
+            top: '10px',
+            right: '10px',
+            backgroundColor: '#16a34a',
+            color: 'white',
+            borderRadius: '9999px',
+            fontSize: '12px',
+            fontWeight: 700,
+            padding: '2px 6px',
+            lineHeight: 1
+          }}
+        >
+          ✓
+        </span>
+      )}
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
