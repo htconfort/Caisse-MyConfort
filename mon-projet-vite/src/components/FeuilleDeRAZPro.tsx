@@ -485,9 +485,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     const caisseParPaiement = {
       carte: validSales.filter(v => v.paymentMethod === 'card').reduce((s, v) => s + v.totalAmount, 0),
       especes: validSales.filter(v => v.paymentMethod === 'cash').reduce((s, v) => s + v.totalAmount, 0),
-      cheque: validSales.filter(v => v.paymentMethod === 'check').reduce((s, v) => s + v.totalAmount, 0),
-      // Ajouter les chèques à venir dans le champ mixte
-      mixte: validSales.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0) + chequesAVenirFromSales,
+      // Chèque au comptant uniquement: exclure les ventes avec checkDetails (chèques à venir)
+      cheque: validSales
+        .filter(v => v.paymentMethod === 'check' && !(v.checkDetails && v.checkDetails.count > 0))
+        .reduce((s, v) => s + v.totalAmount, 0),
+      // Mixte strict: ne compter que les ventes réellement 'multi'
+      mixte: validSales.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0),
     };
 
     const caisseTotal = Object.values(caisseParPaiement).reduce((s: number, a) => s + a, 0);
@@ -514,9 +517,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       const detailPaiements = {
         carte: ventesVendeur.filter(v => v.paymentMethod === 'card').reduce((s, v) => s + v.totalAmount, 0),
         especes: ventesVendeur.filter(v => v.paymentMethod === 'cash').reduce((s, v) => s + v.totalAmount, 0),
-        cheque: ventesVendeur.filter(v => v.paymentMethod === 'check').reduce((s, v) => s + v.totalAmount, 0),
-        // Ajouter les chèques à venir dans le champ mixte pour cette vendeuse
-        mixte: ventesVendeur.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0) + chequesAVenirVendeur,
+        // Chèque au comptant uniquement pour la vendeuse
+        cheque: ventesVendeur
+          .filter(v => v.paymentMethod === 'check' && !(v.checkDetails && v.checkDetails.count > 0))
+          .reduce((s, v) => s + v.totalAmount, 0),
+        // Mixte strict pour la vendeuse
+        mixte: ventesVendeur.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0),
       };
 
       const totalCaisseVendeur = Object.values(detailPaiements).reduce((s: number, a) => s + a, 0);
@@ -538,16 +544,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
     const vendeusesActives = vendeusesAvecDetail.filter(v => v.totalCalcule > 0).length;
 
+    // Ne pas cumuler les chèques à venir de la caisse avec ceux du facturier
     const totalReglementsAVenir = reglementsData.reduce((total: number, r: PendingPayment) => total + (r.nbCheques * r.montantCheque), 0);
-    // Ajouter les chèques à venir de la caisse au total des règlements à venir
-    const totalReglementsAVenirComplet = totalReglementsAVenir + chequesAVenirFromSales;
+    const totalReglementsAVenirComplet = totalReglementsAVenir; // exclure chequesAVenirFromSales pour éviter doublon
     const nbClientsAttente = reglementsData.length;
     const nbChequesTotal = reglementsData.reduce((total: number, r: PendingPayment) => total + r.nbCheques, 0);
-    
-    // Compter aussi les chèques à venir de la caisse
-    const nbChequesTotalComplet = nbChequesTotal + validSales
-      .filter(sale => sale.checkDetails && sale.checkDetails.count > 0)
-      .reduce((total, sale) => total + (sale.checkDetails?.count || 0), 0);
+    const nbChequesTotalComplet = nbChequesTotal; // ne pas ajouter ceux issus des ventes caisse
 
     return {
       parPaiement: caisseParPaiement,
