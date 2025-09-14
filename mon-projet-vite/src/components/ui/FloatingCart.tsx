@@ -1650,14 +1650,14 @@ function ChequesDetailsPage({
   onComplete: (data: { count: number; amount: number; notes: string }) => void;
 }) {
   const restePay = Math.max(0, totalAmount - acompte);
-  const [chequeCount, setChequeCount] = useState<number>(3);
+  const [chequeCount, setChequeCount] = useState<number>(1);
   const [notes, setNotes] = useState<string>('');
 
   const perCheque = Math.floor(restePay / chequeCount);
   const remainder = restePay - perCheque * chequeCount;
-  const isValid = chequeCount >= 2 && chequeCount <= 10 && perCheque > 0;
+  const isValid = chequeCount >= 1 && chequeCount <= 10 && perCheque > 0;
 
-  const tabs = Array.from({ length: 9 }, (_, i) => i + 2);
+  const tabs = Array.from({ length: 10 }, (_, i) => i + 1);
 
   return (
     <div style={{
@@ -1724,7 +1724,7 @@ function ChequesDetailsPage({
             ))}
           </div>
           <div style={{ fontSize: '14px', color: '#92400e' }}>
-            Choisissez le nombre de chèques (2 à 10)
+            Choisissez le nombre de chèques (1 à 10)
           </div>
         </div>
 
