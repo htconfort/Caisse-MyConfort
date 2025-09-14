@@ -2,7 +2,7 @@ import { pendingPaymentsService, type PendingPayment } from '@/services/pendingP
 import { closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, ensureSession as ensureSessionHelper, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper, updateSession as updateSessionHelper } from '@/services/sessionService';
 import type { Invoice } from '@/services/syncService';
 import type { SessionDB } from '@/types';
-import { Eye, EyeOff, Mail, PlayCircle, Printer, RefreshCw, XCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Printer, RefreshCw, XCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRAZGuardSetting } from '../hooks/useRAZGuardSetting';
 import { externalInvoiceService } from '../services/externalInvoiceService';
@@ -294,6 +294,20 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   useEffect(() => {
     void refreshSession();
   }, [refreshSession]);
+
+  // Assurer une session ouverte pour garder l'en-tête vert après un refresh
+  useEffect(() => {
+    if (!sessLoading && !session) {
+      (async () => {
+        try {
+          await ensureSessionHelper('raz-auto');
+          await refreshSession();
+        } catch (err) {
+          console.warn('⚠️ Impossible d\'assurer une session automatiquement:', err);
+        }
+      })();
+    }
+  }, [sessLoading, session, refreshSession]);
 
   // Synchroniser displayedEventName avec la session au chargement
   useEffect(() => {
