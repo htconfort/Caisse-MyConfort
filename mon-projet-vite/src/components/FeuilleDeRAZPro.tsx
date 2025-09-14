@@ -506,8 +506,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       // Mixte strict: ne compter que les ventes réellement 'multi'
       mixte: validSales.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0),
     };
-
-    const caisseTotal = Object.values(caisseParPaiement).reduce((s: number, a) => s + a, 0);
+    // CA caisse réel = toutes les ventes (y compris chèques à venir)
+    const caisseTotal = validSales.reduce((s, v) => s + (v.totalAmount || 0), 0);
     const caisseNbVentes = validSales.length;
     const caisseTicketMoyen = caisseNbVentes > 0 ? caisseTotal / caisseNbVentes : 0;
 
@@ -538,8 +538,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         // Mixte strict pour la vendeuse
         mixte: ventesVendeur.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0),
       };
-
-      const totalCaisseVendeur = Object.values(detailPaiements).reduce((s: number, a) => s + a, 0);
+      // CA caisse vendeur réel = somme de toutes ses ventes
+      const totalCaisseVendeur = ventesVendeur.reduce((s, v) => s + (v.totalAmount || 0), 0);
       const totalFacturierVendeur = facturesVendeur.reduce((s, f) => s + f.totalTTC, 0);
       const totalVendeur = totalCaisseVendeur + totalFacturierVendeur;
       const nbVentesVendeur = ventesVendeur.length + facturesVendeur.length;
