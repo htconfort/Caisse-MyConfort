@@ -76,7 +76,10 @@ class SessionService {
           cash += s.totalAmount || 0;
           break;
         case 'check':
-          cheque += s.totalAmount || 0;
+          // Exclure les chèques à venir (avec checkDetails)
+          if (!(s.checkDetails && s.checkDetails.count > 0)) {
+            cheque += s.totalAmount || 0;
+          }
           break;
         default:
           // 'multi' or others are ignored for session totals here
