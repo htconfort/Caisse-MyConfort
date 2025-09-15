@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Invoice, InvoiceItem, PaymentDetails } from '@/services/syncService';
+import { COMPANY_BANK } from '@/config/company';
 import { getVendorHeaderStyles, getVendorColorInfo } from '../utils/vendorColors';
 
 interface InvoiceCardProps {
@@ -301,32 +302,26 @@ export const InvoiceCard: React.FC<InvoiceCardProps> = ({ invoice }) => {
               </div>
             )}
 
-            {/* Détails des transactions électroniques */}
-            {invoice.paymentDetails.transactionDetails && (
+            {/* Détails des transactions électroniques / Virement */}
+            {invoice.paymentDetails.method === 'transfer' && (
               <div className="p-3 rounded-lg border-2 mb-4" 
                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: '#000000' }}>
                 <h5 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '12px', color: '#000000' }}>
-                  💳 Détails de la transaction
+                  🏦 Coordonnées virement (MyConfort)
                 </h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    {invoice.paymentDetails.transactionDetails.reference && (
-                      <p style={{ fontSize: '20px', marginBottom: '4px', color: '#000000', fontWeight: 'bold' }}>
-                        <strong>Référence:</strong> {invoice.paymentDetails.transactionDetails.reference}
-                      </p>
-                    )}
-                    {invoice.paymentDetails.transactionDetails.bankName && (
-                      <p style={{ fontSize: '20px', marginBottom: '4px', color: '#000000', fontWeight: 'bold' }}>
-                        <strong>Banque:</strong> {invoice.paymentDetails.transactionDetails.bankName}
-                      </p>
-                    )}
+                    <p style={{ fontSize: '20px', marginBottom: '4px', color: '#000000', fontWeight: 'bold' }}>
+                      <strong>IBAN:</strong> {COMPANY_BANK.iban}
+                    </p>
+                    <p style={{ fontSize: '20px', marginBottom: '4px', color: '#000000', fontWeight: 'bold' }}>
+                      <strong>BIC:</strong> {COMPANY_BANK.bic}
+                    </p>
                   </div>
                   <div>
-                    {invoice.paymentDetails.transactionDetails.accountLast4 && (
-                      <p style={{ fontSize: '20px', marginBottom: '4px', color: '#000000', fontWeight: 'bold' }}>
-                        <strong>Carte:</strong> **** {invoice.paymentDetails.transactionDetails.accountLast4}
-                      </p>
-                    )}
+                    <p style={{ fontSize: '20px', marginBottom: '4px', color: '#000000', fontWeight: 'bold' }}>
+                      <strong>Banque:</strong> {COMPANY_BANK.bankName}
+                    </p>
                   </div>
                 </div>
               </div>
