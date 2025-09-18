@@ -29,6 +29,7 @@ type ResetOptionKey =
 import { getDB } from '@/db/index';
 import { sessionService } from '@/services';
 import { AlertTriangle, Book, Check, CheckCircle, Edit3, Package, Palette, Plus, RefreshCw, Save, Settings, ShoppingCart, Trash2, Users, X } from 'lucide-react';
+import ErrorBoundary from './components/ErrorBoundary';
 import FeuilleDeRAZPro from './components/FeuilleDeRAZPro';
 import { GuideUtilisation } from './components/GuideUtilisation';
 import InvoicesTabCompact from './components/InvoicesTabCompact';
@@ -970,7 +971,9 @@ export default function CaisseMyConfortApp() {
 
             {/* Onglet Factures */}
             {activeTab === 'factures' && (
-              <InvoicesTabCompact sales={sales} />
+              <ErrorBoundary>
+                <InvoicesTabCompact sales={sales} />
+              </ErrorBoundary>
             )}
 
             {/* Onglet Règlements */}
