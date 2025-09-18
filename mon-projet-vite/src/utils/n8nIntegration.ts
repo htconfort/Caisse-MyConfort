@@ -176,7 +176,7 @@ export const n8nWebhookConfig = {
  * Test de validation des données N8N
  */
 export const validateN8NData = (data: unknown): data is N8NInvoiceData => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const d = data as any;
   return (
     typeof d?.numero_facture === 'string' &&

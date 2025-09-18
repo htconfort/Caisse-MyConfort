@@ -112,7 +112,7 @@ export default function CaisseMyConfortApp() {
   });
 
   // 🚨 FONCTION DEBUG POUR AJOUTER DES ARTICLES DE TEST
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (window as any).addTestCartItems = () => {
     const testItems: ExtendedCartItem[] = [
       {
@@ -141,7 +141,7 @@ export default function CaisseMyConfortApp() {
     console.log('✅ Articles de test ajoutés au panier');
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   (window as any).clearTestCart = () => {
     setCart([]);
     console.log('🗑️ Panier vidé');
@@ -2149,7 +2149,7 @@ export default function CaisseMyConfortApp() {
         </main>
 
         {/* 🚨 INTERFACE DEBUG TEMPORAIRE - MASQUÉE SUR DEMANDE UTILISATEUR */}
-        {false && process.env.NODE_ENV === 'development' && (
+        {(() => { const showDebug = import.meta.env.DEV && false; return showDebug; })() && (
           <div style={{
             position: 'fixed',
             bottom: '20px',

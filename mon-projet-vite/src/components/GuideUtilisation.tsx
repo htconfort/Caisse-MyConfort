@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import { Book, ChevronDown, ChevronRight, ExternalLink, FileText } from 'lucide-react';
+import React, { useState } from 'react';
 
 interface GuideUtilisationProps {
   onClose?: () => void;
@@ -110,6 +110,48 @@ export const GuideUtilisation: React.FC<GuideUtilisationProps> = () => {
         - Chèque comptant, Chèques à venir (configurables)
         - Alma 2x/3x/4x avec calcul automatique
         - Gestion d'acomptes avec saisie suggérée (20%, 30%, 40%, 50%)
+      `
+    },
+    {
+      id: 'panier-facturier-n8n',
+      title: '📄 Panier facturier via N8N',
+      content: `
+        **Objectif**
+        Synchroniser automatiquement les ventes avec N8N pour une traçabilité complète, éviter les doublons (notamment sur Matelas / Sur‑matelas) et centraliser les statuts de livraison/règlement.
+
+        **Types de panier**
+        - **Classique** : toutes les catégories disponibles, vente immédiate en caisse, enregistrement direct dans les stats.
+        - **Facturier** : Matelas / Sur‑matelas bloqués, autres catégories autorisées, saisie client obligatoire, synchronisation via N8N. Si le workflow N8N est indisponible, repasser en classique.
+
+        **Quand la synchronisation N8N s’active**
+        - Uniquement en **mode facturier** (cartType = 'facturier').
+        - À la finalisation d’une vente, la fonction 
+          
+          triggerN8NSync(sale)
+          
+          envoie la vente au webhook N8N (voir service n8nSyncService).
+
+        **Structure des données envoyées (extrait)**
+        - Client: nom, email, téléphone, adresse, etc.
+        - Produits: nom, quantité, prix HT/TTC, taux TVA, remise éventuelle, statut livraison.
+        - Totaux: montant_ht, montant_tva, montant_ttc.
+        - Paiement: mode_paiement, acompte, montant_restant (si applicable).
+        - Métadonnées: numero_facture, date_facture, idempotencyKey.
+
+        **Gestion du stock**
+        - La "déduction automatique" depuis N8N est **une vue calculée** basée sur les statuts des lignes (pending / delivered / cancelled), pas une écriture physique directe en base.
+        - Les ventes locales (caisse) ne modifient pas non plus le stock physique automatiquement – logique centralisée et traçable.
+
+        **Sécurité & robustesse**
+        - Si N8N est en panne → revenir en **Panier Classique** pour garantir la continuité de vente.
+        - Outils de nettoyage disponibles pour purger les factures parasites en cas de données corrompues.
+
+        **Processus résumé**
+        1) Vente en mode facturier → ajout au panier.
+        2) Saisie client obligatoire.
+        3) Envoi au workflow N8N (webhook).
+        4) Stock: vue calculée selon statuts.
+        5) Factures visibles dans l’onglet dédié avec traçabilité.
       `
     },
     {

@@ -8,15 +8,15 @@
   },
   "scripts": {
     "dev": "vite",
-    "dev:ipad": "vite --host --port 5173", 
-    "build": "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) vite build",
+    "dev:ipad": "vite --host --port 5173",
+    "build": "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) VITE_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local) VITE_COMMIT_REF=$(git rev-parse HEAD 2>/dev/null || echo dev) vite build",
     "preview": "vite preview",
     "preview:netlify": "netlify dev",
     "serve:netlify": "npm run build && netlify serve",
     "type-check": "tsc --noEmit",
     "build:verify": "npm run type-check",
-    "lint": "eslint --ext .ts,.tsx src",
-    "lint:fix": "eslint --ext .ts,.tsx src --fix",
+    "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\"",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --fix",
     "format": "prettier --write .",
     "save": "bash ./auto-commit.sh",
     "save:msg": "bash ./auto-commit.sh \"feat: update\"",
@@ -38,17 +38,18 @@
     "react-to-print": "^3.1.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.30.1",
+    "@eslint/js": "^9.35.0",
     "@types/node": "^24.2.1",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.6.0",
-    "eslint": "^9.30.1",
+    "eslint": "^9.35.0",
+    "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
-    "globals": "^16.3.0",
+    "globals": "^16.4.0",
     "typescript": "~5.8.3",
-    "typescript-eslint": "^8.35.1",
+    "typescript-eslint": "^8.44.0",
     "vite": "^7.0.4"
   }
 }
