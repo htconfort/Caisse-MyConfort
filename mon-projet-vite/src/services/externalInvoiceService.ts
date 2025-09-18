@@ -63,10 +63,14 @@ class ExternalInvoiceService {
   public paused: boolean = false;
 
   constructor(config: ExternalInvoiceConfig = {}) {
+    const env = (typeof import.meta !== 'undefined' ? (import.meta as unknown as { env?: Record<string, string> }).env : undefined) || {} as Record<string, string>;
+    const externalAutoSyncEnv = String(env.VITE_EXTERNAL_AUTOSYNC || '').toLowerCase();
+    const externalAutoSync = externalAutoSyncEnv === 'true';
     this.config = {
       apiEndpoint: config.apiEndpoint || '/api/invoices',
       authToken: config.authToken || 'default-secret',
-      autoSync: config.autoSync ?? true,
+      // Auto-sync activé uniquement si explicitement demandé via env ou config
+      autoSync: config.autoSync ?? externalAutoSync,
       syncInterval: config.syncInterval || 30000, // 30 secondes par défaut
       ...config
     };
@@ -245,7 +249,7 @@ class ExternalInvoiceService {
   /**
    * Synchronisation avec l'API externe
    */
-  async syncWithAPI(forceRun?: boolean): Promise<boolean> {
+  async syncWithAPI(forceRun?: boolean, runPayload?: unknown[]): Promise<boolean> {
     try {
       // En mode protégé, ne pas tenter de sync (ou ignorer silencieusement)
       if (blockDemo()) {
@@ -259,20 +263,33 @@ class ExternalInvoiceService {
       }
 
       console.log('🔄 Synchronisation avec l\'API externe...');
-      const url = (() => {
-        if (!forceRun) return this.config.apiEndpoint as string;
-        // Ajouter action=syncAll pour déclencher la branche lourde côté N8n
-        const sep = (this.config.apiEndpoint as string).includes('?') ? '&' : '?';
-        return `${this.config.apiEndpoint}${sep}action=syncAll`;
+      const runUrl = (import.meta as any).env?.VITE_EXTERNAL_INVOICES_RUN_URL as string | undefined;
+      const runSecret = (import.meta as any).env?.VITE_EXTERNAL_RUN_SECRET as string | undefined;
+
+      const url = this.config.apiEndpoint as string;
+
+      const response = await (async () => {
+        if (forceRun && runUrl) {
+          // POST sécurisé pour lancer la vraie synchro
+          return fetch(runUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Trigger': 'sync',
+              ...(runSecret ? { 'X-Secret': runSecret } : {}),
+            },
+            body: JSON.stringify(Array.isArray(runPayload) ? runPayload : []),
+          });
+        }
+        // Ping léger par défaut
+        return fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Auth-Token': this.config.authToken || '',
+          },
+        });
       })();
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Auth-Token': this.config.authToken || '',
-        },
-      });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

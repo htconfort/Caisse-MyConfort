@@ -12,6 +12,9 @@
   VITE_N8N_ENABLED = "true"
   VITE_N8N_URL = "https://n8n.srv765811.hstgr.cloud/webhook"
   VITE_EXTERNAL_INVOICES_URL = "https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices"
+  VITE_EXTERNAL_INVOICES_RUN_URL = "https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices/run"
+  VITE_EXTERNAL_RUN_SECRET = "set-this-in-netlify-ui"
+  VITE_EXTERNAL_AUTOSYNC = "false"
 
 [dev]
   command = "npm run dev"

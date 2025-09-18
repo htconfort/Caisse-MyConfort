@@ -54,12 +54,12 @@ export const useExternalInvoices = () => {
   }, []);
 
   // Synchroniser avec l'API
-  const syncWithAPI = useCallback(async (forceRun?: boolean) => {
+  const syncWithAPI = useCallback(async (forceRun?: boolean, runPayload?: unknown[]) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const success = await externalInvoiceService.syncWithAPI(forceRun);
+      const success = await externalInvoiceService.syncWithAPI(forceRun, runPayload);
       if (success) {
         // Recharger les factures après sync
         await loadInvoices();
