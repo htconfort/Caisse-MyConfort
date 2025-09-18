@@ -4,7 +4,7 @@
  * Version: 3.8.1
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { externalInvoiceService } from '../services/externalInvoiceService';
 import type { InvoicePayload } from '../types';
 
@@ -54,12 +54,12 @@ export const useExternalInvoices = () => {
   }, []);
 
   // Synchroniser avec l'API
-  const syncWithAPI = useCallback(async () => {
+  const syncWithAPI = useCallback(async (forceRun?: boolean) => {
     try {
       setIsLoading(true);
       setError(null);
       
-      const success = await externalInvoiceService.syncWithAPI();
+      const success = await externalInvoiceService.syncWithAPI(forceRun);
       if (success) {
         // Recharger les factures après sync
         await loadInvoices();

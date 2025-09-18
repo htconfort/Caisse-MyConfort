@@ -4,7 +4,7 @@
  * Version: 3.8.1 - MyConfort
  */
 
-import type { InvoicePayload } from '../types';
+import type { InvoiceChannels, InvoiceClient, InvoiceItem, InvoicePayload, InvoicePayment, InvoiceTotals } from '../types';
 
 // Garde-fou global pour bloquer toute donnée de démo selon flags runtime/build
 function blockDemo(): boolean {
@@ -60,6 +60,7 @@ class ExternalInvoiceService {
   private config: ExternalInvoiceConfig;
   private invoices: InvoicePayload[] = [];
   private syncTimer?: number;
+  public paused: boolean = false;
 
   constructor(config: ExternalInvoiceConfig = {}) {
     this.config = {
@@ -78,8 +79,12 @@ class ExternalInvoiceService {
     // Charger les factures depuis le localStorage au démarrage
     this.loadFromStorage();
 
+    // Purge et dédoublonnage immédiats pour assainir l'état local
+    this.purgeInvalidAndDeduplicate();
+    this.saveToStorage();
+
     // Démarrer la synchronisation automatique si activée
-    if (this.config.autoSync) {
+    if (this.config.autoSync && !this.paused) {
       this.startAutoSync();
     }
   }
@@ -92,7 +97,11 @@ class ExternalInvoiceService {
       console.log(`📄 Réception facture externe: ${payload.invoiceNumber}`, payload);
 
       // Validation des données essentielles
-      if (!payload.invoiceNumber || !payload.invoiceDate || !payload.client.name) {
+      const hasValidDate = !Number.isNaN(Date.parse(payload.invoiceDate));
+      const hasClient = !!payload.client?.name && payload.client.name !== 'Client inconnu' && !/\{\{|\$json\[/.test(payload.client.name);
+      const hasAmount = typeof payload.totals?.ttc === 'number' && payload.totals.ttc > 0;
+
+      if (!payload.invoiceNumber || !hasValidDate || !hasClient || !hasAmount) {
         console.error('❌ Facture externe invalide - données manquantes');
         return false;
       }
@@ -192,9 +201,51 @@ class ExternalInvoiceService {
   }
 
   /**
+   * Purge les factures manifestement invalides et dédoublonne par idempotencyKey/invoiceNumber
+   */
+  purgeInvalidAndDeduplicate(): void {
+    const isPlaceholder = (v?: string) => typeof v === 'string' && /\{\{|\$json\[/.test(v);
+    const normalizeKey = (inv: InvoicePayload) => (inv.idempotencyKey || inv.invoiceNumber || '').toString().trim();
+
+    // 1) Filtrer les invalides
+    const filtered = (this.invoices || []).filter((inv) => {
+      const numberOk = !!inv.invoiceNumber && !isPlaceholder(inv.invoiceNumber);
+      const clientOk = !!(inv.client?.name) && !isPlaceholder(inv.client?.name || '') && inv.client.name !== 'Client inconnu';
+      const itemsOk = Array.isArray(inv.items) && inv.items.length > 0;
+      const totalsOk = !!inv.totals && typeof inv.totals.ttc === 'number' && inv.totals.ttc > 0;
+      // Conserver si on a au moins un identifiant + un contenu exploitable
+      return numberOk && (itemsOk || totalsOk);
+    });
+
+    // 2) Dédoublonner en privilégiant l'entrée avec client connu et TTC > 0
+    const bestOf: Record<string, InvoicePayload> = {};
+    for (const inv of filtered) {
+      const key = normalizeKey(inv);
+      const current = bestOf[key];
+      if (!current) {
+        bestOf[key] = inv;
+        continue;
+      }
+      const isBetter = (a: InvoicePayload, b: InvoicePayload) => {
+        const aScore = (a.client?.name && a.client.name !== 'Client inconnu' ? 1 : 0) + (a.totals?.ttc || 0) / 1e6 + (a.items?.length || 0) / 1000;
+        const bScore = (b.client?.name && b.client.name !== 'Client inconnu' ? 1 : 0) + (b.totals?.ttc || 0) / 1e6 + (b.items?.length || 0) / 1000;
+        return aScore >= bScore;
+      };
+      bestOf[key] = isBetter(inv, current) ? inv : current;
+    }
+
+    const deduped = Object.values(bestOf);
+    const removed = (this.invoices?.length || 0) - deduped.length;
+    this.invoices = deduped;
+    if (removed > 0) {
+      console.log(`🧽 Purge effectuée: ${removed} entrées invalides/dupliquées supprimées, ${deduped.length} conservées`);
+    }
+  }
+
+  /**
    * Synchronisation avec l'API externe
    */
-  async syncWithAPI(): Promise<boolean> {
+  async syncWithAPI(forceRun?: boolean): Promise<boolean> {
     try {
       // En mode protégé, ne pas tenter de sync (ou ignorer silencieusement)
       if (blockDemo()) {
@@ -208,8 +259,14 @@ class ExternalInvoiceService {
       }
 
       console.log('🔄 Synchronisation avec l\'API externe...');
+      const url = (() => {
+        if (!forceRun) return this.config.apiEndpoint as string;
+        // Ajouter action=syncAll pour déclencher la branche lourde côté N8n
+        const sep = (this.config.apiEndpoint as string).includes('?') ? '&' : '?';
+        return `${this.config.apiEndpoint}${sep}action=syncAll`;
+      })();
       
-      const response = await fetch(this.config.apiEndpoint, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -222,13 +279,20 @@ class ExternalInvoiceService {
       }
 
       const data = await response.json();
-      
+
+      // Cas 1: l'API renvoie déjà un tableau d'InvoicePayload
       if (Array.isArray(data)) {
-        const result = this.receiveInvoiceBatch(data);
+        const normalized = data.map(this.normalizeAnyToInvoicePayload);
+        const result = this.receiveInvoiceBatch(normalized);
         console.log(`✅ Synchronisation terminée: ${result.success} factures`);
         return true;
-      } else if ((data as { invoices?: unknown[] }).invoices && Array.isArray((data as { invoices?: unknown[] }).invoices)) {
-        const result = this.receiveInvoiceBatch((data as { invoices: InvoicePayload[] }).invoices);
+      }
+
+      // Cas 2: l'API N8N renvoie { success: true, invoices: [...] }
+      if ((data as { invoices?: unknown[] }).invoices && Array.isArray((data as { invoices?: unknown[] }).invoices)) {
+        const n8nInvoices = (data as { invoices: unknown[] }).invoices;
+        const normalized = n8nInvoices.map(this.normalizeAnyToInvoicePayload);
+        const result = this.receiveInvoiceBatch(normalized);
         console.log(`✅ Synchronisation terminée: ${result.success} factures`);
         return true;
       }
@@ -245,7 +309,7 @@ class ExternalInvoiceService {
    * Démarrer la synchronisation automatique
    */
   startAutoSync(): void {
-    if (blockDemo()) {
+    if (blockDemo() || this.paused) {
       // Ne rien faire en production guard
       return;
     }
@@ -254,7 +318,7 @@ class ExternalInvoiceService {
     }
 
     this.syncTimer = window.setInterval(() => {
-      this.syncWithAPI();
+      if (!this.paused) this.syncWithAPI();
     }, this.config.syncInterval);
 
     console.log(`🔄 Synchronisation automatique démarrée (${this.config.syncInterval}ms)`);
@@ -269,6 +333,20 @@ class ExternalInvoiceService {
       this.syncTimer = undefined;
       console.log('⏹️ Synchronisation automatique arrêtée');
     }
+  }
+
+  /** Mettre en pause la synchronisation automatique */
+  pause(): void {
+    this.paused = true;
+    this.stopAutoSync();
+    console.log('⏸️ Auto-sync mis en pause');
+  }
+
+  /** Reprendre la synchronisation automatique */
+  resume(): void {
+    this.paused = false;
+    this.startAutoSync();
+    console.log('▶️ Auto-sync repris');
   }
 
   /**
@@ -307,8 +385,8 @@ class ExternalInvoiceService {
     return {
       total: this.invoices.length,
       today: todayInvoices.length,
-      totalAmount: this.invoices.reduce((sum, inv) => sum + inv.totals.ttc, 0),
-      todayAmount: todayInvoices.reduce((sum, inv) => sum + inv.totals.ttc, 0),
+      totalAmount: this.invoices.reduce((sum, inv) => sum + (inv.totals?.ttc ?? 0), 0),
+      todayAmount: todayInvoices.reduce((sum, inv) => sum + (inv.totals?.ttc ?? 0), 0),
       paidCount: this.invoices.filter(inv => inv.payment?.paid).length,
       pendingCount: this.invoices.filter(inv => !inv.payment?.paid).length
     };
@@ -317,7 +395,8 @@ class ExternalInvoiceService {
 
 // Instance singleton du service
 export const externalInvoiceService = new ExternalInvoiceService({
-  apiEndpoint: '/api/invoices',
+  // Permet de pointer vers N8N directement si fourni (ex: https://.../webhook/sync/invoices)
+  apiEndpoint: (import.meta.env.VITE_EXTERNAL_INVOICES_URL as string) || '/api/invoices',
   authToken: import.meta.env.VITE_INVOICE_AUTH_TOKEN || 'myconfort-secret-2025',
   autoSync: true,
   syncInterval: 30000 // 30 secondes
@@ -331,3 +410,90 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
 }
 
 export default ExternalInvoiceService;
+
+// ===== Helpers =====
+
+/**
+ * Normalise n'importe quelle forme d'objet (N8N ou API) vers InvoicePayload
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ExternalInvoiceService.prototype.normalizeAnyToInvoicePayload = function (raw: any): InvoicePayload {
+  const invoiceNumber: string = String(
+    raw.invoiceNumber || raw.number || raw.numero_facture || raw['numero_facture'] || raw.id || ''
+  ).trim() || `INV-${Date.now()}`;
+  const invoiceDate: string = String(
+    raw.invoiceDate || raw.date_facture || raw['date_facture'] || raw.createdAt || new Date().toISOString()
+  );
+
+  const frenchClientName =
+    (typeof raw.nom_du_client === 'string' && raw.nom_du_client) ||
+    (typeof raw['nom_du_client'] === 'string' && raw['nom_du_client']) ||
+    (typeof raw['Nom Client'] === 'string' && raw['Nom Client']) ||
+    (typeof raw.customerName === 'string' && raw.customerName);
+
+  const client: InvoiceClient = {
+    name: raw.client?.name || raw.clientName || frenchClientName || 'Client inconnu',
+    email: raw.client?.email || raw.clientEmail || raw.email_client || raw['email_client'],
+    phone: raw.client?.phone || raw.clientPhone || raw.telephone_client || raw['telephone_client'],
+    address: raw.client?.address || raw.adresse_client || raw['adresse_client'],
+    postalCode: raw.client?.postalCode || raw.client_code_postal || raw['client_code_postal'],
+    city: raw.client?.city || raw.client_ville || raw['client_ville'],
+  };
+
+  const rawItems = Array.isArray(raw.products) ? raw.products : Array.isArray(raw.items) ? raw.items : Array.isArray(raw.produits) ? raw.produits : [];
+  const items: InvoiceItem[] = rawItems.map((p: any, idx: number) => {
+    const qty = Number(p.quantity ?? p.qty ?? p.quantite ?? 1);
+    const tvaRate = Number(p.tvaRate ?? p.taux_tva ?? 0.2);
+    const priceTTC = Number(
+      (p.totalPrice && qty ? p.totalPrice / qty : undefined) ??
+      p.unitPriceTTC ?? p.prix_ttc
+    );
+    const unitPriceHT = Number(p.unitPriceHT ?? p.prix_ht ?? (priceTTC ? priceTTC / (1 + tvaRate) : 0));
+    return {
+      sku: p.sku || `${invoiceNumber}-${idx}`,
+      name: p.name || p.productName || p.nom || 'Produit',
+      qty,
+      unitPriceHT,
+      tvaRate,
+    } as InvoiceItem;
+  });
+
+  const totals: InvoiceTotals = {
+    ht: Number(
+      raw.totalHT ?? raw.montant_ht ?? raw['montant_ht'] ?? items.reduce((s, it) => s + it.unitPriceHT * it.qty, 0)
+    ),
+    tva: 0,
+    ttc: Number(
+      raw.totalTTC ?? raw.montant_ttc ?? raw['montant_ttc'] ?? raw.montant_total ?? 0
+    ),
+  };
+  if (!totals.ttc) totals.ttc = Math.round((totals.ht * 1.2) * 100) / 100; // fallback TVA 20%
+  totals.tva = Math.max(0, totals.ttc - totals.ht);
+
+  const payment: InvoicePayment = {
+    method: raw.payment?.method || raw.paymentMethod || raw.mode_paiement || undefined,
+    paid: (raw.payment?.paid === true) || String(raw.status || '').toLowerCase().includes('paid') || undefined,
+    paidAmount: Number(raw.payment?.paidAmount ?? raw.deposit ?? 0),
+    depositRate: totals.ttc ? (Number(raw.payment?.paidAmount ?? raw.deposit ?? 0) / totals.ttc) : 0,
+  };
+
+  const channels: InvoiceChannels = {
+    source: raw.source || 'Facturation',
+    via: 'N8N Webhook',
+  };
+
+  const sanitize = (s?: string) => (typeof s === 'string' ? s.replace(/\{\{[^}]+\}\}/g, '').replace(/\$json\[[^\]]+\]/g, '').trim() : s);
+
+  const payload: InvoicePayload = {
+    invoiceNumber: sanitize(invoiceNumber) as string,
+    invoiceDate,
+    client: { ...client, name: sanitize(client.name) || 'Client inconnu' },
+    items,
+    totals,
+    payment,
+    channels,
+    // Utiliser seulement le numéro de facture pour éviter les variations du nom client
+    idempotencyKey: sanitize(`${invoiceNumber}`) as string,
+  };
+  return payload;
+};
