@@ -4,17 +4,16 @@
  * Version: 3.8.2 - MyConfort avec correspondances complètes
  */
 
-import React, { useState, useMemo } from 'react';
-import { useSyncInvoices } from '../hooks/useSyncInvoices';
+import { Calendar, CheckCircle, CreditCard, Euro, FileText, Package, User } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { useNotifications } from '../hooks/useNotifications';
+import { useSyncInvoices } from '../hooks/useSyncInvoices';
+import '../styles/invoices-compact.css';
+import { PaymentMethod, Sale } from '../types';
 import CompactInvoicesDisplay from './CompactInvoicesDisplay';
 import ExternalInvoicesDisplay from './ExternalInvoicesDisplay';
 import { NotificationCenter } from './NotificationCenter';
-import { Sale, PaymentMethod } from '../types';
-import { vendors } from '../data';
-import { CreditCard, FileText, User, Euro, Calendar, Package, CheckCircle } from 'lucide-react';
-import '../styles/invoices-compact.css';
 
 interface UnifiedInvoice {
   id: string;
@@ -131,7 +130,7 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
     try {
       await Promise.all([
         syncInvoices(),
-        syncExternal()
+        syncExternal(true)
       ]);
       console.log('✅ Synchronisation terminée');
     } catch (error) {
@@ -454,10 +453,11 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
                     {sale.manualInvoiceData?.invoiceNumber || `VENTE-${sale.id.slice(-6)}`}
                   </td>
                   <td style={{ padding: '0.75rem' }}>
-                    {sale.items.length === 1 
-                      ? sale.items[0].name 
-                      : `${sale.items[0].name} +${sale.items.length - 1} autres`
-                    }
+                    {sale.items.length === 0
+                      ? '-'
+                      : sale.items.length === 1
+                        ? (sale.items[0]?.name || 'Produit')
+                        : `${sale.items[0]?.name || 'Produit'} +${sale.items.length - 1} autres`}
                   </td>
                   <td style={{ padding: '0.75rem', textAlign: 'right', fontWeight: 'bold' }}>
                     {formatCurrency(sale.totalAmount)}
@@ -484,8 +484,8 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
               ))}
               
               {/* Correspondances depuis les factures externes */}
-              {externalInvoices.map(invoice => (
-                <tr key={`external-${invoice.invoiceNumber}`} style={{ borderBottom: '1px solid #dee2e6' }}>
+              {externalInvoices.map((invoice, idx) => (
+                <tr key={`external-${(invoice.idempotencyKey || invoice.invoiceNumber || 'inv')}-${idx}`} style={{ borderBottom: '1px solid #dee2e6' }}>
                   <td style={{ padding: '0.75rem' }}>
                     <span style={{
                       background: getPaymentMethodColor(invoice.payment?.method || 'card'),

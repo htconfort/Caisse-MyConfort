@@ -136,7 +136,7 @@ const ExternalInvoicesDisplay: React.FC<ExternalInvoicesDisplayProps> = ({
               📊 Factures Externes {showTodayOnly ? '(Aujourd\'hui)' : ''}
             </h3>
             <button
-              onClick={syncWithAPI}
+              onClick={() => syncWithAPI(true)}
               disabled={isLoading}
               style={{
                 background: 'rgba(255,255,255,0.2)',
@@ -198,9 +198,9 @@ const ExternalInvoicesDisplay: React.FC<ExternalInvoicesDisplayProps> = ({
             )}
           </div>
         ) : (
-          displayedInvoices.map((invoice) => (
+          displayedInvoices.map((invoice, idx) => (
             <div
-              key={invoice.invoiceNumber}
+              key={`${invoice.idempotencyKey || invoice.invoiceNumber || 'inv'}-${idx}`}
               style={{
                 borderBottom: '1px solid #eee',
                 background: expandedInvoice === invoice.invoiceNumber ? '#f9f9f9' : 'white'
@@ -245,9 +245,9 @@ const ExternalInvoicesDisplay: React.FC<ExternalInvoicesDisplayProps> = ({
                     fontSize: '0.9rem',
                     color: '#666'
                   }}>
-                    <span>👤 {invoice.client.name}</span>
-                    <span>💰 {formatCurrency(invoice.totals.ttc)}</span>
-                    <span>📅 {formatDate(invoice.invoiceDate)}</span>
+                    <span>👤 {invoice.client?.name || 'Client'}</span>
+                    <span>💰 {formatCurrency(invoice.totals?.ttc || 0)}</span>
+                    <span>📅 {formatDate(invoice.invoiceDate || new Date().toISOString())}</span>
                   </div>
                 </div>
                 
@@ -299,14 +299,14 @@ const ExternalInvoicesDisplay: React.FC<ExternalInvoicesDisplayProps> = ({
 
                   {/* Articles */}
                   <div style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>🛍️ Articles ({invoice.items.length})</h4>
+                    <h4 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>🛍️ Articles ({invoice.items?.length || 0})</h4>
                     <div style={{
                       maxHeight: '200px',
                       overflowY: 'auto',
                       border: '1px solid #ddd',
                       borderRadius: '4px'
                     }}>
-                      {invoice.items.map((item, index) => (
+                      {invoice.items?.map((item, index) => (
                         <div
                           key={index}
                           style={{
