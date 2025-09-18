@@ -8,6 +8,10 @@
   # Runtime Node et NPM pour Netlify
   NODE_VERSION = "20.19.0"
   NPM_VERSION  = "10.8.2"
+  # URL N8n pour la prod (webhook)
+  VITE_N8N_ENABLED = "true"
+  VITE_N8N_URL = "https://n8n.srv765811.hstgr.cloud/webhook"
+  VITE_EXTERNAL_INVOICES_URL = "https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices"
 
 [dev]
   command = "npm run dev"
