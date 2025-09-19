@@ -10,6 +10,7 @@ import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSyncInvoices } from '../hooks/useSyncInvoices';
 import { testInsert } from '../services/supabaseTest';
+import SupabaseN8nMemo from './SupabaseN8nMemo';
 import '../styles/invoices-compact.css';
 import { PaymentMethod, Sale } from '../types';
 import CompactInvoicesDisplay from './CompactInvoicesDisplay';
@@ -45,6 +46,7 @@ interface InvoicesTabCompactProps {
 const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) => {
   const [activeView, setActiveView] = useState<'compact' | 'external' | 'detailed'>('compact');
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [showMemo, setShowMemo] = useState<boolean>(false);
 
   const {
     invoices: syncedInvoices,
@@ -172,6 +174,20 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
           </h2>
           
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              onClick={() => setShowMemo(true)}
+              style={{
+                background: '#14281D',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              📘 Mémo Supabase · n8n
+            </button>
             {/* Bouton de test pour ajouter des factures factices */}
             {import.meta.env.DEV && (
               <button
@@ -807,6 +823,7 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
         )}
       </div>
     </div>
+    {showMemo && (<SupabaseN8nMemo onClose={() => setShowMemo(false)} />)}
   );
 };
 
