@@ -1,0 +1,274 @@
+{
+  "name": "Caisse_Supabase_Workflows",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "caisse/status",
+        "httpMethod": "POST",
+        "options": {
+          "responseMode": "onReceived"
+        }
+      },
+      "id": "webhook-status",
+      "name": "Webhook - Caisse Status (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        180
+      ],
+      "webhookId": "caisse-status"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = $json.body ?? $json;\nif (!b.numero_facture) throw new Error('numero_facture requis');\nconst update = {\n  status: b.status ?? null,\n  payment_method: b.payment_method ?? null,\n  amount_paid: b.amount_paid ?? null,\n  transaction_id: b.transaction_id ?? null,\n  paid_at: b.paid_at ?? null,\n};\nreturn [{ json: { numero_facture: b.numero_facture, update } }];"
+      },
+      "id": "code-validate-status",
+      "name": "Code - Validate/Normalize Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        460,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "requestMethod": "PATCH",
+        "url": "={{$env.N8N_SUPABASE_URL}}/rest/v1/factures?numero_facture=eq.{{ encodeURIComponent($json.numero_facture) }}",
+        "jsonParameters": true,
+        "options": {},
+        "sendHeaders": true,
+        "headerParametersJson": "{\n  \"Content-Type\": \"application/json\",\n  \"Prefer\": \"return=representation\"\n}",
+        "sendBody": true,
+        "bodyParametersJson": "={{$json.update}}"
+      },
+      "id": "http-supabase-update",
+      "name": "HTTP - Supabase Update (PATCH)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        700,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "supabase_service_role",
+          "name": "supabase_service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "responseBody": "={{ { updated: $json } }}",
+        "responseCode": 200
+      },
+      "id": "respond-status",
+      "name": "Respond Status",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        940,
+        180
+      ]
+    },
+
+    {
+      "parameters": {
+        "path": "caisse/factures",
+        "httpMethod": "GET",
+        "options": {
+          "responseMode": "onReceived"
+        }
+      },
+      "id": "webhook-list",
+      "name": "Webhook - Caisse Factures (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        220,
+        460
+      ],
+      "webhookId": "caisse-factures"
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = $json.query ?? {};\nconst since = q.since;\nconst limit = Math.min(Number(q.limit ?? 100), 500);\nconst search = q.q;\nlet params = [`select=*`, `order=created_at.desc`, `limit=${limit}`];\nif (since) params.push(`created_at=gte.${encodeURIComponent(since)}`);\nif (search) params.push(`nom_client=ilike.*${encodeURIComponent(search)}*`);\nreturn [{ json: { qs: params.join('&') } }];"
+      },
+      "id": "code-build-query",
+      "name": "Code - Build Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        460,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "requestMethod": "GET",
+        "url": "={{$env.N8N_SUPABASE_URL}}/rest/v1/factures_ordre?{{$json.qs}}",
+        "jsonParameters": true,
+        "options": {},
+        "sendHeaders": true,
+        "headerParametersJson": "{\n  \"Accept\": \"application/json\"\n}"
+      },
+      "id": "http-supabase-list",
+      "name": "HTTP - Supabase List (GET)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        700,
+        460
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "supabase_service_role",
+          "name": "supabase_service_role"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "responseBody": "={{$json}}",
+        "responseCode": 200
+      },
+      "id": "respond-list",
+      "name": "Respond List",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        940,
+        460
+      ]
+    },
+
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "custom",
+              "cronExpression": "5 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "cron-hourly",
+      "name": "Schedule - Hourly ReSync",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        220,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();\nreturn [{ json: { since, limit: 1000 } }];"
+      },
+      "id": "code-compute-window",
+      "name": "Code - Compute Window (24h)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        460,
+        740
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "httpHeaderAuth",
+        "requestMethod": "GET",
+        "url": "={{$env.N8N_SUPABASE_URL}}/rest/v1/factures_ordre?select=*&order=created_at.desc&limit={{$json.limit}}&created_at=gte.{{$json.since}}",
+        "jsonParameters": true,
+        "options": {},
+        "sendHeaders": true,
+        "headerParametersJson": "{\n  \"Accept\": \"application/json\"\n}"
+      },
+      "id": "http-supabase-list-hourly",
+      "name": "HTTP - Supabase List (Hourly)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        700,
+        740
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "supabase_service_role",
+          "name": "supabase_service_role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook - Caisse Status (POST)": {
+      "main": [
+        [
+          { "node": "Code - Validate/Normalize Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Code - Validate/Normalize Status": {
+      "main": [
+        [
+          { "node": "HTTP - Supabase Update (PATCH)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "HTTP - Supabase Update (PATCH)": {
+      "main": [
+        [
+          { "node": "Respond Status", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+
+    "Webhook - Caisse Factures (GET)": {
+      "main": [
+        [
+          { "node": "Code - Build Query", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Code - Build Query": {
+      "main": [
+        [
+          { "node": "HTTP - Supabase List (GET)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "HTTP - Supabase List (GET)": {
+      "main": [
+        [
+          { "node": "Respond List", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+
+    "Schedule - Hourly ReSync": {
+      "main": [
+        [
+          { "node": "Code - Compute Window (24h)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Code - Compute Window (24h)": {
+      "main": [
+        [
+          { "node": "HTTP - Supabase List (Hourly)", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "timezone": "Europe/Paris" },
+  "versionId": "1.0.0",
+  "meta": { "note": "Utiliser Credentials httpHeaderAuth nommés supabase_service_role. Définir N8N_SUPABASE_URL et N8N_HMAC_SECRET en ENV. Ajouter nœud Code HMAC avant les Webhooks si requis." }
+}
