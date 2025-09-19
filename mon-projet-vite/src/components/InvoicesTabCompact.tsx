@@ -822,8 +822,8 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
           </div>
         )}
       </div>
+      {showMemo && (<SupabaseN8nMemo onClose={() => setShowMemo(false)} />)}
     </div>
-    {showMemo && (<SupabaseN8nMemo onClose={() => setShowMemo(false)} />)}
   );
 };
 
