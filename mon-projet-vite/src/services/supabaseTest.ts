@@ -1,0 +1,27 @@
+import { supabase } from '../lib/supabaseClient'
+
+export type SupabaseTestResult = { data: any; error: any }
+
+export async function testInsert(): Promise<SupabaseTestResult> {
+  const { data, error } = await supabase
+    .from('factures')
+    .insert([
+      {
+        numero_facture: 'TEST-001',
+        date_facture: new Date().toISOString().slice(0, 10),
+        nom_client: 'Client Demo',
+        email_client: 'demo@example.com',
+        telephone_client: '0600000000',
+        montant_ht: 100,
+        montant_ttc: 120,
+        produits: [{ nom: 'Service A', quantite: 1, prix_ht: 100 }],
+        status: 'pending',
+      },
+    ])
+    .select()
+
+  console.log('insert:', { data, error })
+  return { data, error }
+}
+
+

@@ -9,6 +9,7 @@ import React, { useMemo, useState } from 'react';
 import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSyncInvoices } from '../hooks/useSyncInvoices';
+import { testInsert } from '../services/supabaseTest';
 import '../styles/invoices-compact.css';
 import { PaymentMethod, Sale } from '../types';
 import CompactInvoicesDisplay from './CompactInvoicesDisplay';
@@ -222,6 +223,29 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
                 🧪 Ajouter Test Data
               </button>
             )}
+
+            {/* Test insert Supabase */}
+            <button
+              onClick={async () => {
+                const { data, error } = await testInsert();
+                if (error) {
+                  alert(`Data Error: ${error.message || JSON.stringify(error)}`);
+                } else {
+                  alert('Insert OK');
+                }
+              }}
+              style={{
+                background: '#10b981',
+                color: 'white',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              🧪 Test insert Supabase
+            </button>
             
             <button
               onClick={handleSyncAll}
