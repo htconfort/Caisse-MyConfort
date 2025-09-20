@@ -8,6 +8,9 @@
   # Runtime Node et NPM pour Netlify
   NODE_VERSION = "20.19.0"
   NPM_VERSION  = "10.8.2"
+  # Supabase (clé anon publique)
+  VITE_SUPABASE_URL = "https://doxvtfojavrjrmwpafnf.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRveHZ0Zm9qYXZyanJtd3BhZm5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4MDkzODMsImV4cCI6MjA3MDM4NTM4M30.P_Idhpdp8m53VeIV9vOuSMbbQLaaSVUuhxPUto03ZZ0"
   # URL N8n pour la prod (webhook)
   VITE_N8N_ENABLED = "true"
   VITE_N8N_URL = "https://n8n.srv765811.hstgr.cloud/webhook"
