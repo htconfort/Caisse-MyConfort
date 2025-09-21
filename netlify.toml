@@ -3,6 +3,8 @@
   base = "mon-projet-vite"
   publish = "dist"
   command = "npm ci && npm run build"
+  # Forcer le build même si Netlify ne détecte pas de changement dans base
+  ignore = "exit 1"
 
 [functions]
   node_bundler = "esbuild"
