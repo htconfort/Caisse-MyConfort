@@ -10,9 +10,6 @@
   directory = "mon-projet-vite/netlify/functions"
   node_bundler = "esbuild"
 
-[functions]
-  node_bundler = "esbuild"
-
 [build.environment]
   # Runtime Node et NPM pour Netlify
   NODE_VERSION = "20.19.0"

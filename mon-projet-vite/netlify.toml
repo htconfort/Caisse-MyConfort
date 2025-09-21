@@ -1,14 +1,3 @@
-[functions]
-  node_bundler = "esbuild"
-
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/api/caisse/facture"
-  to = "/.netlify/functions/caisse-facture"
-  status = 200
+# Supprimé: les redirects et functions sont gérés au netlify.toml racine
 
 
