@@ -41,9 +41,16 @@
   force = true
 
 [[redirects]]
+  from = "/api/caisse/facture"
+  to = "/.netlify/functions/caisse-facture"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
   status = 200
+  force = true
 
 [[redirects]]
   from = "/api/caisse/facture"
