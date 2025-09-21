@@ -10,12 +10,12 @@ import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSyncInvoices } from '../hooks/useSyncInvoices';
 import { testInsert } from '../services/supabaseTest';
-import SupabaseN8nMemo from './SupabaseN8nMemo';
 import '../styles/invoices-compact.css';
 import { PaymentMethod, Sale } from '../types';
 import CompactInvoicesDisplay from './CompactInvoicesDisplay';
 import ExternalInvoicesDisplay from './ExternalInvoicesDisplay';
 import { NotificationCenter } from './NotificationCenter';
+import SupabaseN8nMemo from './SupabaseN8nMemo';
 
 interface UnifiedInvoice {
   id: string;

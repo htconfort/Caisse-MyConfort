@@ -278,3 +278,5 @@ Supabase Insert (HTTP POST) → Supabase List (HTTP GET) → Respond to Webhook
 };
 
 export default SupabaseN8nMemo;
+
+

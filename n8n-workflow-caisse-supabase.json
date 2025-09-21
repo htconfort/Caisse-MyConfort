@@ -272,3 +272,5 @@
   "versionId": "1.0.0",
   "meta": { "note": "Utiliser Credentials httpHeaderAuth nommés supabase_service_role. Définir N8N_SUPABASE_URL et N8N_HMAC_SECRET en ENV. Ajouter nœud Code HMAC avant les Webhooks si requis." }
 }
+
+

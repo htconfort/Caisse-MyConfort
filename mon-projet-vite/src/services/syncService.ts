@@ -183,8 +183,12 @@ class SyncService {
         return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
       }
       const forceProductionMode = localStorage.getItem('force-production-mode') === 'true';
-      const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-      const productionGuard = forceProductionMode || !isLocalhost;
+      const host = typeof window !== 'undefined' ? window.location.hostname : '';
+      // Autoriser les hôtes LAN en DEV (iPad/réseau local)
+      const isLanDevHost = /^(localhost|127\.0\.0\.1|192\.168\.|169\.254\.)/i.test(host);
+      const isDevBuild = import.meta.env.DEV === true;
+      // En DEV, ne pas activer le garde (sauf si production forcée)
+      const productionGuard = !isDevBuild && (forceProductionMode || !isLanDevHost);
 
       if (productionGuard) {
         // En production: ne jamais retourner les démos

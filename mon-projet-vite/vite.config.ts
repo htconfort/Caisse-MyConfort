@@ -4,6 +4,7 @@ import { defineConfig } from 'vite';
 
 const isProd = process.env.NODE_ENV === 'production';
 const enableSourceMap = !!process.env.VITE_SOURCEMAP; // mets VITE_SOURCEMAP=1 pour build avec sourcemap
+const n8nProxyTarget = process.env.VITE_N8N_URL || 'https://n8n.srv765811.hstgr.cloud/webhook';
 
 export default defineConfig({
   plugins: [react()],
@@ -22,6 +23,15 @@ export default defineConfig({
     // hmr: { clientPort: 5173 },
     // Pour activer https local (si besoin de PWA/secure context) :
     // https: true, // nécessite cert (mkcert)
+    proxy: {
+      // Proxy N8N: /api/n8n -> https://.../webhook
+      '/api/n8n': {
+        target: n8nProxyTarget,
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/n8n/, ''),
+      },
+    },
   },
 
   optimizeDeps: {
