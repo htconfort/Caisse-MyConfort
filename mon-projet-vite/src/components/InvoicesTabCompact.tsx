@@ -10,6 +10,7 @@ import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSyncInvoices } from '../hooks/useSyncInvoices';
 import { testInsert } from '../services/supabaseTest';
+import { listInvoices } from '../services/n8nClient';
 import '../styles/invoices-compact.css';
 import { PaymentMethod, Sale } from '../types';
 import CompactInvoicesDisplay from './CompactInvoicesDisplay';
@@ -129,15 +130,22 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
   };
 
   const handleSyncAll = async () => {
-    console.log('🔄 Synchronisation globale des factures...');
+    console.log('🔄 Synchronisation globale des factures (proxy n8n + hooks)...');
     try {
-      await Promise.all([
+      // 1) tenter via hooks existants
+      await Promise.allSettled([
         syncInvoices(),
         syncExternal(true)
       ]);
-      console.log('✅ Synchronisation terminée');
-    } catch (error) {
+
+      // 2) fallback explicite via proxy n8n pour garantir un retour utilisateur
+      const res = await listInvoices(100);
+      const count = Array.isArray(res) ? res.length : (res ? 1 : 0);
+      alert(`✅ Synchronisation terminée — ${count} facture(s) détectée(s)`);
+      console.log('✅ Synchronisation terminée (détails):', res);
+    } catch (error: any) {
       console.error('❌ Erreur lors de la synchronisation:', error);
+      alert(`❌ Erreur synchronisation: ${error?.message || 'inconnue'}`);
     }
   };
 
@@ -292,7 +300,18 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
                   console.log('Items:', externalInvoices[0].items);
                   console.log('Totaux:', externalInvoices[0].totals);
                 }
-                alert(`${externalInvoices.length} factures externes trouvées. Voir console pour détails.`);
+                // Fallback réseau direct via proxy n8n
+                void (async () => {
+                  try {
+                    const res = await listInvoices(10);
+                    const count = Array.isArray(res) ? res.length : (res ? 1 : 0);
+                    console.log('🔍 DIAGNOSTIC (proxy n8n):', res);
+                    alert(`${count} facture(s) détectée(s) via n8n. Voir console pour détails.`);
+                  } catch (e: any) {
+                    console.error('❌ Diagnostic n8n échoué:', e);
+                    alert(`❌ Diagnostic n8n échoué: ${e?.message || 'inconnu'}`);
+                  }
+                })();
               }}
               style={{
                 background: '#17a2b8',
