@@ -1,12 +1,19 @@
-const WEBHOOK_BASE: string = (import.meta.env.VITE_N8N_WEBHOOK_URL as string) || '';
-const N8N_BASE: string = (import.meta.env.VITE_N8N_URL as string) || '';
-const N8N_SYNC_URL: string = (import.meta.env.VITE_N8N_SYNC_URL as string) || '';
-const N8N_GET_FACTURES_URL: string = (import.meta.env.VITE_N8N_GET_FACTURES_URL as string) || '';
-const N8N_STATUS_URL: string = (import.meta.env.VITE_N8N_STATUS_URL as string) || '';
+function normalizeBase(url?: string): string {
+  if (!url) return '';
+  return url.replace(/\/$/, '');
+}
+
+// Priorités d'URL (override explicite > base proxy > vide)
+const WEBHOOK_BASE: string = normalizeBase(import.meta.env.VITE_N8N_WEBHOOK_URL as string) || '';
+const N8N_BASE: string = normalizeBase((import.meta.env.VITE_N8N_URL as string) || '/api/n8n');
+const N8N_SYNC_URL: string = normalizeBase(import.meta.env.VITE_N8N_SYNC_URL as string) || '';
+const N8N_GET_FACTURES_URL: string = normalizeBase(import.meta.env.VITE_N8N_GET_FACTURES_URL as string) || '';
+const N8N_STATUS_URL: string = normalizeBase(import.meta.env.VITE_N8N_STATUS_URL as string) || '';
 
 function assertConfigured(): void {
+  // Avec fallback par défaut sur /api/n8n, on considère toujours configuré
   if (!N8N_BASE) {
-    throw new Error('VITE_N8N_URL manquante. Configure-la dans les variables Netlify (.env).');
+    throw new Error('Configuration N8N invalide: base URL absente.');
   }
 }
 
