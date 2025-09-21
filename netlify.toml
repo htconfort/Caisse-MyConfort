@@ -4,6 +4,9 @@
   publish = "dist"
   command = "npm ci && npm run build"
 
+[functions]
+  node_bundler = "esbuild"
+
 [build.environment]
   # Runtime Node et NPM pour Netlify
   NODE_VERSION = "20.19.0"
@@ -30,6 +33,11 @@
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/api/caisse/facture"
+  to = "/.netlify/functions/caisse-facture"
   status = 200
 
 [[redirects]]
