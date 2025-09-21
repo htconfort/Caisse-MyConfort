@@ -7,7 +7,8 @@
   ignore = "exit 1"
 
 [functions]
-  directory = "mon-projet-vite/netlify/functions"
+  # Chemin relatif à [build].base (mon-projet-vite)
+  directory = "netlify/functions"
   node_bundler = "esbuild"
 
 [build.environment]
