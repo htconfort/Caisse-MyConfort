@@ -157,6 +157,8 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
             const v = (r as any)[key];
             if (Array.isArray(v)) return v;
           }
+          // Si c'est un objet simple (une seule facture), l'encapsuler
+          return [r];
         }
         return [];
       };
