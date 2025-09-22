@@ -100,14 +100,15 @@ class ExternalInvoiceService {
     try {
       console.log(`📄 Réception facture externe: ${payload.invoiceNumber}`, payload);
 
-      // Validation des données essentielles
+      // Validation des données essentielles (assouplie: le nom client peut être vide)
       const hasValidDate = !Number.isNaN(Date.parse(payload.invoiceDate));
-      const hasClient = !!payload.client?.name && payload.client.name !== 'Client inconnu' && !/\{\{|\$json\[/.test(payload.client.name);
       const hasAmount = typeof payload.totals?.ttc === 'number' && payload.totals.ttc > 0;
-
-      if (!payload.invoiceNumber || !hasValidDate || !hasClient || !hasAmount) {
+      if (!payload.invoiceNumber || !hasValidDate || !hasAmount) {
         console.error('❌ Facture externe invalide - données manquantes');
         return false;
+      }
+      if (!payload.client?.name || payload.client.name === 'Client inconnu') {
+        console.warn('⚠️ Facture sans nom client explicite — acceptée avec placeholder');
       }
 
       // Définir la clé d'idempotence si non fournie
@@ -445,6 +446,8 @@ ExternalInvoiceService.prototype.normalizeAnyToInvoicePayload = function (raw: a
   const frenchClientName =
     (typeof raw.nom_du_client === 'string' && raw.nom_du_client) ||
     (typeof raw['nom_du_client'] === 'string' && raw['nom_du_client']) ||
+    (typeof raw.nom_client === 'string' && raw.nom_client) ||
+    (typeof raw['nom_client'] === 'string' && raw['nom_client']) ||
     (typeof raw['Nom Client'] === 'string' && raw['Nom Client']) ||
     (typeof raw.customerName === 'string' && raw.customerName);
 
@@ -488,7 +491,7 @@ ExternalInvoiceService.prototype.normalizeAnyToInvoicePayload = function (raw: a
   totals.tva = Math.max(0, totals.ttc - totals.ht);
 
   const payment: InvoicePayment = {
-    method: raw.payment?.method || raw.paymentMethod || raw.mode_paiement || undefined,
+    method: raw.payment?.method || raw.paymentMethod || raw.payment_method || raw.mode_paiement || undefined,
     paid: (raw.payment?.paid === true) || String(raw.status || '').toLowerCase().includes('paid') || undefined,
     paidAmount: Number(raw.payment?.paidAmount ?? raw.deposit ?? 0),
     depositRate: totals.ttc ? (Number(raw.payment?.paidAmount ?? raw.deposit ?? 0) / totals.ttc) : 0,
