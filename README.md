@@ -52,6 +52,51 @@ npm run dev
 - `DEDUCTION-STOCK-AUTOMATIQUE-v3.0.0.md` : Documentation de la déduction automatique
 - `AMELIORATION-INTERFACE-FACTURES-v2.1.0.md` : Documentation de l'interface factures
 
+### 🔗 Synchronisation des factures (n8n)
+
+#### Endpoints principaux
+
+- POST `/webhook/caisse/facture` — reçoit une facture individuelle (peut inclure `html_content` pour un email HTML pré‑rendu)
+- GET `/sync/invoices` — récupère la liste des factures depuis n8n
+- PATCH `/webhook/invoices/{id}/items/{itemId}/status` — met à jour le statut d’un produit
+
+#### Payload JSON attendu (exemple)
+
+```json
+{
+  "numero_facture": "TEST-012",
+  "date_facture": "2025-09-19",
+  "nom_client": "Client Demo",
+  "email_client": "demo@example.com",
+  "telephone_client": "...",
+  "montant_ht": 1200,
+  "montant_ttc": 1440,
+  "total_tva": 240,
+  "payment_method": "CB",
+  "status": "pending",
+  "produits": [
+    { "nom": "Produit A", "quantite": 2, "prix_ht": 600, "prix_ttc": 720, "tva": 120 }
+  ],
+  "html_content": "<html>...</html>"
+}
+```
+
+#### Services & scripts côté app
+
+- `mon-projet-vite/src/services/externalInvoiceService.ts` (réception/normalisation/cache)
+- `mon-projet-vite/src/services/syncService.ts` (GET/PATCH n8n)
+- Scripts de diagnostic: `diagnostic-factures.js`, `raz-complet-factures.js`, `test-factures.sh`
+
+#### Variables d’environnement utiles
+
+- `VITE_EXTERNAL_INVOICES_URL`, `VITE_INVOICE_AUTH_TOKEN`, `VITE_EXTERNAL_RUN_SECRET`
+- `VITE_N8N_WEBHOOK_URL`, `VITE_N8N_URL`
+
+#### Notes d’intégration
+
+- L’app supporte l’envoi d’un HTML pré‑rendu via `html_content` pour l’email client (contournement des limites de template côté Gmail/n8n).
+- La synchronisation peut être déclenchée manuellement (bouton) ou automatiquement (timer).
+
 ### 🗂️ Archive
 
 L'ancien projet React a été archivé dans `archive-ancien-projet-react-*/` pour éviter toute confusion.
