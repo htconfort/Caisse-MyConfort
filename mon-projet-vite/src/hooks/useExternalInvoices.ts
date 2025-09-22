@@ -138,6 +138,21 @@ export const useExternalInvoices = () => {
     loadInvoices();
   }, [loadInvoices]);
 
+  // Réagir immédiatement aux mises à jour externes du service
+  useEffect(() => {
+    const onUpdated = () => {
+      loadInvoices();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('external-invoices-updated', onUpdated as EventListener);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('external-invoices-updated', onUpdated as EventListener);
+      }
+    };
+  }, [loadInvoices]);
+
   // Démarrer la synchronisation automatique
   useEffect(() => {
     externalInvoiceService.startAutoSync();
