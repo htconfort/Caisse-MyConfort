@@ -10,6 +10,7 @@ import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSyncInvoices } from '../hooks/useSyncInvoices';
 import { testInsert } from '../services/supabaseTest';
+import { sendInvoiceEmail } from '../services/invoiceEmail';
 import { listInvoices } from '../services/n8nClient';
 import '../styles/invoices-compact.css';
 import { PaymentMethod, Sale } from '../types';
@@ -143,6 +144,37 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
       const count = Array.isArray(res) ? res.length : (res ? 1 : 0);
       alert(`✅ Synchronisation terminée — ${count} facture(s) détectée(s)`);
       console.log('✅ Synchronisation terminée (détails):', res);
+
+      // 3) Envoi email via n8n avec HTML pré-rendu (Alternative 1)
+      try {
+        const inv = externalInvoices?.[0];
+        if (inv) {
+          const invoiceData = {
+            numero_facture: inv.invoiceNumber || inv.number || `INV-${Date.now()}`,
+            date_facture: inv.invoiceDate || new Date().toISOString().slice(0, 10),
+            client: {
+              name: inv.client?.name || 'Client',
+              email: inv.client?.email,
+              phone: inv.client?.phone,
+              address: inv.client?.address,
+            },
+            items: (inv.items || []).map((it: any) => ({
+              name: it.name || it.productName || 'Produit',
+              qty: Number(it.qty || it.quantity || 1),
+              unitPriceHT: Number(it.unitPriceHT || it.unitPrice || 0),
+            })),
+            totals: { ttc: Number(inv.totals?.ttc || inv.totalTTC || 0) },
+            payment: { method: inv.payment?.method },
+          } as any;
+
+          const ok = await sendInvoiceEmail(invoiceData);
+          console.log('📧 Envoi email (HTML pré-rendu) via n8n:', ok ? 'OK' : 'ECHEC');
+        } else {
+          console.log('ℹ️ Pas de facture externe disponible pour email immédiat.');
+        }
+      } catch (mailErr) {
+        console.warn('✉️ Envoi email HTML pré-rendu ignoré:', mailErr);
+      }
     } catch (error: any) {
       console.error('❌ Erreur lors de la synchronisation:', error);
       alert(`❌ Erreur synchronisation: ${error?.message || 'inconnue'}`);
