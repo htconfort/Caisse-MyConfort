@@ -9,8 +9,8 @@ import React, { useMemo, useState } from 'react';
 import { useExternalInvoices } from '../hooks/useExternalInvoices';
 import { useNotifications } from '../hooks/useNotifications';
 import { useSyncInvoices } from '../hooks/useSyncInvoices';
-import { sendInvoiceEmail } from '../services/invoiceEmail';
 import { externalInvoiceService } from '../services/externalInvoiceService';
+import { sendInvoiceEmail } from '../services/invoiceEmail';
 import { listInvoices } from '../services/n8nClient';
 import { testInsert } from '../services/supabaseTest';
 import '../styles/invoices-compact.css';
@@ -146,41 +146,17 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
       console.log('✅ Synchronisation terminée (détails):', res);
 
       // 2bis) Peupler immédiatement l'UI avec les factures détectées
-      if (Array.isArray(res) && res.length > 0) {
-        const normalized = res.map((raw: any, idx: number) => {
-          const invoiceNumber = String(raw.invoiceNumber || raw.number || `INV-${Date.now()}-${idx}`);
-          const invoiceDate = String(raw.invoiceDate || new Date().toISOString());
-          const items = Array.isArray(raw.products) ? raw.products : Array.isArray(raw.items) ? raw.items : [];
-          return {
-            invoiceNumber,
-            invoiceDate,
-            client: {
-              name: raw.client?.name || raw.clientName || 'Client',
-              email: raw.client?.email || raw.clientEmail,
-              phone: raw.client?.phone || raw.clientPhone,
-              address: raw.client?.address,
-            },
-            items: (items || []).map((p: any, i: number) => ({
-              sku: p.sku || `${invoiceNumber}-${i}`,
-              name: p.name || p.productName || 'Produit',
-              qty: Number(p.qty || p.quantity || 1),
-              unitPriceHT: Number(p.unitPriceHT || p.unitPrice || 0),
-              tvaRate: Number(p.tvaRate || 0.2),
-            })),
-            totals: {
-              ht: Number(raw.totalHT || 0),
-              tva: Number(raw.totalTVA || 0),
-              ttc: Number(raw.totalTTC || raw.totals?.ttc || 0),
-            },
-            payment: { method: raw.payment?.method },
-            channels: { source: 'Facturation', via: 'n8n' },
-            idempotencyKey: invoiceNumber,
-          } as any;
-        });
+      const arr = Array.isArray(res) ? res : (res && Array.isArray((res as any).invoices) ? (res as any).invoices : []);
+      if (arr.length > 0) {
+        // Utiliser la normalisation officielle du service pour éviter les écarts de format
+        const normalize = (externalInvoiceService as any).normalizeAnyToInvoicePayload.bind(externalInvoiceService);
+        const normalized = arr.map((raw: any) => normalize(raw));
         const result = externalInvoiceService.receiveInvoiceBatch(normalized as any);
         console.log('📦 Insertion locale factures:', result);
         // notifier le hook pour recharger
         window.dispatchEvent(new CustomEvent('external-invoices-updated')); 
+      } else {
+        console.log('ℹ️ Réponse n8n sans tableau exploitable, rien à insérer.', res);
       }
 
       alert(`✅ Synchronisation terminée — ${count} facture(s) détectée(s)`);
