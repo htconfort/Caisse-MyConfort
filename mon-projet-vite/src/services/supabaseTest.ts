@@ -6,7 +6,7 @@ export async function testInsert(): Promise<SupabaseTestResult> {
   try {
     const { data, error } = await supabase
       .from('factures')
-      .insert([
+      .upsert([
         {
           numero_facture: 'TEST-001',
           date_facture: new Date().toISOString().slice(0, 10),
@@ -18,7 +18,7 @@ export async function testInsert(): Promise<SupabaseTestResult> {
           produits: [{ nom: 'Service A', quantite: 1, prix_ht: 100 }],
           status: 'pending',
         },
-      ])
+      ], { onConflict: 'numero_facture', ignoreDuplicates: false })
       .select()
 
     console.log('insert:', { data, error })
