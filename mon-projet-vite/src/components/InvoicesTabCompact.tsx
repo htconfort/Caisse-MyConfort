@@ -142,11 +142,29 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
 
       // 2) fallback explicite via proxy n8n pour garantir un retour utilisateur
       const res = await listInvoices(100);
-      const count = Array.isArray(res) ? res.length : (res ? 1 : 0);
+      // Supporter plusieurs formats de réponses n8n
+      const extractArray = (r: any): any[] => {
+        if (!r) return [];
+        if (Array.isArray(r)) return r;
+        if (Array.isArray(r.invoices)) return r.invoices;
+        if (Array.isArray(r.data)) return r.data;
+        if (Array.isArray(r.items)) return r.items;
+        if (Array.isArray(r.records)) return r.records;
+        if (Array.isArray(r.result)) return r.result;
+        // n8n peut aussi envelopper sous { success, count, data: [...] }
+        if (typeof r === 'object') {
+          for (const key of Object.keys(r)) {
+            const v = (r as any)[key];
+            if (Array.isArray(v)) return v;
+          }
+        }
+        return [];
+      };
+      const arr = extractArray(res);
+      const count = arr.length;
       console.log('✅ Synchronisation terminée (détails):', res);
 
       // 2bis) Peupler immédiatement l'UI avec les factures détectées
-      const arr = Array.isArray(res) ? res : (res && Array.isArray((res as any).invoices) ? (res as any).invoices : []);
       if (arr.length > 0) {
         // Utiliser la normalisation officielle du service pour éviter les écarts de format
         const normalize = (externalInvoiceService as any).normalizeAnyToInvoicePayload.bind(externalInvoiceService);

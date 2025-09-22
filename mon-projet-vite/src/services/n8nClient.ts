@@ -5,7 +5,9 @@ function normalizeBase(url?: string): string {
 
 // Priorités d'URL (override explicite > base proxy > vide)
 const WEBHOOK_BASE: string = normalizeBase(import.meta.env.VITE_N8N_WEBHOOK_URL as string) || '';
+// Base proxy par défaut sur Netlify/Vite
 const N8N_BASE: string = normalizeBase((import.meta.env.VITE_N8N_URL as string) || '/api/n8n');
+// URL spécifiques (si directement fournies)
 const N8N_SYNC_URL: string = normalizeBase(import.meta.env.VITE_N8N_SYNC_URL as string) || '';
 const N8N_GET_FACTURES_URL: string = normalizeBase(import.meta.env.VITE_N8N_GET_FACTURES_URL as string) || '';
 const N8N_STATUS_URL: string = normalizeBase(import.meta.env.VITE_N8N_STATUS_URL as string) || '';
@@ -19,6 +21,7 @@ function assertConfigured(): void {
 
 export async function sendInvoice(payload: unknown): Promise<any> {
   assertConfigured();
+  // Priorité: URL webhook complète > URL sync dédiée > base proxy + chemin
   const url = WEBHOOK_BASE || N8N_SYNC_URL || `${N8N_BASE}/caisse/facture`;
   const response = await fetch(url, {
     method: 'POST',
@@ -46,6 +49,7 @@ export async function updateStatus(numero_facture: string, patch: Record<string,
 export async function listInvoices(limit: number = 50): Promise<any> {
   assertConfigured();
   const baseFromWebhook = WEBHOOK_BASE?.replace(/\/caisse\/facture$/, '') || '';
+  // Priorité: URL listes dédiée > dérivée du webhook > base proxy
   const listBase = N8N_GET_FACTURES_URL || (baseFromWebhook ? `${baseFromWebhook}/caisse/factures` : `${N8N_BASE}/caisse/factures`);
   const response = await fetch(`${listBase}?limit=${encodeURIComponent(String(limit))}`);
   if (!response.ok) throw new Error('n8n list failed');
