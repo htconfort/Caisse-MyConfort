@@ -17,6 +17,9 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
     currentTime: new Date().toLocaleTimeString()
   });
 
+  // Debug simple - doit apparaître dans la console
+  console.log('🟢 CATab: Composant rendu avec succès');
+
   // État local pour les factures externes (se met à jour via événements)
   const [externalInvoices, setExternalInvoices] = useState<Invoice[]>(invoices);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
@@ -205,6 +208,8 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
 
     return salesCount + invoicesCount;
   }, [sales, currentInvoices]);
+
+  console.log('🟡 CATab: Rendu du JSX commencé');
 
   return (
     <div className="animate-fadeIn">
