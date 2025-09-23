@@ -206,6 +206,59 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 - Les vendeuses sans vente restent à 0 €
 - Aucune interférence entre les vendeuses
 
+## 🚨 **MODE FACTURIER PUR - CORRECTION DOUBLONS**
+
+### 🎯 **Problème Résolu**
+- **Avant :** Factures externes converties en ventes → doublons (37 000 € affichés comme 74 000 €)
+- **Après :** Mode facturier pur - factures externes SEULEMENT, pas de ventes
+
+### 📊 **Architecture Corrigée**
+
+#### **Mode Facturier (Recommandé) :**
+```
+Factures externes (n8n) → externalInvoiceService → CA instant
+                    ↓
+                Pas de conversion en ventes
+```
+
+#### **Mode Classique (Désactivé pour éviter doublons) :**
+```
+Ventes caisse iPad → createSale() → IndexedDB → CA instant
+```
+
+### 🧪 **Test Mode Facturier Pur**
+
+#### **Test 4 - Mode Facturier Pur (18 000 €)**
+```bash
+curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Secret: MySuperSecretKey2025' \
+  --data '{"numero_facture":"F-FACTURIER-PUR","date_facture":"2025-09-23","nom_client":"Test Mode Facturier","montant_ttc":18000,"payment_method":"transfer","vendeuse":"Sylvie","vendorId":"sylvie","produits":[{"nom":"Test Facturier Pur","quantite":6,"prix_ttc":3000,"remise":0}]}'
+```
+**Résultat attendu :** CA instant = 18 000 € sous Sylvie
+
+### 📋 **Vérification Finale (Mode Facturier)**
+
+#### **Onglet "Factures" :**
+- ✅ 4 factures visibles (3 tests + 1 nouvelle)
+- ✅ CA total factures : 55 000 €
+
+#### **Onglet "Ventes" :**
+- ✅ 0 ventes (mode facturier pur)
+- ✅ Pas de doublons
+
+#### **Onglet "CA instant" :**
+- ✅ **Sylvie** : 18 000 € (facture facturier)
+- ✅ **Babette** : 10 000 €
+- ✅ **Lucia** : 15 000 €
+- ✅ **Total** : 43 000 € (pas de doublons)
+
+### 🎯 **Avantages du Mode Facturier**
+- ✅ **Pas de doublons** entre factures et ventes
+- ✅ **Logique claire** : factures externes ≠ ventes caisse
+- ✅ **CA précis** : seulement les factures du jour
+- ✅ **Vendeuses synchronisées** : IDs textuels corrects
+
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 
 ### Ce qui a été fait
