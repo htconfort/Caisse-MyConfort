@@ -304,39 +304,176 @@ JSON: {{ $json }}
 - Attendez 5-10 secondes
 - Vérifiez : "Factures", "Ventes" et "CA instant" mis à jour
 
-### 🔄 RAZ Complet (si problème de cache)
-**Code console iPad pour vider TOUT :**
+## 🚨 **RAZ COMPLET - GUIDE DÉFINITIF**
+
+### 🎯 **Procédure RAZ Complète (Ordre Important)**
+
+**ÉTAPE 1 - Diagnostic avant RAZ :**
 ```javascript
-// 1. Vider localStorage
-localStorage.clear();
+// Code console iPad pour diagnostiquer l'état actuel
+(() => {
+  console.log('🔍 ÉTAT AVANT RAZ :');
+  console.log('📋 localStorage keys:', localStorage.length);
+  console.log('💾 Données vendeuses:', localStorage.getItem('myconfort-vendors'));
+  console.log('💰 Données ventes:', localStorage.getItem('myconfort-sales'));
+  console.log('🛒 Données panier:', localStorage.getItem('myconfort-cart'));
+  console.log('📊 Timestamp:', new Date().toLocaleString('fr-FR'));
+})();
+```
 
-// 2. Vider tous les caches
-if ('caches' in window) {
-  caches.keys().then(names => {
-    names.forEach(name => {
-      caches.delete(name);
-      console.log('🗑️ Cache supprimé:', name);
-    });
+**ÉTAPE 2 - RAZ Complet :**
+```javascript
+// Code console iPad pour RAZ COMPLET
+(() => {
+  console.log('🚨 DÉBUT RAZ COMPLET');
+
+  // 1. Sauvegarder les vendeuses si elles existent
+  const vendorsData = localStorage.getItem('myconfort-vendors');
+  const vendorsBackup = vendorsData ? JSON.parse(vendorsData) : [];
+
+  // 2. Vider TOUT localStorage
+  localStorage.clear();
+  console.log('✅ localStorage vidé');
+
+  // 3. Restaurer les vendeuses correctes
+  const vendeusesCorrectes = [
+    { id: 'sylvie', name: 'Sylvie', color: '#477A0C' },
+    { id: 'babette', name: 'Babette', color: '#F55D3E' },
+    { id: 'lucia', name: 'Lucia', color: '#14281D' },
+    { id: 'cathy', name: 'Cathy', color: '#080F0F' },
+    { id: 'johan', name: 'Johan', color: '#89BBFE' },
+    { id: 'sabrina', name: 'Sabrina', color: '#D68FD6' },
+    { id: 'billy', name: 'Billy', color: '#FFFF99' }
+  ];
+
+  vendeusesCorrectes.forEach(v => {
+    localStorage.setItem(`myconfort-vendor-${v.id}`, JSON.stringify(v));
+    console.log(`✅ Vendeuse ajoutée: ${v.name} (${v.id})`);
   });
-}
 
-// 3. Désenregistrer tous les service workers
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(registrations => {
-    registrations.forEach(registration => {
-      registration.unregister();
-      console.log('🗑️ Service Worker désenregistré');
+  // 4. Vider tous les caches
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => {
+        caches.delete(name);
+        console.log('🗑️ Cache supprimé:', name);
+      });
     });
+  }
+
+  // 5. Désenregistrer tous les service workers
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => {
+        registration.unregister();
+        console.log('🗑️ Service Worker désenregistré');
+      });
+    });
+  }
+
+  // 6. Vider IndexedDB
+  if ('indexedDB' in window) {
+    const deleteDB = () => {
+      return new Promise((resolve) => {
+        const req = indexedDB.deleteDatabase('MyConfortCaisseV2');
+        req.onsuccess = () => {
+          console.log('✅ IndexedDB vidée');
+          resolve();
+        };
+        req.onerror = () => {
+          console.log('⚠️ Erreur vidage IndexedDB');
+          resolve();
+        };
+      });
+    };
+    deleteDB();
+  }
+
+  console.log('🔄 RAZ TERMINÉ - Rechargez l\'app');
+  alert('✅ RAZ COMPLET effectué ! Rechargez l\'app maintenant.');
+})();
+```
+
+**ÉTAPE 3 - Vérification après RAZ :**
+```javascript
+// Code console iPad pour vérifier l'état après RAZ
+(() => {
+  console.log('🔍 ÉTAT APRÈS RAZ :');
+  console.log('📋 localStorage keys:', localStorage.length);
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    console.log(`  ${key}: ${localStorage.getItem(key)}`);
+  }
+
+  console.log('✅ Vérification terminée');
+  console.log('🔄 Rechargez l\'app pour continuer');
+})();
+```
+
+**ÉTAPE 4 - Tests après RAZ :**
+```javascript
+// Code console iPad pour tester après RAZ
+(() => {
+  console.log('🧪 TESTS APRÈS RAZ');
+
+  // 1. Vérifier vendeuses
+  console.log('👥 Vendeuses disponibles :');
+  ['sylvie', 'babette', 'lucia', 'cathy', 'johan', 'sabrina', 'billy'].forEach(id => {
+    const key = `myconfort-vendor-${id}`;
+    const data = localStorage.getItem(key);
+    if (data) {
+      const vendor = JSON.parse(data);
+      console.log(`  ✅ ${vendor.name} (${vendor.id})`);
+    } else {
+      console.log(`  ❌ ${id} : MANQUANTE`);
+    }
   });
-}
 
-// 4. Forcer rechargement complet
-window.location.reload(true);
+  // 2. Vérifier navigation
+  console.log('🧭 Navigation :');
+  console.log('  - Onglets vendeuses :', document.querySelectorAll('.vendor-tab').length);
+  console.log('  - Onglet CA instant :', !!document.querySelector('[data-tab="ca"]'));
 
-// OU rechargement avec nouveau cache-buster
-setTimeout(() => {
-  window.location.href = window.location.pathname + '?v=' + Date.now();
-}, 1000);
+  // 3. Vérifier état propre
+  console.log('🧹 État système :');
+  console.log('  - localStorage keys :', localStorage.length);
+  console.log('  - Service Workers :', navigator.serviceWorker ? 'disponible' : 'indisponible');
+
+  console.log('✅ Tests terminés - app prête à utiliser');
+})();
+```
+
+**ÉTAPE 5 - Test Final :**
+```javascript
+// Code console iPad pour test final
+(() => {
+  console.log('🚀 TEST FINAL - App prête ?');
+
+  // Vérifier vendeuses
+  const vendeusesOk = ['sylvie', 'babette', 'lucia', 'cathy', 'johan', 'sabrina', 'billy']
+    .every(id => localStorage.getItem(`myconfort-vendor-${id}`));
+
+  if (vendeusesOk) {
+    console.log('✅ Vendeuses : OK');
+  } else {
+    console.log('❌ Vendeuses : PROBLÈME');
+  }
+
+  // Vérifier navigation
+  const navigationOk = document.querySelectorAll('.vendor-tab').length > 0 &&
+                       document.querySelector('[data-tab="ca"]');
+
+  if (navigationOk) {
+    console.log('✅ Navigation : OK');
+  } else {
+    console.log('❌ Navigation : PROBLÈME');
+  }
+
+  console.log('📊 Résumé :');
+  console.log('  - Système :', vendeusesOk && navigationOk ? '✅ PRÊT' : '❌ PROBLÈME');
+  console.log('  - Test : Créez une facture pour vérifier le CA instant');
+})();
 ```
 
 ### ⚠️ **PROBLÈME DÉTECTÉ : Vendeuses non synchronisées**
