@@ -439,11 +439,58 @@ Allez dans "CA instant" → Vérifier le montant
 🗑️ Vider Cache → RAZ complet → Recharger page
 ```
 
-### 📊 **État Actuel :**
+### 🚨 **PROBLÈME DÉTECTÉ : AFFICHAGE NON MIS À JOUR**
+
+**Votre situation actuelle :**
 - ✅ **Format localStorage** : corrigé (array)
-- ✅ **Données** : 1 facture présente
-- ⏳ **Affichage** : à vérifier
-- ⏳ **CA instant** : à vérifier
+- ✅ **Données** : 1 facture présente dans localStorage
+- ❌ **Affichage** : rien visible dans les onglets
+- ❌ **CA instant** : zéro (pas de mise à jour UI)
+
+**Cause :** Les composants React ne se rafraîchissent pas automatiquement après la réparation du storage.
+
+**Paradoxe détecté :**
+- ✅ Onglet "Factures" : 75 000€ (données présentes)
+- ❌ Onglet "CA instant" : 0€ (pas de mise à jour UI)
+- ✅ localStorage : corrigé et contient les données
+
+**Solution :** Forcer la synchronisation entre les composants !
+
+### 🔧 **SOLUTION IMMÉDIATE :**
+
+#### **🎯 Actions à effectuer sur votre iPad :**
+
+##### **1. Bouton "🔄 Rafraîchir UI" (RECOMMANDÉ)**
+```
+Allez dans "Gestion" → "🔧 Diagnostic" → 🔄 Rafraîchir UI
+```
+
+##### **2. Console JavaScript (F12)**
+```javascript
+// Forcer la mise à jour des composants
+window.dispatchEvent(new CustomEvent('external-invoices-updated'));
+window.dispatchEvent(new CustomEvent('external-sale-created'));
+window.dispatchEvent(new CustomEvent('vendor-stats-updated'));
+
+// Vérifier les données
+console.log('Factures localStorage:', JSON.parse(localStorage.getItem('mycomfort_external_invoices')));
+
+// Test du service
+if (window.externalInvoiceService) {
+  console.log('Service factures:', window.externalInvoiceService.getAllInvoices());
+}
+```
+
+##### **3. Si toujours pas visible**
+```
+🗑️ Vider Cache → RAZ complet → Recharger page
+```
+
+#### **4. Résultats Attendus :**
+- ✅ Onglet "Factures" : 75 000€ (déjà visible)
+- ✅ Onglet "CA instant" : 75 000€ (devrait s'afficher)
+- ✅ Onglet "Ventes" : factures visibles
+- ✅ Console : logs de mise à jour
 
 ### 📊 **Résultats Attendus**
 
