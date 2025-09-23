@@ -1,3 +1,4 @@
+/api/caisse/facture /.netlify/functions/caisse-facture 200!
 /api/n8n/* /.netlify/functions/n8n/:splat 200!
 /api/* /.netlify/functions/:splat 200!
 /* /index.html 200
