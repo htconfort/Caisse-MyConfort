@@ -141,6 +141,8 @@ export const useExternalInvoices = () => {
   // Réagir immédiatement aux mises à jour externes du service
   useEffect(() => {
     const onUpdated = () => {
+      // Forcer le service à se recharger depuis localStorage avant de relire
+      try { externalInvoiceService.refreshFromStorage?.(); } catch {}
       loadInvoices();
     };
     if (typeof window !== 'undefined') {

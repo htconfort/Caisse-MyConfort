@@ -395,6 +395,25 @@ class ExternalInvoiceService {
   }
 
   /**
+   * Rafraîchir l'état interne depuis le localStorage (public)
+   * Utile quand une autre partie de l'app écrit directement dans le storage
+   */
+  refreshFromStorage(): void {
+    try {
+      const stored = localStorage.getItem('myconfort_external_invoices');
+      if (stored) {
+        this.invoices = JSON.parse(stored);
+        this.purgeInvalidAndDeduplicate();
+        // Ne pas réécrire si identique, mais sauvegarde pour normaliser le format
+        this.saveToStorage();
+        console.log(`🔁 Rafraîchi depuis localStorage: ${this.invoices.length} facture(s)`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur refreshFromStorage:', error);
+    }
+  }
+
+  /**
    * Obtenir les statistiques des factures externes
    */
   getStatistics() {
