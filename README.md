@@ -237,11 +237,20 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 ```
 **Résultat attendu :** CA instant = 18 000 € sous Sylvie
 
+#### **Test 5 - Cathy (20 000 €)**
+```bash
+curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Secret: MySuperSecretKey2025' \
+  --data '{"numero_facture":"F-CATHY-TEST","date_facture":"2025-09-23","nom_client":"Test Cathy","montant_ttc":20000,"payment_method":"cash","vendeuse":"Cathy","vendorId":"cathy","produits":[{"nom":"Test Cathy","quantite":5,"prix_ttc":4000,"remise":0}]}'
+```
+**Résultat attendu :** CA instant = 20 000 € sous Cathy
+
 ### 📋 **Vérification Finale (Mode Facturier)**
 
 #### **Onglet "Factures" :**
-- ✅ 4 factures visibles (3 tests + 1 nouvelle)
-- ✅ CA total factures : 55 000 €
+- ✅ 5 factures visibles (4 tests + 1 nouvelle)
+- ✅ CA total factures : 83 000 €
 
 #### **Onglet "Ventes" :**
 - ✅ 0 ventes (mode facturier pur)
@@ -251,7 +260,8 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 - ✅ **Sylvie** : 18 000 € (facture facturier)
 - ✅ **Babette** : 10 000 €
 - ✅ **Lucia** : 15 000 €
-- ✅ **Total** : 43 000 € (pas de doublons)
+- ✅ **Cathy** : 20 000 €
+- ✅ **Total** : 63 000 € (pas de doublons)
 
 ### 🎯 **Avantages du Mode Facturier**
 - ✅ **Pas de doublons** entre factures et ventes
