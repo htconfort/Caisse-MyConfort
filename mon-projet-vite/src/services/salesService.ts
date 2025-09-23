@@ -3,7 +3,7 @@
  * Permet la création de ventes avec timestamps personnalisés pour le rattrapage
  */
 import { db } from '@/db/schema';
-import type { Sale, ExtendedCartItem, SaleDB } from '@/types';
+import type { ExtendedCartItem, Sale, SaleDB } from '@/types';
 
 export interface CreateSalePayload {
   vendorId?: string;
