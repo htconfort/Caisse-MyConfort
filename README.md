@@ -418,6 +418,65 @@ setTimeout(() => {
 })();
 ```
 
+### 🚨 **PROBLÈME CRITIQUE DÉTECTÉ : Format de données incorrect**
+
+**Diagnostic :** Les ventes sont stockées dans un mauvais format (object au lieu de tableau)
+- **localStorage :** `{"version":"1.0","timestamp":1758645853265,"data":[...]}`
+- **Problème :** Empêche le calcul du CA et l'affichage des statistiques
+
+**Solution : Réinitialiser le format de données :**
+```javascript
+// Code console iPad pour corriger le format de données
+(() => {
+  console.log('🔧 CORRECTION FORMAT DONNÉES');
+
+  // 1. Sauvegarder les données actuelles
+  const salesData = localStorage.getItem('myconfort-sales');
+  const vendorsData = localStorage.getItem('myconfort-vendors');
+
+  console.log('📋 Données avant correction :');
+  console.log('  - Ventes :', salesData);
+  console.log('  - Vendeuses :', vendorsData);
+
+  // 2. Vider complètement
+  localStorage.clear();
+  console.log('🗑️ localStorage vidé');
+
+  // 3. Restaurer seulement les vendeuses
+  if (vendorsData) {
+    const vendors = JSON.parse(vendorsData);
+    if (Array.isArray(vendors)) {
+      vendors.forEach(v => {
+        const key = `myconfort-vendor-${v.id}`;
+        localStorage.setItem(key, JSON.stringify(v));
+        console.log(`✅ Vendeuse restaurée: ${v.name} (${v.id})`);
+      });
+    }
+  }
+
+  // 4. Vider IndexedDB si disponible
+  if ('indexedDB' in window) {
+    const deleteDB = () => {
+      return new Promise((resolve) => {
+        const req = indexedDB.deleteDatabase('MyConfortCaisseV2');
+        req.onsuccess = () => {
+          console.log('✅ IndexedDB vidée');
+          resolve();
+        };
+        req.onerror = () => {
+          console.log('⚠️ Erreur vidage IndexedDB');
+          resolve();
+        };
+      });
+    };
+    deleteDB();
+  }
+
+  console.log('🔄 Rechargez l\'app pour appliquer les corrections');
+  alert('✅ Format de données corrigé ! Rechargez l\'app.');
+})();
+```
+
 ### Étapes suivantes conseillées
 - Finaliser la route n8n (GET) et retester `/api/n8n/caisse/factures?limit=10`
 - Option serveur (webhook → polling) si besoin d'un flux push côté "Facture"
