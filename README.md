@@ -364,6 +364,51 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 🗑️ Vider Cache → Recharger → Reconfigurer
 ```
 
+## 🚨 **VOTRE PROBLÈME ACTUEL - SOLUTION IMMÉDIATE**
+
+### 📊 **Diagnostic de Votre iPad :**
+- ❌ `mycomfort-external-invoices` : absent
+- ❌ Ventes stockées comme `object` au lieu d'`array`
+- ❌ CA à zéro à cause du mauvais format
+- ❌ Aucune facture externe visible
+
+### 🔧 **SOLUTION ÉTAPE PAR ÉTAPE :**
+
+#### **Étape 1 : Réparation Spécifique**
+```
+🔧 Réparer Storage → Conversion automatique object → array
+```
+
+#### **Étape 2 : Injection de Test**
+```
+💰 Injecter Facture (280€ - Sylvie) → Test du système
+```
+
+#### **Étape 3 : Vérification**
+```
+🔄 Rafraîchir UI → Forcer mise à jour
+```
+
+#### **Étape 4 : Si Persistant**
+```
+🗑️ Vider Cache → RAZ complet → Recharger
+```
+
+### 🎯 **Actions Immédiates :**
+
+1. **Aller dans "Gestion"** → **"🔧 Diagnostic"**
+2. **Cliquer sur "🔧 Réparer Storage"**
+3. **Attendre la confirmation** (format converti)
+4. **Cliquer sur "💰 Injecter Facture"**
+5. **Cliquer sur "🔄 Rafraîchir UI"**
+6. **Vérifier les onglets** "Factures" et "CA instant"
+
+### 📋 **Résultats Attendus :**
+- ✅ `mycomfort-external-invoices` : présent (array)
+- ✅ Onglet "Factures" : 1 facture test visible
+- ✅ Onglet "CA instant" : 280€ sous Sylvie
+- ✅ Console logs de diagnostic détaillés
+
 ### 📊 **Résultats Attendus**
 
 #### **Après Réparation Storage :**
