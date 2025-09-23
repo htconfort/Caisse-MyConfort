@@ -246,6 +246,16 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 ```
 **Résultat attendu :** CA instant = 20 000 € sous Cathy
 
+#### **Test 6 - Votre Facture (280 €)**
+```bash
+# Simuler la facture de votre app de facturation
+curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Secret: MySuperSecretKey2025' \
+  --data '{"numero_facture":"F-VOTRE-APP-001","date_facture":"2025-09-23","nom_client":"Votre Client","montant_ttc":280,"payment_method":"card","vendeuse":"Sylvie","vendorId":"sylvie","produits":[{"nom":"Produit Test","quantite":1,"prix_ttc":280,"remise":0}]}'
+```
+**Résultat attendu :** CA instant = 280 € sous Sylvie
+
 ### 📋 **Vérification Finale (Mode Facturier)**
 
 #### **Onglet "Factures" :**
@@ -268,6 +278,112 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 - ✅ **Logique claire** : factures externes ≠ ventes caisse
 - ✅ **CA précis** : seulement les factures du jour
 - ✅ **Vendeuses synchronisées** : IDs textuels corrects
+
+## 🔧 **OUTILS DE DIAGNOSTIC AVANCÉS - ONGLET GESTION**
+
+### 📍 **Accès aux Outils**
+1. **Aller dans "Gestion"** (onglet principal)
+2. **Cliquer sur "🔧 Diagnostic"** (sous-onglet)
+3. **Utiliser les outils** selon le besoin
+
+### 🛠️ **Boutons Principaux**
+
+#### **🔍 Lancer Diagnostic**
+- **Fonction** : Analyse complète de l'environnement iPad
+- **Résultat** : Rapport détaillé avec recommandations
+- **Utilisation** : Diagnostiquer problèmes généraux
+
+#### **📄 Exporter Rapport**
+- **Fonction** : Télécharger le diagnostic au format texte
+- **Utilisation** : Sauvegarder l'état pour analyse ultérieure
+
+#### **🔧 Corriger Données**
+- **Fonction** : Réparation automatique du format localStorage
+- **Utilisation** : Corriger données corrompues
+
+#### **🗑️ Vider Cache**
+- **Fonction** : Suppression complète des données locales
+- **Utilisation** : RAZ complet (attention !)
+
+### 🛠️ **Outils Avancés de Débogage**
+
+#### **🔧 Réparer Storage**
+- **Fonction** : Réparation spécifique des factures externes
+- **Cas d'usage** : Format `object.data` corrompu
+- **Résultat** : Conversion en array simple + rechargement
+
+#### **📋 Logs Console**
+- **Fonction** : Guide d'accès aux logs de console
+- **Utilisation** : Voir les logs en temps réel (F12)
+
+#### **🔍 Test Service**
+- **Fonction** : Test du service `externalInvoiceService`
+- **Résultat** : Diagnostic automatique + état du service
+
+#### **💰 Injecter Facture**
+- **Fonction** : Ajouter une facture de test (280€ - Sylvie)
+- **Utilisation** : Tester l'affichage sans app de facturation
+
+#### **🌐 Statut Réseau**
+- **Fonction** : Test de connectivité aux APIs
+- **Résultat** : État des connexions réseau
+
+#### **🔄 Rafraîchir UI**
+- **Fonction** : Déclenchement forcé des événements UI
+- **Utilisation** : Forcer la mise à jour des onglets
+
+### 🎯 **Workflow de Diagnostic Recommandé**
+
+#### **1. Diagnostic Initial**
+```
+🔍 Lancer Diagnostic → Analyser le rapport
+```
+
+#### **2. Si Problème Format localStorage**
+```
+🔧 Réparer Storage → Recharger la page
+```
+
+#### **3. Si CA à Zéro**
+```
+💰 Injecter Facture → Vérifier onglets → 🔄 Rafraîchir UI
+```
+
+#### **4. Si Pas de Factures**
+```
+🔍 Test Service → Vérifier console → 📋 Logs Console
+```
+
+#### **5. Si Problème Réseau**
+```
+🌐 Statut Réseau → Vérifier connectivité
+```
+
+#### **6. RAZ Complet (si nécessaire)**
+```
+🗑️ Vider Cache → Recharger → Reconfigurer
+```
+
+### 📊 **Résultats Attendus**
+
+#### **Après Réparation Storage :**
+- ✅ Format localStorage corrigé (array simple)
+- ✅ Factures externes visibles
+- ✅ CA instant mis à jour
+- ✅ Console logs de diagnostic
+
+#### **Après Injection Test :**
+- ✅ Facture test ajoutée (280€ - Sylvie)
+- ✅ Onglet "Factures" : 1 facture visible
+- ✅ Onglet "CA instant" : 280€ sous Sylvie
+
+### 🎉 **Avantages des Outils**
+- ✅ **Interface unifiée** : tous les outils au même endroit
+- ✅ **Diagnostic automatique** : détection et réparation intelligente
+- ✅ **Test en conditions réelles** : injection de données de test
+- ✅ **Débogage complet** : logs, réseau, services
+- ✅ **Guide utilisateur** : workflow recommandé
+- ✅ **Sauvegarde** : export des diagnostics
 
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 
