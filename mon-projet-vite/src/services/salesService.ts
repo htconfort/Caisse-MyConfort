@@ -54,6 +54,31 @@ export async function createSale(payload: CreateSalePayload): Promise<Sale> {
   // Persister dans IndexedDB
   await db.sales.add(saleDB);
   
+  // Mettre à jour les stats vendeuse immédiatement (et créer la vendeuse si absente)
+  try {
+    const vid = payload.vendorId || '';
+    if (vid) {
+      const existing = await db.vendors.get(vid);
+      if (!existing) {
+        await db.vendors.add({
+          id: vid,
+          name: payload.vendorName,
+          lastSaleDate: undefined as unknown as number,
+          totalSales: 0,
+          dailySales: 0,
+          lastUpdate: Date.now()
+        });
+      }
+      await db.updateVendorStats(vid);
+      // notifier l'UI potentielle
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('vendor-stats-updated', { detail: { vendorId: vid } }));
+      }
+    }
+  } catch (e) {
+    console.error('❌ MAJ stats vendeuse échouée:', e);
+  }
+  
   console.log(`✅ Vente créée: ${payload.vendorName} - ${payload.totalAmount}€ le ${date.toLocaleDateString('fr-FR')}`);
   
   return sale;
