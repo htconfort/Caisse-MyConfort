@@ -1,7 +1,7 @@
 import type { InvoiceItem, InvoicePayload } from '@/types';
+import { resolveVendor } from '@/utils/vendorMapping';
 import { externalInvoiceService } from './externalInvoiceService';
 import { createSale, type CreateSalePayload } from './salesService';
-import { resolveVendor } from '@/utils/vendorMapping';
 
 function b64ToUtf8(b64: string): string {
   try {
