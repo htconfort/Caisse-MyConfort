@@ -483,8 +483,9 @@ ExternalInvoiceService.prototype.normalizeAnyToInvoicePayload = function (raw: a
       raw.totalHT ?? raw.montant_ht ?? raw['montant_ht'] ?? items.reduce((s, it) => s + it.unitPriceHT * it.qty, 0)
     ),
     tva: 0,
+    // Accepter différents noms pour le total TTC (amount, total, totalTTC, montant_total)
     ttc: Number(
-      raw.totalTTC ?? raw.montant_ttc ?? raw['montant_ttc'] ?? raw.montant_total ?? 0
+      raw.totalTTC ?? raw.montant_ttc ?? raw['montant_ttc'] ?? raw.montant_total ?? raw.total ?? raw.amount ?? 0
     ),
   };
   if (!totals.ttc) totals.ttc = Math.round((totals.ht * 1.2) * 100) / 100; // fallback TVA 20%
