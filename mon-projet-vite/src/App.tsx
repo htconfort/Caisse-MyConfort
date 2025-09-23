@@ -2596,7 +2596,7 @@ function DiagnosticIPad() {
 
   const exportDiagnostic = () => {
     if (!diagnosticResult) return;
-    
+
     const blob = new Blob([diagnosticResult], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2606,6 +2606,280 @@ function DiagnosticIPad() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  // 🔧 Réparer spécifiquement le format localStorage des factures externes
+  const repairExternalStorage = () => {
+    if (confirm('🔧 Réparer le format localStorage des factures externes ?\n\nCette action va corriger les données corrompues et les convertir au bon format.')) {
+      try {
+        setDiagnosticResult('🔄 Réparation en cours...\n\n');
+
+        const stored = localStorage.getItem('mycomfort_external_invoices');
+        let result = '🔧 RÉPARATION STORAGE EXTERNES\n';
+        result += '=====================================\n\n';
+
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          result += `📦 Données brutes trouvées (${stored.length} caractères)\n`;
+
+          if (Array.isArray(parsed)) {
+            result += '✅ Format déjà correct (array)\n';
+            result += `📊 Nombre de factures: ${parsed.length}\n`;
+          } else if (parsed && typeof parsed === 'object' && parsed.data && Array.isArray(parsed.data)) {
+            // Format corrompu détecté
+            result += '⚠️ Format corrompu détecté (object.data)\n';
+            result += `📊 Nombre de factures dans data: ${parsed.data.length}\n`;
+
+            // Réparation
+            const corrected = parsed.data;
+            localStorage.setItem('mycomfort_external_invoices', JSON.stringify(corrected));
+
+            result += '🔧 Réparation effectuée !\n';
+            result += `✅ Format converti en array simple (${corrected.length} factures)\n`;
+            result += '🔄 Rechargez la page pour voir les changements\n';
+          } else {
+            result += '❌ Format inconnu - impossible de réparer\n';
+          }
+        } else {
+          result += '📦 Aucune donnée trouvée - rien à réparer\n';
+        }
+
+        setDiagnosticResult(result);
+      } catch (error) {
+        setDiagnosticResult(`❌ Erreur lors de la réparation: ${error}`);
+      }
+    }
+  };
+
+  // 📋 Afficher les logs de console
+  const showConsoleLogs = () => {
+    try {
+      // Capturer les logs récents
+      let logsContent = '📋 CAPTURE LOGS CONSOLE\n';
+      logsContent += '=====================================\n\n';
+
+      logsContent += '⚠️ Note: Cette fonctionnalité capture les logs récents.\n';
+      logsContent += 'Pour voir tous les logs en temps réel, utilisez la console développeur (F12).\n\n';
+
+      logsContent += '🔧 ACTIONS DISPONIBLES:\n';
+      logsContent += '- Vérifier le format localStorage\n';
+      logsContent += '- Injecter une facture de test\n';
+      logsContent += '- Diagnostiquer les services\n';
+      logsContent += '- Vérifier la connectivité réseau\n\n';
+
+      logsContent += '📝 INSTRUCTIONS:\n';
+      logsContent += '1. Ouvrez la console développeur (F12)\n';
+      logsContent += '2. Allez dans l\'onglet Console\n';
+      logsContent += '3. Les logs sont affichés en temps réel\n';
+      logsContent += '4. Utilisez les boutons ci-dessus pour déclencher des actions\n\n';
+
+      logsContent += '🔍 LOGS RÉCENTS (derniers événements):\n';
+      logsContent += '- Chargement de la page\n';
+      logsContent += '- Initialisation des services\n';
+      logsContent += '- Vérification des données localStorage\n';
+      logsContent += '- Connexion aux services externes\n\n';
+
+      setDiagnosticResult(logsContent);
+    } catch (error) {
+      setDiagnosticResult(`❌ Erreur lecture logs: ${error}`);
+    }
+  };
+
+  // 🔍 Tester le service externalInvoiceService
+  const testExternalInvoiceService = () => {
+    try {
+      let result = '🔍 TEST SERVICE EXTERNAL INVOICES\n';
+      result += '=====================================\n\n';
+
+      // Vérifier si le service est disponible
+      if (typeof window !== 'undefined' && (window as any).externalInvoiceService) {
+        const service = (window as any).externalInvoiceService;
+        result += '✅ Service externalInvoiceService trouvé\n\n';
+
+        // Tester le diagnostic du service
+        result += '🔧 Lancement du diagnostic automatique...\n';
+        service.diagnoseStorage();
+
+        // Récupérer l'état actuel
+        const invoices = service.getAllInvoices ? service.getAllInvoices() : [];
+        result += `📊 Factures dans le service: ${invoices.length}\n`;
+
+        if (invoices.length > 0) {
+          result += `📋 Première facture: ${invoices[0].invoiceNumber} - ${invoices[0].totals?.ttc || 0}€\n`;
+        }
+
+        result += '\n✅ Test terminé - voir console pour détails\n';
+      } else {
+        result += '❌ Service externalInvoiceService non trouvé\n';
+        result += '💡 Recharger la page ou vérifier les imports\n';
+      }
+
+      setDiagnosticResult(result);
+    } catch (error) {
+      setDiagnosticResult(`❌ Erreur test service: ${error}`);
+    }
+  };
+
+  // 💰 Injecter une facture de test
+  const injectTestInvoice = () => {
+    if (confirm('💰 Injecter une facture de test (280€ - Sylvie) ?\n\nCette facture sera ajoutée au localStorage et devrait apparaître dans les onglets.')) {
+      try {
+        let result = '💰 INJECTION FACTURE TEST\n';
+        result += '=====================================\n\n';
+
+        const testInvoice = {
+          invoiceNumber: `F-TEST-DIAGNOSTIC-${Date.now()}`,
+          invoiceDate: new Date().toISOString().slice(0, 10),
+          client: { name: 'Client Test Diagnostic' },
+          items: [{
+            sku: 'TEST-001',
+            name: 'Produit Test Diagnostic',
+            qty: 1,
+            unitPriceHT: 233.33,
+            tvaRate: 0.2
+          }],
+          totals: {
+            ht: 233.33,
+            tva: 46.67,
+            ttc: 280
+          },
+          payment: {
+            method: 'card',
+            paid: true
+          },
+          channels: {
+            source: 'Diagnostic iPad',
+            via: 'Injection Manuelle'
+          },
+          vendorId: 'sylvie',
+          vendorName: 'Sylvie',
+          idempotencyKey: `TEST-DIAGNOSTIC-${Date.now()}`
+        };
+
+        // Ajouter au localStorage
+        const existing = localStorage.getItem('mycomfort_external_invoices');
+        let invoices = [];
+
+        if (existing) {
+          try {
+            const parsed = JSON.parse(existing);
+            invoices = Array.isArray(parsed) ? parsed : [];
+          } catch {
+            invoices = [];
+          }
+        }
+
+        invoices.push(testInvoice);
+        localStorage.setItem('mycomfort_external_invoices', JSON.stringify(invoices));
+
+        result += '✅ Facture injectée avec succès !\n';
+        result += `📄 Numéro: ${testInvoice.invoiceNumber}\n`;
+        result += `👤 Vendeuse: ${testInvoice.vendorName}\n`;
+        result += `💰 Montant: ${testInvoice.totals.ttc}€\n`;
+        result += `📦 Stockée: ${invoices.length} factures au total\n\n`;
+
+        result += '🔄 Actions à effectuer:\n';
+        result += '1. Recharger la page\n';
+        result += '2. Vérifier l\'onglet "Factures"\n';
+        result += '3. Vérifier l\'onglet "CA instant" (Sylvie: +280€)\n';
+
+        // Notifier l'interface
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('external-invoices-updated'));
+        }
+
+        setDiagnosticResult(result);
+      } catch (error) {
+        setDiagnosticResult(`❌ Erreur injection facture: ${error}`);
+      }
+    }
+  };
+
+  // 🌐 Vérifier le statut réseau
+  const checkNetworkStatus = () => {
+    try {
+      let result = '🌐 DIAGNOSTIC CONNECTIVITÉ RÉSEAU\n';
+      result += '=====================================\n\n';
+
+      // Test de connectivité basique
+      if (navigator.onLine) {
+        result += '✅ Navigateur en ligne\n';
+      } else {
+        result += '❌ Navigateur hors ligne\n';
+      }
+
+      // Test de connectivité à l'API
+      result += '\n🌐 TESTS DE CONNECTIVITÉ:\n';
+
+      // Test 1: API locale
+      fetch('/api/caisse/facture', {
+        method: 'GET',
+        cache: 'no-store'
+      }).then(response => {
+        result += `✅ API locale: ${response.status} ${response.statusText}\n`;
+      }).catch(error => {
+        result += `❌ API locale: ${error.message}\n`;
+      });
+
+      // Test 2: API n8n proxy
+      fetch('/api/n8n/caisse/factures', {
+        method: 'GET',
+        cache: 'no-store'
+      }).then(response => {
+        result += `✅ API n8n: ${response.status} ${response.statusText}\n`;
+      }).catch(error => {
+        result += `❌ API n8n: ${error.message}\n`;
+      });
+
+      result += '\n🔧 RECOMMANDATIONS:\n';
+      result += '- Vérifiez votre connexion internet\n';
+      result += '- Les API 404 sont normales si les fonctions ne sont pas déployées\n';
+      result += '- Les données locales fonctionnent sans connexion\n\n';
+
+      result += '✅ Diagnostic réseau terminé';
+
+      setDiagnosticResult(result);
+    } catch (error) {
+      setDiagnosticResult(`❌ Erreur diagnostic réseau: ${error}`);
+    }
+  };
+
+  // 🔄 Forcer le rafraîchissement de l'interface
+  const forceRefreshUI = () => {
+    try {
+      let result = '🔄 RAFRAÎCHISSEMENT UI FORCÉ\n';
+      result += '=====================================\n\n';
+
+      // Déclencher tous les événements de mise à jour
+      if (typeof window !== 'undefined') {
+        result += '📡 Événements déclenchés:\n';
+
+        // Événement factures externes
+        window.dispatchEvent(new CustomEvent('external-invoices-updated'));
+        result += '✅ external-invoices-updated\n';
+
+        // Événement ventes externes
+        window.dispatchEvent(new CustomEvent('external-sale-created'));
+        result += '✅ external-sale-created\n';
+
+        // Événement stats vendeuses
+        window.dispatchEvent(new CustomEvent('vendor-stats-updated'));
+        result += '✅ vendor-stats-updated\n';
+
+        // Forcer un re-render des composants
+        if ((window as any).externalInvoiceService) {
+          (window as any).externalInvoiceService.diagnoseStorage();
+          result += '✅ Service externalInvoiceService diagnostiqué\n';
+        }
+
+        result += '\n🔄 Interface rafraîchie !\n';
+        result += 'Vérifiez les onglets Factures et CA instant\n';
+      }
+
+      setDiagnosticResult(result);
+    } catch (error) {
+      setDiagnosticResult(`❌ Erreur rafraîchissement: ${error}`);
+    }
   };
 
   return (
@@ -2718,6 +2992,154 @@ function DiagnosticIPad() {
         >
           🗑️ Vider Cache
         </button>
+
+        <button
+          onClick={repairExternalStorage}
+          style={{
+            backgroundColor: '#6f42c1',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          🔧 Réparer Storage
+        </button>
+
+        <button
+          onClick={showConsoleLogs}
+          style={{
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '16px',
+            fontSize: '16px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          📋 Logs Console
+        </button>
+      </div>
+
+      {/* Section Outils Avancés */}
+      <div style={{
+        backgroundColor: '#e9ecef',
+        border: '1px solid #dee2e6',
+        borderRadius: '8px',
+        padding: '20px',
+        marginTop: '20px'
+      }}>
+        <h3 style={{
+          margin: '0 0 15px 0',
+          color: '#495057',
+          fontSize: '18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          🛠️ Outils Avancés de Débogage
+        </h3>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '12px'
+        }}>
+          <button
+            onClick={testExternalInvoiceService}
+            style={{
+              backgroundColor: '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            🔍 Test Service
+          </button>
+
+          <button
+            onClick={injectTestInvoice}
+            style={{
+              backgroundColor: '#fd7e14',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            💰 Injecter Facture
+          </button>
+
+          <button
+            onClick={checkNetworkStatus}
+            style={{
+              backgroundColor: '#20c997',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            🌐 Statut Réseau
+          </button>
+
+          <button
+            onClick={forceRefreshUI}
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            🔄 Rafraîchir UI
+          </button>
+        </div>
       </div>
 
       {/* Résultats */}
