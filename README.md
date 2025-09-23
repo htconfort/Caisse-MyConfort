@@ -1,3 +1,164 @@
+# =========================
+#  Cursor Project Rules
+#  Sync Facturation → Caisse (n8n → HTTP direct)
+# =========================
+
+[context]
+project = "Sync de facture iPad vers Application Caisse"
+goal = "Chaque facture créée sur l’iPad est envoyée en POST à l’API Caisse et devient visible dans l’onglet 'Factures', impacte 'Ventes' et 'CA instant' par vendeuse."
+---
+[workflow.required_chain]
+# Chaînage unique et obligatoire
+# Aucune branche parallèle directe vers l’HTTP
+nodes = [
+  "Webhook Facture",
+  "Normalize",
+  "Set (optionnel secours)",
+  "Caisse Push (direct)",
+  "Respond"
+]
+forbid_parallel_http = true
+---
+[http.caisse_push]
+method = "POST"
+endpoint = "https://caissemyconfort2025.netlify.app/api/caisse/facture"
+headers.Content-Type = "application/json"
+headers.X-Secret = "MySuperSecretKey2025"
+body.source = "$json"            # IMPORTANT: expression exacte
+body.disallow = ["$json.body", "{{ }}", "stringified wrappers", "data wrapper"]
+expect.response_example = "{\"ok\":true,\"enqueued\":1}"
+timeout_seconds = 20
+---
+[normalize.output_contract]
+required_fields = [
+  "numero_facture",
+  "date_facture",
+  "nom_client",
+  "montant_ttc",
+  "payment_method",
+  "vendeuse",
+  "vendorId",
+  "produits"
+]
+assertions = [
+  "numero_facture != ''",
+  "montant_ttc > 0",
+  "Array.isArray(produits) && produits.length >= 1",
+  "vendeuse === 'Sylvie'",
+  "vendorId === 'sylvie'"
+]
+idempotency.key = "numero_facture"      # Si existe déjà côté Caisse → mise à jour, pas de doublon
+---
+[normalize.function_js]
+# Colle ce code dans le nœud "Normalize" (Function / Code JS n8n)
+code = """
+const input = $json || {};
+const data = input.data || input || {};
+const produits = Array.isArray(data.produits)
+  ? data.produits
+  : (Array.isArray(data.items) ? data.items : []);
+
+function num(x, d=0){ const n = Number(x); return Number.isFinite(n) ? n : d; }
+
+const ttcFromItems = produits.reduce((s,p)=>{
+  const q = num(p.quantite ?? p.qty ?? 1, 1);
+  const pu = num(p.prix_ttc ?? p.price_ttc ?? p.price ?? 0, 0);
+  const remise = num(p.remise ?? 0, 0); // ex: 0.2 = -20%
+  const brut = q * pu;
+  return s + (remise ? brut * (1 - remise) : brut);
+}, 0);
+
+const numero_facture = String(data.numero_facture || data.invoiceNumber || `AUTO-${Date.now()}`);
+const date_facture   = String(data.date_facture   || data.invoiceDate   || new Date().toISOString().slice(0,10));
+const nom_client     = String(data.nom_client     || data.clientName    || "Client");
+const payment_method = String(data.payment_method || data.mode_paiement || "card");
+const vendeuse       = String(data.vendeuse       || data.seller        || "Sylvie");
+const vendorId       = String((data.vendorId || data.vendor_id || vendeuse).toLowerCase());
+
+const montant_ttc = num(data.montant_ttc, null) ?? ttcFromItems;
+
+if (!produits.length) throw new Error("Validation: produits vide");
+if (!numero_facture)  throw new Error("Validation: numero_facture vide");
+if (!(montant_ttc > 0)) throw new Error("Validation: montant_ttc <= 0");
+
+return [{
+  json: {
+    numero_facture,
+    date_facture,
+    nom_client,
+    montant_ttc,
+    payment_method,
+    vendeuse,
+    vendorId,
+    produits
+  }
+}];
+"""
+---
+[set.fallback]
+# À insérer SEULEMENT si l’HTTP reçoit encore un body vide
+enabled_when = "http.body_empty"
+keep_only_set = true
+map_fields_as_expressions = [
+  "numero_facture",
+  "date_facture",
+  "nom_client",
+  "montant_ttc",
+  "payment_method",
+  "vendeuse",
+  "vendorId",
+  "produits"
+]
+---
+[json.contract_example]
+pretty = """
+{
+  "numero_facture": "F-SYL-001",
+  "date_facture": "2025-09-23",
+  "nom_client": "Client Test",
+  "montant_ttc": 1440,
+  "payment_method": "card",
+  "vendeuse": "Sylvie",
+  "vendorId": "sylvie",
+  "produits": [
+    { "nom": "Matelas 140x190", "quantite": 1, "prix_ttc": 1440, "remise": 0.2 }
+  ]
+}
+"""
+---
+[checks.before_push]
+steps = [
+  "Run node: Normalize → vérifier l’OUTPUT respecte [normalize.output_contract]",
+  "Open node: Caisse Push (direct) → onglet Request > Body → doit afficher EXACTEMENT l’OUTPUT de Normalize (pas de champ 'data', pas de string JSON)",
+  "Headers présents: Content-Type=application/json & X-Secret=MySuperSecretKey2025",
+  "Réponse attendue = {\"ok\":true,\"enqueued\":1}"
+]
+---
+[observability]
+# Effet attendu sous 5–10 s après le 200 OK
+signals = [
+  "Facture visible dans l’onglet 'Factures'",
+  "Totaux mis à jour dans 'Ventes'",
+  "CA instant impacté pour la vendeuse 'Sylvie'"
+]
+---
+[troubleshooting.fast]
+case."HTTP body vide" = "Vérifie que Body Content Type=JSON + 'Add Expression' → $json (pas $json.body, pas {{ }})"
+case."HTTP body stringifié dans 'data'" = "Passe le Body sur $json (expression), pas sur un champ 'data' texte"
+case."Normalize OK mais HTTP vide" = "Insérer 'Set (fallback)' comme défini en [set.fallback]"
+case."montant_ttc = 0 ou produits = []" = "Corriger la source ou laisse Normalize lever une erreur claire"
+---
+✅ Mode d’emploi éclair
+
+Ajoute ce fichier à la racine du projet sous le nom .cursorrules.
+
+Ouvre Cursor, puis lance/édite ton workflow n8n : garantis le chaînage unique
+Webhook Facture → Normalize → (Set si besoin) → Caisse Push (direct) → Respond.
+
+Dans Caisse Push (direct) : Body → Add Expression → tape $json (sans guillemets).
+
+Teste Normalize seul (doit passer les assertions), puis Caisse Push (réponse {"ok":true,"enqueued":1}).
+
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 
 ### Ce qui a été fait
