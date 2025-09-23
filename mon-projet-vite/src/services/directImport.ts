@@ -104,7 +104,9 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
 
   const run = async () => {
     try {
-      const res = await fetch('/api/caisse/facture', { method: 'GET', cache: 'no-store' });
+      const secret = (import.meta as any).env?.VITE_EXTERNAL_RUN_SECRET as string | undefined;
+      const headers: Record<string, string> = secret ? { 'X-Secret': secret } : {};
+      const res = await fetch('/api/caisse/facture', { method: 'GET', cache: 'no-store', headers });
       if (!res.ok) return;
       const data = await res.json().catch(()=>null);
       if (!data || !Array.isArray(data.invoices) || data.invoices.length === 0) return;
