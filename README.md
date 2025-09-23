@@ -102,22 +102,84 @@ Le nœud "Caisse Push (direct)" envoie un objet vide au lieu du JSON complet.
 // Transformation des données pour format Caisse
 const input = $json;
 
-// Validation et transformation
+// Debug: voir la structure exacte des données
+console.log('🔍 INPUT STRUCTURE:', JSON.stringify(input, null, 2));
+
+// Extraction robuste des champs avec tous les noms possibles
+const numero_facture = String(
+  input.numero_facture ||
+  input.numero ||
+  input.facture_numero ||
+  input.invoiceNumber ||
+  input.number ||
+  input.id ||
+  `F-${Date.now()}`
+).trim();
+
+const montant_ttc = Number(
+  input.montant_ttc ||
+  input.total_ttc ||
+  input.montantTTC ||
+  input.totalTTC ||
+  input.amount ||
+  input.total ||
+  0
+);
+
+const vendeuse = String(
+  input.vendeuse ||
+  input.vendorName ||
+  input.conseiller ||
+  input.vendeur ||
+  input.seller ||
+  input.salesperson ||
+  'Externe'
+).trim();
+
+const vendorId = String(
+  input.vendorId ||
+  input.vendeuse_id ||
+  input.conseiller_id ||
+  vendeuse.toLowerCase().replace(/\s+/g, '')
+).trim() || 'external';
+
+// Produits - essayer tous les formats possibles
+let produits = [];
+if (Array.isArray(input.produits)) {
+  produits = input.produits;
+} else if (Array.isArray(input.products)) {
+  produits = input.products;
+} else if (Array.isArray(input.items)) {
+  produits = input.items;
+} else if (Array.isArray(input.lignes)) {
+  produits = input.lignes;
+} else if (input.produit) {
+  // Format objet unique
+  produits = [input.produit];
+}
+
+// Transformation des produits
+const produitsTransformes = produits.map((p, idx) => ({
+  nom: String(p.nom || p.name || p.productName || p.description || `Produit ${idx + 1}`),
+  quantite: Number(p.quantite || p.quantity || p.qty || p.quantite_produit || 1),
+  prix_ttc: Number(p.prix_ttc || p.unitPriceTTC || p.priceTTC || p.prix_unitaire_ttc || 0),
+  remise: Number(p.remise || p.discount || p.taux_remise || 0)
+}));
+
+// Validation et transformation finale
 const output = {
-  numero_facture: String(input.numero_facture || input.id || ''),
-  date_facture: String(input.date_facture || input.invoiceDate || new Date().toISOString().slice(0,10)),
-  nom_client: input.nom_client || input.client?.name || 'Client',
-  montant_ttc: Number(input.montant_ttc || input.totalTTC || input.amount || 0),
-  payment_method: input.payment_method || input.payment?.method || 'card',
-  vendeuse: input.vendeuse || input.vendorName || 'Externe',
-  vendorId: input.vendorId || 'external',
-  produits: Array.isArray(input.produits) ? input.produits.map(p => ({
-    nom: p.nom || p.name || 'Produit',
-    quantite: Number(p.quantite || p.quantity || p.qty || 1),
-    prix_ttc: Number(p.prix_ttc || p.unitPriceTTC || p.priceTTC || 0),
-    remise: Number(p.remise || p.discount || 0)
-  })) : []
+  numero_facture: numero_facture || `F-${Date.now()}`,
+  date_facture: String(input.date_facture || input.invoiceDate || input.date || new Date().toISOString().slice(0,10)),
+  nom_client: String(input.nom_client || input.client?.name || input.customerName || 'Client'),
+  montant_ttc: montant_ttc > 0 ? montant_ttc : produitsTransformes.reduce((sum, p) => sum + (p.prix_ttc * p.quantite), 0),
+  payment_method: String(input.payment_method || input.payment?.method || input.mode_paiement || 'card'),
+  vendeuse: vendeuse,
+  vendorId: vendorId,
+  produits: produitsTransformes
 };
+
+// Debug: voir le résultat
+console.log('✅ OUTPUT TRANSFORMED:', JSON.stringify(output, null, 2));
 
 return [ { json: output } ];
 ```
@@ -136,18 +198,44 @@ X-Secret: MySuperSecretKey2025
 JSON: {{ $json }}
 ```
 
-⚠️ **IMPORTANT :** Utilisez `{{ $json }}` et PAS `{{ $json.body }}` ou `{{ $json.data }}`
+⚠️ **PROBLÈME IDENTIFIÉ :** Le nœud HTTP envoie `{"data": "JSON_STRING"}` au lieu du JSON direct !
+
+**SOLUTION :**
+1. Dans l'onglet "Body Parameters" du nœud HTTP
+2. **Cliquez sur "Add Expression"** (pas "Add Field")
+3. **Tapez :** `$json`
+4. **Assurez-vous que c'est en mode Expression** (petite icône fx)
+5. **Le body doit montrer le JSON complet** (pas encapsulé dans "data")
 
 #### 3️⃣ Contrôles à Effectuer
 
-1. **Test Normalize :**
-   - Executez seulement jusqu'à Normalize
+1. **Debug - Voir la Structure Entrante :**
+   - Ajoutez un nœud "Code" temporaire avant Normalize
+   - Code : `return [{ json: $json }];` (sans transformation)
+   - Exécutez et voyez la structure exacte dans les logs console
+
+2. **Test Normalize :**
+   - Exécutez seulement jusqu'à Normalize
+   - Vérifiez les logs console pour voir "🔍 INPUT STRUCTURE" et "✅ OUTPUT TRANSFORMED"
    - OUTPUT doit contenir : numero_facture non vide, montant_ttc > 0, vendeuse "Sylvie", vendorId "sylvie", produits ≥ 1
 
-2. **Test HTTP Body :**
+3. **Test HTTP Body :**
    - Dans l'onglet Request du nœud HTTP
    - Body doit montrer le JSON complet (pas de champ "data")
    - Réponse attendue : `{"ok":true,"enqueued":1}`
+
+4. **Debug Complet :**
+   - Si problème persiste, ajoutez temporairement :
+   ```javascript
+   // Debug temporaire
+   console.log('📋 DEBUG - All input keys:', Object.keys($json));
+   console.log('📋 DEBUG - All input values:', JSON.stringify($json, null, 2));
+   ```
+
+5. **Test du Body HTTP :**
+   - Dans l'onglet "Request" du nœud HTTP
+   - Le body doit montrer le JSON complet SANS encapsulation "data"
+   - Si vous voyez `{"data": "JSON_STRING"}`, c'est le problème !
 
 #### 4️⃣ Plan de Secours (si Body encore vide)
 
@@ -175,6 +263,30 @@ JSON: {{ $json }}
   "payment_method": "card",
   "vendeuse": "Sylvie",
   "vendorId": "sylvie",
+  "produits": [
+    {
+      "nom": "Matelas 140x190",
+      "quantite": 1,
+      "prix_ttc": 1440,
+      "remise": 0.2
+    }
+  ]
+}
+```
+
+### Exemple de Structure JSON Entrante (avant Normalize)
+```json
+{
+  "id": "invoice-123",
+  "numero_facture": "F-SYL-001",
+  "date_facture": "2025-09-23",
+  "client": {
+    "nom": "Client Test",
+    "email": "client@test.com"
+  },
+  "montant_ttc": 1440,
+  "payment_method": "card",
+  "vendeuse": "Sylvie",
   "produits": [
     {
       "nom": "Matelas 140x190",
