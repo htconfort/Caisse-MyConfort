@@ -492,13 +492,55 @@ if (window.externalInvoiceService) {
 - ✅ Onglet "Ventes" : factures visibles
 - ✅ Console : logs de mise à jour
 
+### 📊 **VOTRE RAPPORT - ANALYSE :**
+
+**✅ SUCCÈS :**
+```
+📡 Événements déclenchés:
+✅ external-invoices-updated
+✅ external-sale-created
+✅ vendor-stats-updated
+✅ Interface rafraîchie !
+```
+
+**✅ Données présentes :**
+```
+[Log] Factures localStorage: [Object] (1)
+[Object]Array (1)
+```
+
+**⚠️ Erreur attendue :**
+```
+Fetch API cannot load https://caissemycomfort2025.netlify.app/api/caisse/facture
+```
+*(Fonctions Netlify non déployées - normal pour les tests locaux)*
+
 ### 📊 **Résultats Attendus**
 
-#### **Après Réparation Storage :**
+#### **Après Rafraîchissement UI :**
 - ✅ Format localStorage corrigé (array simple)
 - ✅ Factures externes visibles
 - ✅ CA instant mis à jour
 - ✅ Console logs de diagnostic
+
+### 🚀 **PROCHAINES ÉTAPES :**
+
+#### **1. Vérifier l'affichage**
+```
+✅ Onglet "Factures" : Devrait afficher 75 000€
+✅ Onglet "CA instant" : Devrait afficher 75 000€
+✅ Onglet "Ventes" : Devrait afficher les factures
+```
+
+#### **2. Si toujours pas visible (RARE)**
+```
+🗑️ Vider Cache → RAZ complet → Recharger page
+```
+
+#### **3. Test avec injection de facture**
+```
+💰 Injecter Facture → Ajouter une facture test
+```
 
 #### **Après Injection Test :**
 - ✅ Facture test ajoutée (280€ - Sylvie)
