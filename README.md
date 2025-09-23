@@ -171,7 +171,15 @@ L'ancien projet React a été archivé dans `archive-ancien-projet-react-*/` pou
     location.replace(location.pathname+'?v='+Date.now());
     ```
 
-2. **Injectez une facture de test** :
+2. **Testez d'abord le réseau simple** :
+    ```javascript
+    fetch('/api/caisse/facture', {method: 'GET', cache: 'no-store'})
+    .then(r => { console.log('GET status:', r.status, r.ok); return r.json(); })
+    .then(d => console.log('GET data:', d))
+    .catch(e => console.log('GET erreur:', e))
+    ```
+
+3. **Injectez une facture de test** :
     ```javascript
     fetch('/api/caisse/facture',{
       method:'POST',
@@ -189,10 +197,10 @@ L'ancien projet React a été archivé dans `archive-ancien-projet-react-*/` pou
     }).then(r=>r.json()).then(console.log).catch(console.error)
     ```
 
-3. **Attendez 5–10 s**, puis ouvrez :
+4. **Attendez 5–10 s**, puis ouvrez :
     - **"CA instant"** : Devrait afficher 1 440 € sous Sylvie
     - **"Ventes"** : Devrait lister la vente F-TEST-SYLVIE
 
-4. **Si rien n'apparaît**, vérifiez les logs console (onglet "CA instant" génère des logs "📊 CA INSTANTANÉ").
+5. **Si rien n'apparaît**, vérifiez les logs console (onglet "CA instant" génère des logs "📊 CA INSTANTANÉ").
 
 **Version actuelle** : v3.0.0-deduction-stock-automatique

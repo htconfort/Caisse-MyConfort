@@ -111,9 +111,7 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
   const run = async () => {
     try {
       console.log('🔄 Direct polling: récupération factures...');
-      const secret = (import.meta as any).env?.VITE_EXTERNAL_RUN_SECRET as string | undefined;
-      const headers: Record<string, string> = secret ? { 'X-Secret': secret } : {};
-      const res = await fetch('/api/caisse/facture', { method: 'GET', cache: 'no-store', headers });
+      const res = await fetch('/api/caisse/facture', { method: 'GET', cache: 'no-store' });
       console.log('🔄 Direct polling: status', res.status, res.ok ? 'OK' : 'KO');
 
       if (!res.ok) {
@@ -161,7 +159,9 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
       }
       console.log('🔄 Dispatch external-invoices-updated');
       window.dispatchEvent(new CustomEvent('external-invoices-updated'));
-    } catch {}
+    } catch (error) {
+      console.error('❌ Erreur polling:', error);
+    }
   };
 
   setInterval(run, intervalMs);
