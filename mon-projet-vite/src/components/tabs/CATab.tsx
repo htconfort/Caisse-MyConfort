@@ -1,7 +1,7 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { TrendingUp, DollarSign } from 'lucide-react';
-import type { Sale, Vendor } from '../../types';
 import type { Invoice } from '@/services/syncService';
+import { DollarSign, TrendingUp } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { Sale, Vendor } from '../../types';
 
 interface CATabProps {
   sales: Sale[];
@@ -10,12 +10,21 @@ interface CATabProps {
 }
 
 export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) => {
+  console.log('🔄 CATab RENDER - Inputs:', {
+    salesCount: sales.length,
+    vendorStatsCount: vendorStats.length,
+    invoicesCount: invoices.length,
+    currentTime: new Date().toLocaleTimeString()
+  });
+
   // État local pour les factures externes (se met à jour via événements)
   const [externalInvoices, setExternalInvoices] = useState<Invoice[]>(invoices);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
 
   // Écouter les événements de mise à jour des factures externes
   useEffect(() => {
+    console.log('🔄 CA Instant: initialisation des écouteurs d événements');
+
     const handleExternalInvoicesUpdate = () => {
       console.log('🔄 CA Instant: événement external-invoices-updated reçu');
       setLastUpdate(Date.now()); // Force re-render
@@ -137,31 +146,52 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
       });
 
     // 2. 🎯 Ajouter le CA des factures N8N du jour pour chaque vendeuse
+    console.log(`📄 TRAITEMENT FACTURES EXTERNES (${currentInvoices.length} factures)`);
     currentInvoices
       .filter(invoice => isToday(invoice.createdAt))
       .forEach(invoice => {
-        if (invoice.vendorId) {
-          const invoiceTotal = invoice.totalTTC ||
-            invoice.items.reduce((sum, item) => sum + (item.totalPrice || item.unitPrice * item.quantity), 0);
+        console.log(`    📄 Facture ${invoice.number} - Date: ${invoice.createdAt} - VendorID: "${invoice.vendorId}" - VendorName: "${invoice.vendorName}"`);
 
+        const invoiceTotal = invoice.totalTTC ||
+          invoice.items.reduce((sum, item) => sum + (item.totalPrice || item.unitPrice * item.quantity), 0);
+
+        console.log(`    📄 Montant calculé: ${invoiceTotal}€ (TTC: ${invoice.totalTTC}, items: ${invoice.items.length})`);
+
+        if (invoice.vendorId && invoice.vendorId !== 'external') {
+          console.log(`    ✅ Facture VALIDÉE pour vendeuse: ${invoice.vendorId}`);
           if (!caByVendor[invoice.vendorId]) {
             caByVendor[invoice.vendorId] = 0;
           }
           caByVendor[invoice.vendorId] += invoiceTotal;
-
-          console.log(`    → Facture ${invoice.number} du ${new Date(invoice.createdAt).toLocaleDateString('fr-FR')} - ${invoice.vendorName}: +${invoiceTotal}€`);
+          console.log(`    ✅ CA ajouté à ${invoice.vendorId}: +${invoiceTotal}€ (total: ${caByVendor[invoice.vendorId]}€)`);
         } else {
-          console.log(`⚠️ Facture ${invoice.number} sans vendorId (vendorName: ${invoice.vendorName})`);
+          console.log(`    ❌ Facture IGNORÉE - vendorId invalide: "${invoice.vendorId}"`);
+          console.log(`    📋 Détails facture:`, {
+            number: invoice.number,
+            createdAt: invoice.createdAt,
+            vendorId: invoice.vendorId,
+            vendorName: invoice.vendorName,
+            totalTTC: invoice.totalTTC,
+            items: invoice.items
+          });
         }
       });
 
     // 3. Mapper avec les données des vendeuses
-    const result = vendorStats.map(vendor => ({
-      ...vendor,
-      realCA: caByVendor[vendor.id] || 0
-    })).sort((a, b) => b.realCA - a.realCA); // Trier par CA décroissant
-    
-    console.log(`👥 CA PAR VENDEUSE:`, result.filter(v => v.realCA > 0));
+    console.log(`👥 MAPPING CA PAR VENDEUSE:`);
+    console.log(`   - caByVendor:`, caByVendor);
+    console.log(`   - vendorStats disponibles:`, vendorStats.map(v => `${v.id}: ${v.name}`));
+
+    const result = vendorStats.map(vendor => {
+      const ca = caByVendor[vendor.id] || 0;
+      console.log(`   📊 ${vendor.name} (${vendor.id}): ${ca}€`);
+      return {
+        ...vendor,
+        realCA: ca
+      };
+    }).sort((a, b) => b.realCA - a.realCA); // Trier par CA décroissant
+
+    console.log(`👥 CA PAR VENDEUSE (FINAL):`, result.filter(v => v.realCA > 0));
     
     return result;
   }, [sales, currentInvoices, vendorStats]);
