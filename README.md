@@ -714,7 +714,63 @@ Factures → CA instant → Ventes
 Créez une facture test pour voir la mise à jour en temps réel
 ```
 
-#### **4. Si problème persiste**
+#### **4. Test avec injection de facture**
+```
+💰 Injecter Facture → Ajouter une facture test (280€ - Sylvie)
+```
+
+##### **Étape 1 : Aller dans l'onglet diagnostic**
+```
+Gestion → 🔧 Diagnostic
+```
+
+##### **Étape 2 : Injecter une facture**
+```
+💰 Injecter Facture (280€ - Sylvie)
+```
+
+##### **Étape 3 : Vérifier les résultats**
+```
+✅ Onglet "Factures" : 1 facture test visible
+✅ Onglet "CA instant" : 280€ sous Sylvie
+✅ Onglet "Ventes" : facture test visible
+```
+
+#### **5. Si problème persiste**
+```
+🗑️ Vider Cache → RAZ complet → Recharger page
+```
+
+### 🔍 **DIAGNOSTIC SI CA INSTANT TOUJOURS À ZÉRO :**
+
+#### **1. Console JavaScript (F12)**
+```javascript
+// Vérifier les vendeuses
+console.log('Vendeuses dans localStorage:', JSON.parse(localStorage.getItem('myconfort-vendors')));
+
+// Vérifier les factures
+console.log('Factures dans localStorage:', JSON.parse(localStorage.getItem('mycomfort_external_invoices')));
+
+// Forcer la mise à jour
+window.dispatchEvent(new CustomEvent('external-invoices-updated'));
+window.dispatchEvent(new CustomEvent('external-sale-created'));
+window.dispatchEvent(new CustomEvent('vendor-stats-updated'));
+
+// Vérifier l'état du service
+if (window.externalInvoiceService) {
+  console.log('Service factures:', window.externalInvoiceService.getAllInvoices());
+}
+```
+
+#### **2. Résultats attendus :**
+```
+✅ Vendeuses dans localStorage: [5 vendeuses]
+✅ Factures dans localStorage: [1 facture]
+✅ Service factures: [1 facture]
+✅ Événements déclenchés
+```
+
+#### **3. Si les données sont là mais l'affichage ne marche pas**
 ```
 🗑️ Vider Cache → RAZ complet → Recharger page
 ```
