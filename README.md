@@ -339,6 +339,85 @@ setTimeout(() => {
 }, 1000);
 ```
 
+### ⚠️ **PROBLÈME DÉTECTÉ : Vendeuses non synchronisées**
+
+**Diagnostic :** Les vendeuses dans la base de données n'ont pas les mêmes IDs que celles par défaut.
+- **Vendeuses par défaut :** IDs numériques ('1', '2', '3', ...)
+- **Factures externes :** IDs textuels ('sylvie', 'babette', ...)
+
+**Diagnostic d'abord :**
+```javascript
+// Code console iPad pour diagnostiquer les vendeuses
+(() => {
+  console.log('🔍 DIAGNOSTIC VENDEUSES :');
+
+  // Lister toutes les clés localStorage
+  console.log('📋 Clés localStorage :');
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.includes('vendor')) {
+      const value = localStorage.getItem(key);
+      console.log(`  ${key}: ${value}`);
+    }
+  }
+
+  // Lister les vendeuses par défaut attendues
+  const vendeusesAttendu = [
+    { id: 'sylvie', name: 'Sylvie' },
+    { id: 'babette', name: 'Babette' },
+    { id: 'lucia', name: 'Lucia' },
+    { id: 'cathy', name: 'Cathy' },
+    { id: 'johan', name: 'Johan' },
+    { id: 'sabrina', name: 'Sabrina' },
+    { id: 'billy', name: 'Billy' }
+  ];
+
+  console.log('🎯 Vendeuses attendues :');
+  vendeusesAttendu.forEach(v => {
+    const key = `myconfort-vendor-${v.id}`;
+    const value = localStorage.getItem(key);
+    if (value) {
+      console.log(`  ✅ ${v.name} (${v.id}): existe`);
+    } else {
+      console.log(`  ❌ ${v.name} (${v.id}): MANQUANTE !`);
+    }
+  });
+
+  console.log('📊 Résumé :');
+  console.log(`   - Vendeuses trouvées : ${document.querySelectorAll('[data-vendor-id]').length}`);
+  console.log(`   - Onglets vendeuses : ${document.querySelectorAll('.vendor-tab').length || 'N/A'}`);
+})();
+```
+
+**Puis synchroniser :**
+```javascript
+// Code console iPad pour synchroniser les vendeuses
+(() => {
+  const vendeusesDefaut = [
+    { id: 'sylvie', name: 'Sylvie', color: '#477A0C' },
+    { id: 'babette', name: 'Babette', color: '#F55D3E' },
+    { id: 'lucia', name: 'Lucia', color: '#14281D' },
+    { id: 'cathy', name: 'Cathy', color: '#080F0F' },
+    { id: 'johan', name: 'Johan', color: '#89BBFE' },
+    { id: 'sabrina', name: 'Sabrina', color: '#D68FD6' },
+    { id: 'billy', name: 'Billy', color: '#FFFF99' }
+  ];
+
+  let ajoutees = 0;
+  vendeusesDefaut.forEach(v => {
+    const key = `myconfort-vendor-${v.id}`;
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem(key, JSON.stringify(v));
+      console.log(`✅ Ajoutée: ${v.name} (${v.id})`);
+      ajoutees++;
+    }
+  });
+
+  console.log(`📊 ${ajoutees} vendeuses ajoutées`);
+  alert(`✅ ${ajoutees} vendeuses synchronisées ! Rechargez l'app.`);
+})();
+```
+
 ### Étapes suivantes conseillées
 - Finaliser la route n8n (GET) et retester `/api/n8n/caisse/factures?limit=10`
 - Option serveur (webhook → polling) si besoin d'un flux push côté "Facture"
