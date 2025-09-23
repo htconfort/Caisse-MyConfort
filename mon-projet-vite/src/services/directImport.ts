@@ -1,6 +1,7 @@
 import type { InvoiceItem, InvoicePayload } from '@/types';
 import { externalInvoiceService } from './externalInvoiceService';
 import { createSale, type CreateSalePayload } from './salesService';
+import { resolveVendor } from '@/utils/vendorMapping';
 
 function b64ToUtf8(b64: string): string {
   try {
@@ -55,8 +56,9 @@ export async function processImportFromHash(): Promise<boolean> {
     window.dispatchEvent(new CustomEvent('external-invoices-updated'));
 
     // 2) Créer une vente rattachée à la vendeuse
-    const vendorName: string = raw.vendeuse || raw.vendorName || 'Externe';
-    const vendorId: string = raw.vendorId || 'external';
+    const resolved = resolveVendor(raw.vendeuse || raw.vendorName);
+    const vendorName: string = resolved.vendorName;
+    const vendorId: string = resolved.vendorId;
     const timestamp = Date.parse(payload.invoiceDate) || Date.now();
     const totalAmount = payload.totals.ttc;
     const paymentMethod = (payload.payment?.method as any) || 'card';
@@ -119,8 +121,7 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
         externalInvoiceService.receiveInvoice(payload);
         // créer la vente et mettre à jour CA
         const salePayload: CreateSalePayload = {
-          vendorId: raw.vendorId || 'external',
-          vendorName: raw.vendeuse || 'Externe',
+          ...resolveVendor(raw.vendeuse || raw.vendorName),
           totalAmount: payload.totals.ttc,
           paymentMethod: (payload.payment?.method as any) || 'card',
           canceled: false,
