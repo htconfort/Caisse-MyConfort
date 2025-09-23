@@ -74,33 +74,14 @@ const CompactInvoicesDisplay: React.FC<CompactInvoicesDisplayProps> = ({
   const [statusFilter, setStatusFilter] = useState('');
   const [periodFilter, setPeriodFilter] = useState('');
 
-  const productionGuard = (typeof window !== 'undefined') && (window.PRODUCTION_MODE || window.DISABLE_ALL_DEMO_DATA || window.FORCE_EMPTY_INVOICES);
+  // Ne pas masquer les factures externes en production
+  const productionGuard = false;
 
   // Unification des factures internes et externes
   const unifiedInvoices: UnifiedInvoice[] = useMemo(() => {
     const unified: UnifiedInvoice[] = [];
 
-    if (productionGuard) {
-      // En production: n'afficher aucune facture externe issue de toute source démo
-      // On conserve les internes uniquement si demandé
-      if (!showExternalOnly) {
-        internalInvoices.forEach(sale => {
-          const d = toSafeDate(sale.date);
-          unified.push({
-            id: sale.id,
-            number: sale.id.substring(0, 8),
-            client: { name: sale.vendorName || 'Client interne', email: '', phone: '' },
-            date: d.toISOString(),
-            products: { count: sale.items.length, firstProduct: sale.items[0]?.name || 'Aucun produit' },
-            status: sale.canceled ? 'unpaid' : 'paid',
-            amount: sale.totalAmount,
-            type: 'internal',
-            originalData: sale
-          });
-        });
-      }
-      return unified.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }
+    // productionGuard désactivé: on affiche externes + internes suivant les options
 
     // Ajouter les factures externes
     if (!showInternalOnly) {
