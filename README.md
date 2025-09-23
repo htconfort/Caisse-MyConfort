@@ -332,6 +332,11 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 - **Fonction** : Déclenchement forcé des événements UI
 - **Utilisation** : Forcer la mise à jour des onglets
 
+#### **👥 Sync Vendeuses**
+- **Fonction** : Diagnostic et synchronisation complète des vendeuses
+- **Résultat** : Résout le triangle rouge "Vendeuses non synchronisées"
+- **Utilisation** : Corriger les problèmes de vendeuses manquantes/en trop
+
 ### 🎯 **Workflow de Diagnostic Recommandé**
 
 #### **1. Diagnostic Initial**
@@ -554,6 +559,55 @@ Fetch API cannot load https://caissemycomfort2025.netlify.app/api/caisse/facture
 - ✅ **Débogage complet** : logs, réseau, services
 - ✅ **Guide utilisateur** : workflow recommandé
 - ✅ **Sauvegarde** : export des diagnostics
+
+## 🚨 **RÉSOUDRE LE TRIANGLE ROUGE "VENDEUSES NON SYNCHRONISÉES"**
+
+### 📊 **Le Problème :**
+- ❌ Triangle rouge en bas à droite : "Vendeuses non synchronisées"
+- ❌ Différences entre iPad et ordinateur
+- ❌ Vendeuses manquantes ou en trop
+
+### 🔧 **Solution avec l'outil "👥 Sync Vendeuses" :**
+
+#### **1. Aller dans l'onglet diagnostic**
+```
+Gestion → 🔧 Diagnostic
+```
+
+#### **2. Cliquer sur "👥 Sync Vendeuses" (rose)**
+- **Analyse complète** : compare localStorage vs liste par défaut
+- **Détection automatique** : trouve les vendeuses manquantes/en trop
+- **Synchronisation** : corrige automatiquement les différences
+- **Notification UI** : met à jour l'interface
+
+#### **3. Résultats attendus :**
+```
+✅ Vendeuses synchronisées
+✅ Triangle rouge disparu
+✅ CA instant cohérent
+✅ Pas de différences iPad/ordinateur
+```
+
+### 🎯 **Ce que l'outil fait :**
+
+#### **Diagnostic détaillé :**
+- 📋 **Vendeuses par défaut** : Sylvie, Lucia, Babette, Billy, Sabrina
+- 💾 **Vendeuses localStorage** : état actuel
+- 🔍 **Comparaison** : différences détectées
+- 📱 **Vendeuses interface** : actuellement affichées
+
+#### **Actions automatiques :**
+- ✅ **Ajout** des vendeuses manquantes
+- ✅ **Suppression** des vendeuses en trop
+- ✅ **Correction** des couleurs et propriétés
+- ✅ **Sauvegarde** dans localStorage
+- ✅ **Notification** des composants
+
+#### **Résultat concret :**
+- ✅ **Triangle rouge** : disparaît automatiquement
+- ✅ **CA instant** : cohérent entre iPad et ordinateur
+- ✅ **Vendeuses** : liste complète et synchronisée
+- ✅ **Pas de différences** : données identiques partout
 
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 

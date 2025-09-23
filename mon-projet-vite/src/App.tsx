@@ -2882,6 +2882,177 @@ function DiagnosticIPad() {
     }
   };
 
+  // 👥 Diagnostiquer et synchroniser les vendeuses
+  const diagnoseVendeuses = () => {
+    try {
+      let result = '👥 DIAGNOSTIC ET SYNCHRONISATION VENDEUSES\n';
+      result += '=====================================\n\n';
+
+      // Vendeuses par défaut du système
+      const defaultVendeuses = [
+        { id: 'sylvie', name: 'Sylvie', color: '#667eea' },
+        { id: 'lucia', name: 'Lucia', color: '#764ba2' },
+        { id: 'babette', name: 'Babette', color: '#f093fb' },
+        { id: 'billy', name: 'Billy', color: '#4facfe' },
+        { id: 'sabrina', name: 'Sabrina', color: '#00f2fe' }
+      ];
+
+      result += '📋 VENDEUSES PAR DÉFAUT:\n';
+      defaultVendeuses.forEach(v => {
+        result += `  - ${v.name} (${v.id}) - couleur: ${v.color}\n`;
+      });
+      result += '\n';
+
+      // Vendeuses dans localStorage
+      result += '💾 VENDEUSES DANS LOCALSTORAGE:\n';
+      const storedVendeuses = localStorage.getItem('myconfort-vendors');
+      let vendeusesLocales = [];
+
+      if (storedVendeuses) {
+        try {
+          vendeusesLocales = JSON.parse(storedVendeuses);
+          if (Array.isArray(vendeusesLocales)) {
+            result += `✅ Format: Array (${vendeusesLocales.length} vendeuses)\n`;
+            vendeusesLocales.forEach(v => {
+              result += `  - ${v.name} (${v.id}) - couleur: ${v.color || 'non définie'}\n`;
+            });
+          } else {
+            result += '⚠️ Format: Object (corrompu)\n';
+            result += '🔧 Conversion en cours...\n';
+            vendeusesLocales = Object.values(vendeusesLocales);
+          }
+        } catch {
+          result += '❌ Erreur lecture localStorage\n';
+          vendeusesLocales = [];
+        }
+      } else {
+        result += '📦 Aucune vendeuse dans localStorage\n';
+        result += '🔧 Création des vendeuses par défaut...\n';
+        vendeusesLocales = [];
+      }
+
+      result += '\n';
+
+      // Comparaison et diagnostic
+      result += '🔍 COMPARAISON ET DIAGNOSTIC:\n';
+
+      const differences = [];
+      const vendeusesManquantes = [];
+      const vendeusesEnTrop = [];
+
+      // Vérifier les vendeuses manquantes
+      defaultVendeuses.forEach(def => {
+        const found = vendeusesLocales.find(loc => loc.id === def.id);
+        if (!found) {
+          vendeusesManquantes.push(def);
+        }
+      });
+
+      // Vérifier les vendeuses en trop
+      vendeusesLocales.forEach(loc => {
+        const found = defaultVendeuses.find(def => def.id === loc.id);
+        if (!found) {
+          vendeusesEnTrop.push(loc);
+        }
+      });
+
+      if (vendeusesManquantes.length > 0) {
+        result += '⚠️ VENDEUSES MANQUANTES:\n';
+        vendeusesManquantes.forEach(v => {
+          result += `  - ${v.name} (${v.id}) - à ajouter\n`;
+        });
+        differences.push(`${vendeusesManquantes.length} vendeuses manquantes`);
+      }
+
+      if (vendeusesEnTrop.length > 0) {
+        result += '⚠️ VENDEUSES EN TROP:\n';
+        vendeusesEnTrop.forEach(v => {
+          result += `  - ${v.name} (${v.id}) - à supprimer\n`;
+        });
+        differences.push(`${vendeusesEnTrop.length} vendeuses en trop`);
+      }
+
+      if (differences.length === 0) {
+        result += '✅ Toutes les vendeuses sont synchronisées !\n';
+      } else {
+        result += '❌ SYNCHRONISATION REQUISE\n';
+        result += `Problèmes détectés: ${differences.join(', ')}\n`;
+      }
+
+      result += '\n';
+
+      // Vérifier les vendeuses actuelles dans l'interface
+      result += '📱 VENDEUSES ACTUELLES DANS L\'INTERFACE:\n';
+      const vendorStats = (window as any).vendorStats || [];
+      if (vendorStats.length > 0) {
+        result += `✅ ${vendorStats.length} vendeuses affichées:\n`;
+        vendorStats.forEach(v => {
+          result += `  - ${v.name} (${v.id}) - CA: ${v.realCA || 0}€\n`;
+        });
+      } else {
+        result += '❌ Aucune vendeuse dans l\'interface\n';
+      }
+
+      result += '\n';
+
+      // Actions de correction
+      result += '🔧 ACTIONS DE CORRECTION:\n';
+
+      if (vendeusesManquantes.length > 0 || vendeusesEnTrop.length > 0) {
+        result += '🔄 Synchronisation automatique...\n';
+
+        // Créer la liste complète et synchronisée
+        const synchronizedVendeuses = [];
+
+        // Ajouter les vendeuses par défaut
+        defaultVendeuses.forEach(def => {
+          const existing = vendeusesLocales.find(loc => loc.id === def.id);
+          if (existing) {
+            // Mettre à jour avec les valeurs par défaut si nécessaire
+            synchronizedVendeuses.push({
+              ...def,
+              ...existing,
+              name: existing.name || def.name,
+              color: existing.color || def.color
+            });
+          } else {
+            // Ajouter la vendeuse manquante
+            synchronizedVendeuses.push(def);
+          }
+        });
+
+        // Sauvegarder la liste synchronisée
+        localStorage.setItem('myconfort-vendors', JSON.stringify(synchronizedVendeuses));
+
+        result += `✅ ${synchronizedVendeuses.length} vendeuses synchronisées\n`;
+        result += '📋 Liste mise à jour:\n';
+        synchronizedVendeuses.forEach(v => {
+          result += `  - ${v.name} (${v.id}) - couleur: ${v.color}\n`;
+        });
+
+        // Notifier l'interface
+        window.dispatchEvent(new CustomEvent('vendor-stats-updated'));
+        result += '\n🔄 Interface notifiée de la synchronisation\n';
+      }
+
+      // Recommandations finales
+      result += '\n💡 RECOMMANDATIONS:\n';
+      if (differences.length === 0) {
+        result += '✅ Aucune action requise - vendeuses synchronisées\n';
+        result += 'Le triangle rouge en bas à droite devrait disparaître\n';
+      } else {
+        result += '🔄 Rechargez la page pour voir les changements\n';
+        result += 'Le triangle de notification devrait maintenant être résolu\n';
+      }
+
+      result += '\n✅ Diagnostic vendeuses terminé';
+
+      setDiagnosticResult(result);
+    } catch (error) {
+      setDiagnosticResult(`❌ Erreur diagnostic vendeuses: ${error}`);
+    }
+  };
+
   return (
     <div>
       {/* En-tête */}
@@ -3138,6 +3309,26 @@ function DiagnosticIPad() {
             }}
           >
             🔄 Rafraîchir UI
+          </button>
+
+          <button
+            onClick={diagnoseVendeuses}
+            style={{
+              backgroundColor: '#e83e8c',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '12px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            👥 Sync Vendeuses
           </button>
         </div>
       </div>
