@@ -197,6 +197,24 @@ export default function CaisseMyConfortApp() {
     void sessionService.ensureSession('app');
   }, []);
 
+  // Ecoute les ventes externes et alimente le même flux que le panier classique
+  useEffect(() => {
+    const onExternalSale = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { sale?: Sale } | undefined;
+      const sale = detail?.sale;
+      if (!sale) return;
+      // Ajouter la vente dans l'état sales
+      setSales(prev => [...prev, sale]);
+      // Mettre à jour le CA de la vendeuse concernée
+      setVendorStats(prev => prev.map(v => v.id === sale.vendorId
+        ? { ...v, dailySales: (v.dailySales ?? 0) + sale.totalAmount, totalSales: (v.totalSales ?? 0) + sale.totalAmount }
+        : v
+      ));
+    };
+    window.addEventListener('external-sale-created', onExternalSale as EventListener);
+    return () => window.removeEventListener('external-sale-created', onExternalSale as EventListener);
+  }, [setSales, setVendorStats]);
+
   // 🔧 MIGRATION: Ajouter cartMode='classique' aux ventes existantes sans ce champ
   useEffect(() => {
     const migrateExistingSales = () => {

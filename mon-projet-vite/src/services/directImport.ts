@@ -80,7 +80,11 @@ export async function processImportFromHash(): Promise<boolean> {
       items
     } as CreateSalePayload;
 
-    await createSale(salePayload);
+    const created = await createSale(salePayload);
+    // Notifier l'UI pour mettre à jour le CA instant et la liste des ventes
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('external-sale-created', { detail: { sale: created } }));
+    }
 
     // 3) Nettoyer le hash pour éviter réimport au refresh
     const url = new URL(window.location.href);
@@ -130,7 +134,10 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
             addedAt: new Date()
           }))
         } as CreateSalePayload;
-        await createSale(salePayload);
+        const created = await createSale(salePayload);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('external-sale-created', { detail: { sale: created } }));
+        }
       }
       window.dispatchEvent(new CustomEvent('external-invoices-updated'));
     } catch {}
