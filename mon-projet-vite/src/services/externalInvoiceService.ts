@@ -482,14 +482,27 @@ ExternalInvoiceService.prototype.normalizeAnyToInvoicePayload = function (raw: a
   const rawItems = Array.isArray(raw.products) ? raw.products : Array.isArray(raw.items) ? raw.items : Array.isArray(raw.produits) ? raw.produits : [];
   const items: InvoiceItem[] = rawItems.map((p: any, idx: number) => {
     const qty = Number(p.quantity ?? p.qty ?? p.quantite ?? 1);
-    const tvaRate = Number(p.tvaRate ?? p.taux_tva ?? 0.2);
-    const priceTTC = Number(
-      (p.totalPrice && qty ? p.totalPrice / qty : undefined) ??
-      p.unitPriceTTC ?? p.prix_ttc
-    );
-    const unitPriceHT = Number(p.unitPriceHT ?? p.prix_ht ?? (priceTTC ? priceTTC / (1 + tvaRate) : 0));
+    const discountRate = Number(p.discount ?? p.remise ?? 0);
+
+    // Nouveau format prioritaire: prix_ttc (prix TTC unitaire après remise)
+    const unitPriceTTC = Number(p.prix_ttc ?? p.unitPriceTTC ?? p.priceTTC ?? 0);
+
+    // Calcul du prix HT à partir du prix TTC et de la remise
+    let unitPriceHT = 0;
+    if (unitPriceTTC > 0) {
+      // Si prix TTC fourni, calculer le HT avec TVA 20% par défaut
+      unitPriceHT = Math.round(unitPriceTTC / 1.2 * 100) / 100;
+    } else {
+      // Fallback ancien format: prix_ht direct
+      unitPriceHT = Number(p.unitPriceHT ?? p.prix_ht ?? p.priceHT ?? 0);
+    }
+
+    // Calcul de la TVA
+    const tvaRate = unitPriceTTC > 0 && unitPriceHT > 0 ?
+      Math.round(((unitPriceTTC - unitPriceHT) / unitPriceHT) * 100) / 100 : 0.2;
+
     return {
-      sku: p.sku || `${invoiceNumber}-${idx}`,
+      sku: p.sku || p.code || `${invoiceNumber}-${idx}`,
       name: p.name || p.productName || p.nom || 'Produit',
       qty,
       unitPriceHT,

@@ -37,7 +37,7 @@ Exemple d’URL d’import:
 ```
 https://votre-domaine.netlify.app/#import=<BASE64_DU_JSON>
 ```
-JSON minimum attendu:
+JSON minimum attendu (format avec prix TTC et remise):
 ```json
 {
   "numero_facture": "F-TEST-001",
@@ -46,11 +46,45 @@ JSON minimum attendu:
   "montant_ttc": 120,
   "payment_method": "card",
   "vendeuse": "Alice",
-  "produits": [ { "nom": "Produit X", "prix_ht": 100, "quantite": 1 } ]
+  "produits": [
+    {
+      "nom": "Produit X",
+      "quantite": 1,
+      "prix_ttc": 120,
+      "remise": 0
+    }
+  ]
 }
 ```
 
 Le JSON est encodé en base64 (UTF‑8). À l’ouverture de l’URL, la facture est stockée et une vente est créée immédiatement (CA vendeuse mis à jour, visible dans l’onglet Ventes).
+
+### Format Produit Attendu (quantité, prix TTC, remise)
+
+Pour les produits dans les factures, le système attend ce format :
+
+```json
+{
+  "produits": [
+    {
+      "nom": "Matelas 140x190",
+      "quantite": 1,
+      "prix_ttc": 1440,
+      "remise": 0.2
+    }
+  ]
+}
+```
+
+- `quantite` : nombre d'unités
+- `prix_ttc` : prix TTC par unité (après remise)
+- `remise` : taux de remise appliquée (ex: 0.2 = 20%)
+
+### Règle d'Idempotence
+
+- **Clé unique** : `numero_facture`
+- **Comportement** : Si une facture avec le même numéro existe déjà, elle est mise à jour (upsert) au lieu d'être dupliquée
+- **Prévention des doublons** : Garantit qu'une même facture n'est comptabilisée qu'une seule fois dans le CA
 
 ### Étapes suivantes conseillées
 - Finaliser la route n8n (GET) et retester `/api/n8n/caisse/factures?limit=10`
@@ -179,7 +213,7 @@ L'ancien projet React a été archivé dans `archive-ancien-projet-react-*/` pou
     .catch(e => console.log('GET erreur:', e))
     ```
 
-3. **Injectez une facture de test** :
+3. **Injectez une facture de test (format avec prix TTC et remise)** :
     ```javascript
     fetch('/api/caisse/facture',{
       method:'POST',
@@ -192,7 +226,12 @@ L'ancien projet React a été archivé dans `archive-ancien-projet-react-*/` pou
         payment_method:'card',
         vendeuse:'Sylvie',
         vendorId:'sylvie',
-        produits:[{nom:'Matelas 140x190',prix_ht:1200,quantite:1}]
+        produits:[{
+          nom:'Matelas 140x190',
+          quantite:1,
+          prix_ttc:1440,
+          remise:0.2
+        }]
       })
     }).then(r=>r.json()).then(console.log).catch(console.error)
     ```
