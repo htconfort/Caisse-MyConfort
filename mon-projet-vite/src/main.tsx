@@ -1,8 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
 import App from './App.tsx'
-import { processImportFromHash } from './services/directImport'
+import './index.css'
+import { processImportFromHash, startDirectWebhookPolling } from './services/directImport'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,3 +13,6 @@ createRoot(document.getElementById('root')!).render(
 
 // Import direct via hash (#import=base64)
 processImportFromHash().catch(() => {})
+
+// Démarrage d'un polling léger pour consommer les factures poussées par webhook
+startDirectWebhookPolling(5000)

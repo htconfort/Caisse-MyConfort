@@ -1,6 +1,6 @@
+import type { InvoiceItem, InvoicePayload } from '@/types';
 import { externalInvoiceService } from './externalInvoiceService';
 import { createSale, type CreateSalePayload } from './salesService';
-import type { InvoiceItem, InvoicePayload } from '@/types';
 
 function b64ToUtf8(b64: string): string {
   try {
@@ -93,6 +93,48 @@ export async function processImportFromHash(): Promise<boolean> {
     console.error('❌ Import direct échoué:', e);
     return false;
   }
+}
+
+// 🔄 Poll léger: consommer immédiatement les POST entrants via la Function (si l’app de facturation push)
+export function startDirectWebhookPolling(intervalMs: number = 5000): void {
+  if (typeof window === 'undefined') return;
+  const key = '__directWebhookPolling';
+  if ((window as any)[key]) return; // éviter doublons
+  (window as any)[key] = true;
+
+  const run = async () => {
+    try {
+      const res = await fetch('/api/caisse/facture', { method: 'GET', cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json().catch(()=>null);
+      if (!data || !Array.isArray(data.invoices) || data.invoices.length === 0) return;
+      for (const raw of data.invoices) {
+        const payload = toInvoicePayload(raw);
+        externalInvoiceService.receiveInvoice(payload);
+        // créer la vente et mettre à jour CA
+        const salePayload: CreateSalePayload = {
+          vendorId: raw.vendorId || 'external',
+          vendorName: raw.vendeuse || 'Externe',
+          totalAmount: payload.totals.ttc,
+          paymentMethod: (payload.payment?.method as any) || 'card',
+          canceled: false,
+          timestamp: Date.parse(payload.invoiceDate) || Date.now(),
+          items: payload.items.map(it => ({
+            id: `${payload.invoiceNumber}-${it.sku}`,
+            name: it.name,
+            price: Math.round(it.unitPriceHT * (1 + it.tvaRate) * 100) / 100,
+            quantity: it.qty,
+            category: 'Externe',
+            addedAt: new Date()
+          }))
+        } as CreateSalePayload;
+        await createSale(salePayload);
+      }
+      window.dispatchEvent(new CustomEvent('external-invoices-updated'));
+    } catch {}
+  };
+
+  setInterval(run, intervalMs);
 }
 
 
