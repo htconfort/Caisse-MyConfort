@@ -179,13 +179,32 @@ curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
 ```
 **Résultat attendu :** CA instant = 10 000 € sous Babette
 
-### Vérification Finale
-- ✅ Onglet "Factures" : 2 factures visibles
-- ✅ Onglet "Ventes" : 2 ventes (22 000 € total)
+### Test 3 - Facture Lucia (15 000 €)
+```bash
+curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Secret: MySuperSecretKey2025' \
+  --data '{"numero_facture":"F-LUCIA-TEST","date_facture":"2025-09-23","nom_client":"Test Lucia","montant_ttc":15000,"payment_method":"transfer","vendeuse":"Lucia","vendorId":"lucia","produits":[{"nom":"Test Lucia","quantite":6,"prix_ttc":2500,"remise":0}]}'
+```
+**Résultat attendu :** CA instant = 15 000 € sous Lucia
+
+### Vérification Finale Complète
+- ✅ Onglet "Factures" : 3 factures visibles
+- ✅ Onglet "Ventes" : 3 ventes (37 000 € total)
 - ✅ Onglet "CA instant" :
   - Sylvie : 12 000 €
   - Babette : 10 000 €
-  - Total : 22 000 €
+  - Lucia : 15 000 €
+  - **Total : 37 000 €**
+
+### 🎯 Test Multi-Vendeuses
+**Objectif :** Vérifier que le système gère correctement plusieurs vendeuses simultanément.
+
+**Résultats attendus :**
+- Chaque vendeuse a son propre CA
+- Le total général est la somme de tous
+- Les vendeuses sans vente restent à 0 €
+- Aucune interférence entre les vendeuses
 
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 
