@@ -110,13 +110,28 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
 
   const run = async () => {
     try {
+      console.log('🔄 Direct polling: récupération factures...');
       const secret = (import.meta as any).env?.VITE_EXTERNAL_RUN_SECRET as string | undefined;
       const headers: Record<string, string> = secret ? { 'X-Secret': secret } : {};
       const res = await fetch('/api/caisse/facture', { method: 'GET', cache: 'no-store', headers });
-      if (!res.ok) return;
+      console.log('🔄 Direct polling: status', res.status, res.ok ? 'OK' : 'KO');
+
+      if (!res.ok) {
+        console.log('🔄 Direct polling: réponse non OK, skip');
+        return;
+      }
+
       const data = await res.json().catch(()=>null);
-      if (!data || !Array.isArray(data.invoices) || data.invoices.length === 0) return;
+      console.log('🔄 Direct polling: data reçue', data);
+
+      if (!data || !Array.isArray(data.invoices) || data.invoices.length === 0) {
+        console.log('🔄 Direct polling: aucune facture, skip');
+        return;
+      }
+
+      console.log(`🔄 Direct polling: ${data.invoices.length} factures à traiter`);
       for (const raw of data.invoices) {
+        console.log('🔄 Traitement facture:', raw.numero_facture, 'pour', raw.vendeuse);
         const payload = toInvoicePayload(raw);
         externalInvoiceService.receiveInvoice(payload);
         // créer la vente et mettre à jour CA
@@ -135,11 +150,16 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
             addedAt: new Date()
           }))
         } as CreateSalePayload;
+        console.log('🔄 Création vente pour:', raw.vendeuse, 'montant:', payload.totals.ttc);
         const created = await createSale(salePayload);
+        console.log('✅ Vente créée:', created.id, 'pour', created.vendorName, created.totalAmount + '€');
+
         if (typeof window !== 'undefined') {
+          console.log('🔄 Dispatch external-sale-created');
           window.dispatchEvent(new CustomEvent('external-sale-created', { detail: { sale: created } }));
         }
       }
+      console.log('🔄 Dispatch external-invoices-updated');
       window.dispatchEvent(new CustomEvent('external-invoices-updated'));
     } catch {}
   };

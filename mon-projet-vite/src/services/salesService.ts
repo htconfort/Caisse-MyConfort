@@ -4,6 +4,7 @@
  */
 import { db } from '@/db/schema';
 import type { ExtendedCartItem, Sale, SaleDB } from '@/types';
+import { ensureSession } from './sessionService';
 
 export interface CreateSalePayload {
   vendorId?: string;
@@ -20,9 +21,14 @@ export interface CreateSalePayload {
  * Créer une vente avec timestamp personnalisé
  */
 export async function createSale(payload: CreateSalePayload): Promise<Sale> {
+  console.log('🔄 createSale appelé pour:', payload.vendorName, payload.totalAmount + '€');
+
+  // Garantir une session active
+  await ensureSession('createSale');
+
   const saleId = crypto.randomUUID();
   const date = new Date(payload.timestamp);
-  
+
   // Objet Sale standard
   const sale: Sale = {
     id: saleId,
@@ -53,13 +59,16 @@ export async function createSale(payload: CreateSalePayload): Promise<Sale> {
 
   // Persister dans IndexedDB
   await db.sales.add(saleDB);
-  
+  console.log('✅ Vente persistée:', saleId);
+
   // Mettre à jour les stats vendeuse immédiatement (et créer la vendeuse si absente)
   try {
     const vid = payload.vendorId || '';
     if (vid) {
+      console.log('🔄 MAJ stats vendeuse:', vid);
       const existing = await db.vendors.get(vid);
       if (!existing) {
+        console.log('🔄 Création vendeuse:', vid);
         await db.vendors.add({
           id: vid,
           name: payload.vendorName,
@@ -70,17 +79,19 @@ export async function createSale(payload: CreateSalePayload): Promise<Sale> {
         });
       }
       await db.updateVendorStats(vid);
+      console.log('✅ Stats vendeuse mises à jour:', vid);
       // notifier l'UI potentielle
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('vendor-stats-updated', { detail: { vendorId: vid } }));
+        console.log('🔄 Dispatch vendor-stats-updated:', vid);
       }
     }
   } catch (e) {
     console.error('❌ MAJ stats vendeuse échouée:', e);
   }
-  
+
   console.log(`✅ Vente créée: ${payload.vendorName} - ${payload.totalAmount}€ le ${date.toLocaleDateString('fr-FR')}`);
-  
+
   return sale;
 }
 
