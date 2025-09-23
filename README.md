@@ -657,6 +657,68 @@ Gestion → 🔧 Diagnostic
 - ✅ **Vendeuses** : liste complète et synchronisée
 - ✅ **Pas de différences** : données identiques partout
 
+### 🔗 **CONNEXION AVEC LE CA INSTANT :**
+
+**Vous avez parfaitement raison !** La synchronisation des vendeuses peut résoudre le problème du CA instant :
+
+#### **Avant synchronisation :**
+- ❌ localStorage : vide (0 vendeuse)
+- ❌ Onglet CA instant : ne peut pas afficher les vendeuses
+- ❌ Onglet CA instant : ne peut pas calculer le CA par vendeuse
+- ❌ Triangle rouge : "Vendeuses non synchronisées"
+
+#### **Après synchronisation :**
+- ✅ localStorage : 5 vendeuses synchronisées
+- ✅ Onglet CA instant : peut afficher les vendeuses
+- ✅ Onglet CA instant : peut calculer le CA par vendeuse
+- ✅ Triangle rouge : devrait avoir disparu
+
+### 🎯 **VÉRIFICATIONS APRÈS RECHARGEMENT :**
+
+#### **1. Triangle rouge disparu**
+```
+✅ Plus de notification "Vendeuses non synchronisées"
+```
+
+#### **2. Onglet "CA instant" fonctionnel**
+```
+✅ 5 vendeuses affichées avec leurs couleurs
+✅ CA calculé et affiché pour chaque vendeuse
+✅ Total cohérent avec l'onglet "Factures"
+```
+
+#### **3. Onglet "Ventes"**
+```
+✅ Factures visibles et affectées aux bonnes vendeuses
+```
+
+#### **4. Onglet "Factures"**
+```
+✅ 75 000€ toujours affichés
+```
+
+### 🚀 **ÉTAPES IMMÉDIATES :**
+
+#### **1. RECHARGER LA PAGE**
+```
+🔄 Rechargez maintenant pour voir les changements
+```
+
+#### **2. Vérifier chaque onglet**
+```
+Factures → CA instant → Ventes
+```
+
+#### **3. Tester le CA instant**
+```
+Créez une facture test pour voir la mise à jour en temps réel
+```
+
+#### **4. Si problème persiste**
+```
+🗑️ Vider Cache → RAZ complet → Recharger page
+```
+
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 
 ### Ce qui a été fait
