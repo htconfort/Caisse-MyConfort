@@ -86,9 +86,115 @@ Pour les produits dans les factures, le système attend ce format :
 - **Comportement** : Si une facture avec le même numéro existe déjà, elle est mise à jour (upsert) au lieu d'être dupliquée
 - **Prévention des doublons** : Garantit qu'une même facture n'est comptabilisée qu'une seule fois dans le CA
 
+## 🔧 Guide Workflow n8n - Correction JSON Complet
+
+### Problème
+Le nœud "Caisse Push (direct)" envoie un objet vide au lieu du JSON complet.
+
+### Solution
+**Pipeline correct :** Webhook → Normalize → Caisse Push (direct) → Respond
+
+### Configuration Détaillée
+
+#### 1️⃣ Nœud "Normalize" (Code node)
+**Function :**
+```javascript
+// Transformation des données pour format Caisse
+const input = $json;
+
+// Validation et transformation
+const output = {
+  numero_facture: String(input.numero_facture || input.id || ''),
+  date_facture: String(input.date_facture || input.invoiceDate || new Date().toISOString().slice(0,10)),
+  nom_client: input.nom_client || input.client?.name || 'Client',
+  montant_ttc: Number(input.montant_ttc || input.totalTTC || input.amount || 0),
+  payment_method: input.payment_method || input.payment?.method || 'card',
+  vendeuse: input.vendeuse || input.vendorName || 'Externe',
+  vendorId: input.vendorId || 'external',
+  produits: Array.isArray(input.produits) ? input.produits.map(p => ({
+    nom: p.nom || p.name || 'Produit',
+    quantite: Number(p.quantite || p.quantity || p.qty || 1),
+    prix_ttc: Number(p.prix_ttc || p.unitPriceTTC || p.priceTTC || 0),
+    remise: Number(p.remise || p.discount || 0)
+  })) : []
+};
+
+return [ { json: output } ];
+```
+
+#### 2️⃣ Nœud "Caisse Push (direct)" (HTTP Request)
+**Method :** POST
+**URL :** `https://caissemyconfort2025.netlify.app/api/caisse/facture`
+**Headers :**
+```
+Content-Type: application/json
+X-Secret: MySuperSecretKey2025
+```
+**Body Content Type :** JSON
+**Body Parameters :**
+```
+JSON: {{ $json }}
+```
+
+⚠️ **IMPORTANT :** Utilisez `{{ $json }}` et PAS `{{ $json.body }}` ou `{{ $json.data }}`
+
+#### 3️⃣ Contrôles à Effectuer
+
+1. **Test Normalize :**
+   - Executez seulement jusqu'à Normalize
+   - OUTPUT doit contenir : numero_facture non vide, montant_ttc > 0, vendeuse "Sylvie", vendorId "sylvie", produits ≥ 1
+
+2. **Test HTTP Body :**
+   - Dans l'onglet Request du nœud HTTP
+   - Body doit montrer le JSON complet (pas de champ "data")
+   - Réponse attendue : `{"ok":true,"enqueued":1}`
+
+#### 4️⃣ Plan de Secours (si Body encore vide)
+
+**Ajoutez un nœud "Set" entre Normalize et HTTP :**
+- **Mode :** Keep Only Set = ON
+- **Fields :**
+  ```
+  numero_facture: {{ $json.numero_facture }}
+  date_facture: {{ $json.date_facture }}
+  nom_client: {{ $json.nom_client }}
+  montant_ttc: {{ $json.montant_ttc }}
+  payment_method: {{ $json.payment_method }}
+  vendeuse: {{ $json.vendeuse }}
+  vendorId: {{ $json.vendorId }}
+  produits: {{ $json.produits }}
+  ```
+
+### Format JSON Final Attendu
+```json
+{
+  "numero_facture": "F-SYL-001",
+  "date_facture": "2025-09-23",
+  "nom_client": "Client Test",
+  "montant_ttc": 1440,
+  "payment_method": "card",
+  "vendeuse": "Sylvie",
+  "vendorId": "sylvie",
+  "produits": [
+    {
+      "nom": "Matelas 140x190",
+      "quantite": 1,
+      "prix_ttc": 1440,
+      "remise": 0.2
+    }
+  ]
+}
+```
+
+### Test Final
+- Rechargez l'app Caisse (cache vide)
+- Créez une facture sur l'iPad
+- Attendez 5-10 secondes
+- Vérifiez : "Factures", "Ventes" et "CA instant" mis à jour
+
 ### Étapes suivantes conseillées
 - Finaliser la route n8n (GET) et retester `/api/n8n/caisse/factures?limit=10`
-- Option serveur (webhook → polling) si besoin d’un flux push côté “Facture”
+- Option serveur (webhook → polling) si besoin d'un flux push côté "Facture"
 
 # 🏪 Caisse MyConfort - Application de Gestion
 
