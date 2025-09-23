@@ -159,4 +159,40 @@ npm run dev
 
 L'ancien projet React a été archivé dans `archive-ancien-projet-react-*/` pour éviter toute confusion.
 
+## 🧪 Tests CA Instant (Flux Direct)
+
+### Test Complet du Flux (Console iPad)
+
+1. **Rechargez l'app** (cache vide) :
+    ```javascript
+    localStorage.clear();
+    caches&&caches.keys().then(k=>k.forEach(n=>caches.delete(n)));
+    navigator.serviceWorker&&navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister()));
+    location.replace(location.pathname+'?v='+Date.now());
+    ```
+
+2. **Injectez une facture de test** :
+    ```javascript
+    fetch('/api/caisse/facture',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Secret':'MySuperSecretKey2025'},
+      body:JSON.stringify({
+        numero_facture:'F-TEST-SYLVIE',
+        date_facture:new Date().toISOString().slice(0,10),
+        nom_client:'Client Test',
+        montant_ttc:1440,
+        payment_method:'card',
+        vendeuse:'Sylvie',
+        vendorId:'sylvie',
+        produits:[{nom:'Matelas 140x190',prix_ht:1200,quantite:1}]
+      })
+    }).then(r=>r.json()).then(console.log).catch(console.error)
+    ```
+
+3. **Attendez 5–10 s**, puis ouvrez :
+    - **"CA instant"** : Devrait afficher 1 440 € sous Sylvie
+    - **"Ventes"** : Devrait lister la vente F-TEST-SYLVIE
+
+4. **Si rien n'apparaît**, vérifiez les logs console (onglet "CA instant" génère des logs "📊 CA INSTANTANÉ").
+
 **Version actuelle** : v3.0.0-deduction-stock-automatique
