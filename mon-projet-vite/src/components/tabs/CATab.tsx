@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { TrendingUp, DollarSign } from 'lucide-react';
 import type { Sale, Vendor } from '../../types';
 import type { Invoice } from '@/services/syncService';
@@ -10,6 +10,59 @@ interface CATabProps {
 }
 
 export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) => {
+  // État local pour les factures externes (se met à jour via événements)
+  const [externalInvoices, setExternalInvoices] = useState<Invoice[]>(invoices);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
+
+  // Écouter les événements de mise à jour des factures externes
+  useEffect(() => {
+    const handleExternalInvoicesUpdate = () => {
+      console.log('🔄 CA Instant: événement external-invoices-updated reçu');
+      setLastUpdate(Date.now()); // Force re-render
+    };
+
+    const handleExternalSaleCreated = () => {
+      console.log('🔄 CA Instant: événement external-sale-created reçu');
+      setLastUpdate(Date.now()); // Force re-render
+    };
+
+    const handleVendorStatsUpdated = () => {
+      console.log('🔄 CA Instant: événement vendor-stats-updated reçu');
+      setLastUpdate(Date.now()); // Force re-render
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('external-invoices-updated', handleExternalInvoicesUpdate as EventListener);
+      window.addEventListener('external-sale-created', handleExternalSaleCreated as EventListener);
+      window.addEventListener('vendor-stats-updated', handleVendorStatsUpdated as EventListener);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('external-invoices-updated', handleExternalInvoicesUpdate as EventListener);
+        window.removeEventListener('external-sale-created', handleExternalSaleCreated as EventListener);
+        window.removeEventListener('vendor-stats-updated', handleVendorStatsUpdated as EventListener);
+      }
+    };
+  }, []);
+
+  // Utiliser les factures externes mises à jour
+  const currentInvoices = useMemo(() => {
+    // Recharger depuis externalInvoiceService si nécessaire
+    if (typeof window !== 'undefined' && (window as any).externalInvoiceService) {
+      try {
+        const freshInvoices = (window as any).externalInvoiceService.getAllInvoices();
+        if (freshInvoices.length !== externalInvoices.length) {
+          console.log(`🔄 CA Instant: rechargement ${freshInvoices.length} factures externes`);
+          setExternalInvoices(freshInvoices);
+          return freshInvoices;
+        }
+      } catch (e) {
+        console.warn('⚠️ Impossible de recharger les factures externes:', e);
+      }
+    }
+    return externalInvoices;
+  }, [externalInvoices, lastUpdate]);
   // Fonction pour récupérer la couleur d'une vendeuse
   const getVendorColor = (vendorId: string): string => {
     const vendor = vendorStats.find(v => v.id === vendorId);
@@ -39,20 +92,20 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
     - CA ventes du jour: ${salesCA.toFixed(2)}€`);
     
     // 🎯 CA des factures N8N du jour SEULEMENT
-    const invoicesCA = invoices
+    const invoicesCA = currentInvoices
       .filter(invoice => isToday(invoice.createdAt))
       .reduce((sum, invoice) => {
         // Utiliser le total TTC ou calculer depuis les items
-        const invoiceTotal = invoice.totalTTC || 
+        const invoiceTotal = invoice.totalTTC ||
           invoice.items.reduce((itemSum, item) => itemSum + (item.totalPrice || item.unitPrice * item.quantity), 0);
-        
+
         console.log(`    → Facture ${invoice.number} du ${new Date(invoice.createdAt).toLocaleDateString('fr-FR')} (${invoice.clientName}): ${invoiceTotal}€`);
         return sum + invoiceTotal;
       }, 0);
-      
+
     console.log(`📄 FACTURES N8N DU JOUR:
-    - Total factures stockées: ${invoices.length}
-    - Factures d'aujourd'hui: ${invoices.filter(i => isToday(i.createdAt)).length}
+    - Total factures stockées: ${currentInvoices.length}
+    - Factures d'aujourd'hui: ${currentInvoices.filter(i => isToday(i.createdAt)).length}
     - CA factures du jour: ${invoicesCA.toFixed(2)}€`);
     
     // Total combiné
@@ -60,11 +113,11 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
     
     console.log(`💰 CA INSTANTANÉ CALCULÉ:
     - Ventes caisse: ${salesCA.toFixed(2)}€ (${sales.filter(s => !s.canceled).length} ventes)
-    - Factures N8N: ${invoicesCA.toFixed(2)}€ (${invoices.length} factures)
+    - Factures N8N: ${invoicesCA.toFixed(2)}€ (${currentInvoices.length} factures)
     - TOTAL: ${combinedCA.toFixed(2)}€`);
     
     return combinedCA;
-  }, [sales, invoices]);
+  }, [sales, currentInvoices]);
 
   // 🔧 CORRECTION : CA par vendeuse incluant SEULEMENT les données du jour
   const vendorCAs = useMemo(() => {
@@ -84,18 +137,18 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
       });
 
     // 2. 🎯 Ajouter le CA des factures N8N du jour pour chaque vendeuse
-    invoices
+    currentInvoices
       .filter(invoice => isToday(invoice.createdAt))
       .forEach(invoice => {
         if (invoice.vendorId) {
-          const invoiceTotal = invoice.totalTTC || 
+          const invoiceTotal = invoice.totalTTC ||
             invoice.items.reduce((sum, item) => sum + (item.totalPrice || item.unitPrice * item.quantity), 0);
-          
+
           if (!caByVendor[invoice.vendorId]) {
             caByVendor[invoice.vendorId] = 0;
           }
           caByVendor[invoice.vendorId] += invoiceTotal;
-          
+
           console.log(`    → Facture ${invoice.number} du ${new Date(invoice.createdAt).toLocaleDateString('fr-FR')} - ${invoice.vendorName}: +${invoiceTotal}€`);
         } else {
           console.log(`⚠️ Facture ${invoice.number} sans vendorId (vendorName: ${invoice.vendorName})`);
@@ -111,19 +164,17 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
     console.log(`👥 CA PAR VENDEUSE:`, result.filter(v => v.realCA > 0));
     
     return result;
-  }, [sales, invoices, vendorStats]);
+  }, [sales, currentInvoices, vendorStats]);
 
   // Calcul du nombre total de ventes du jour (caisse + factures)
   const totalSalesCount = useMemo(() => {
     const salesCount = sales.filter(sale => !sale.canceled && isToday(sale.date)).length;
-    const invoicesCount = invoices.filter(invoice => isToday(invoice.createdAt)).length;
+    const invoicesCount = currentInvoices.filter(invoice => isToday(invoice.createdAt)).length;
     
     console.log(`📊 TRANSACTIONS DU JOUR: ${salesCount} ventes caisse + ${invoicesCount} factures N8N = ${salesCount + invoicesCount} total`);
-    
+
     return salesCount + invoicesCount;
-    
-    return salesCount + invoicesCount;
-  }, [sales, invoices]);
+  }, [sales, currentInvoices]);
 
   return (
     <div className="animate-fadeIn">
