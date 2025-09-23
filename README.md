@@ -304,6 +304,41 @@ JSON: {{ $json }}
 - Attendez 5-10 secondes
 - Vérifiez : "Factures", "Ventes" et "CA instant" mis à jour
 
+### 🔄 RAZ Complet (si problème de cache)
+**Code console iPad pour vider TOUT :**
+```javascript
+// 1. Vider localStorage
+localStorage.clear();
+
+// 2. Vider tous les caches
+if ('caches' in window) {
+  caches.keys().then(names => {
+    names.forEach(name => {
+      caches.delete(name);
+      console.log('🗑️ Cache supprimé:', name);
+    });
+  });
+}
+
+// 3. Désenregistrer tous les service workers
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    registrations.forEach(registration => {
+      registration.unregister();
+      console.log('🗑️ Service Worker désenregistré');
+    });
+  });
+}
+
+// 4. Forcer rechargement complet
+window.location.reload(true);
+
+// OU rechargement avec nouveau cache-buster
+setTimeout(() => {
+  window.location.href = window.location.pathname + '?v=' + Date.now();
+}, 1000);
+```
+
 ### Étapes suivantes conseillées
 - Finaliser la route n8n (GET) et retester `/api/n8n/caisse/factures?limit=10`
 - Option serveur (webhook → polling) si besoin d'un flux push côté "Facture"
