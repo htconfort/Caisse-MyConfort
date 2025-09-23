@@ -393,6 +393,29 @@ const InvoicesTabCompact: React.FC<InvoicesTabCompactProps> = ({ sales = [] }) =
             >
               🔍 Diagnostic
             </button>
+
+            {/* Bouton de diagnostic localStorage */}
+            <button
+              onClick={() => {
+                if (typeof window !== 'undefined' && (window as any).externalInvoiceService) {
+                  (window as any).externalInvoiceService.diagnoseStorage();
+                  alert('🔍 Diagnostic localStorage lancé - voir la console pour détails');
+                } else {
+                  alert('❌ Service externalInvoiceService non disponible');
+                }
+              }}
+              style={{
+                background: '#6f42c1',
+                color: 'white',
+                border: 'none',
+                padding: '0.6rem 1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.9rem'
+              }}
+            >
+              🔧 Réparer Storage
+            </button>
           </div>
         </div>
 

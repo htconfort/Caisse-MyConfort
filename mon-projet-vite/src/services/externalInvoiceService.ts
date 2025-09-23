@@ -80,7 +80,8 @@ class ExternalInvoiceService {
       this.config.autoSync = false;
     }
 
-    // Charger les factures depuis le localStorage au démarrage
+    // Diagnostiquer et charger les factures depuis le localStorage au démarrage
+    this.diagnoseStorage();
     this.loadFromStorage();
 
     // Purge et dédoublonnage immédiats pour assainir l'état local
@@ -90,6 +91,43 @@ class ExternalInvoiceService {
     // Démarrer la synchronisation automatique si activée
     if (this.config.autoSync && !this.paused) {
       this.startAutoSync();
+    }
+  }
+
+  /**
+   * Diagnostiquer l'état du localStorage
+   */
+  public diagnoseStorage(): void {
+    console.log('🔍 DIAGNOSTIC LOCALSTORAGE FACTURES EXTERNES');
+    console.log('=====================================');
+
+    try {
+      const stored = localStorage.getItem('myconfort_external_invoices');
+      if (stored) {
+        console.log('📦 Données brutes:', stored.slice(0, 200) + '...');
+
+        const parsed = JSON.parse(stored);
+        console.log('📦 Type de données:', typeof parsed);
+
+        if (Array.isArray(parsed)) {
+          console.log('✅ Format: ARRAY (correct)');
+          console.log(`📊 Nombre de factures: ${parsed.length}`);
+        } else if (parsed && typeof parsed === 'object' && parsed.data && Array.isArray(parsed.data)) {
+          console.log('⚠️ Format: OBJECT.DATA (corrompu)');
+          console.log(`📊 Nombre de factures dans data: ${parsed.data.length}`);
+          console.log('🔧 Réparation automatique en cours...');
+          this.invoices = parsed.data;
+          this.saveToStorage();
+        } else {
+          console.log('❌ Format: INCONNU (problématique)');
+        }
+      } else {
+        console.log('📦 Aucune donnée trouvée dans localStorage');
+      }
+
+      console.log(`📊 État actuel du service: ${this.invoices.length} factures`);
+    } catch (error) {
+      console.error('❌ Erreur diagnostic:', error);
     }
   }
 
@@ -372,7 +410,10 @@ class ExternalInvoiceService {
    */
   private saveToStorage(): void {
     try {
-      localStorage.setItem('myconfort_external_invoices', JSON.stringify(this.invoices));
+      const data = JSON.stringify(this.invoices);
+      localStorage.setItem('myconfort_external_invoices', data);
+      console.log(`💾 Factures sauvegardées (${this.invoices.length}) - format array simple`);
+      console.log('📊 Données sauvegardées (preview):', data.slice(0, 200) + '...');
     } catch (error) {
       console.error('❌ Erreur sauvegarde localStorage:', error);
     }
@@ -383,10 +424,34 @@ class ExternalInvoiceService {
    */
   private loadFromStorage(): void {
     try {
-      const stored = localStorage.getItem('myconfort_external_invoices');
+      const stored = localStorage.getItem('mycomfort_external_invoices');
       if (stored) {
-        this.invoices = JSON.parse(stored);
-        console.log(`📦 ${this.invoices.length} factures externes chargées depuis le localStorage`);
+        console.log('📦 Données brutes localStorage:', stored.slice(0, 200) + '...');
+
+        const parsed = JSON.parse(stored);
+        console.log('📦 Données parsées:', typeof parsed, parsed);
+
+        // 🚨 CORRECTION : Gérer les deux formats (array et object corrompu)
+        if (Array.isArray(parsed)) {
+          this.invoices = parsed;
+          console.log(`📦 ${this.invoices.length} factures externes chargées (format array)`);
+        } else if (parsed && typeof parsed === 'object' && parsed.data && Array.isArray(parsed.data)) {
+          // Format object avec data array (corrompu détecté dans diagnostic)
+          this.invoices = parsed.data;
+          console.log(`📦 ${this.invoices.length} factures externes chargées (format object.data)`);
+
+          // 🚨 CORRECTION : Réparer immédiatement le format de stockage
+          this.saveToStorage();
+          console.log('🔧 Format de stockage réparé (converti en array simple)');
+        } else {
+          this.invoices = [];
+          console.warn('⚠️ Format de données non reconnu, réinitialisation');
+        }
+
+        console.log(`📊 Factures chargées (preview):`, this.invoices.slice(0, 2));
+      } else {
+        this.invoices = [];
+        console.log('📦 Aucune facture externe trouvée dans localStorage - format réinitialisé');
       }
     } catch (error) {
       console.error('❌ Erreur chargement localStorage:', error);
