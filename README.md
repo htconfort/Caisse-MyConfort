@@ -159,6 +159,34 @@ Dans Caisse Push (direct) : Body → Add Expression → tape $json (sans guillem
 
 Teste Normalize seul (doit passer les assertions), puis Caisse Push (réponse {"ok":true,"enqueued":1}).
 
+## 🧪 Tests de Validation
+
+### Test 1 - Facture Sylvie (12 000 €)
+```bash
+curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Secret: MySuperSecretKey2025' \
+  --data '{"numero_facture":"F-CURSOR-TEST","date_facture":"2025-09-23","nom_client":"Test Cursor Rules","montant_ttc":12000,"payment_method":"card","vendeuse":"Sylvie","vendorId":"sylvie","produits":[{"nom":"Test Cursor","quantite":10,"prix_ttc":1200,"remise":0}]}'
+```
+**Résultat attendu :** CA instant = 12 000 € sous Sylvie
+
+### Test 2 - Facture Babette (10 000 €)
+```bash
+curl -X POST 'https://caissemyconfort2025.netlify.app/api/caisse/facture' \
+  -H 'Content-Type: application/json' \
+  -H 'X-Secret: MySuperSecretKey2025' \
+  --data '{"numero_facture":"F-BABETTE-TEST","date_facture":"2025-09-23","nom_client":"Test Babette","montant_ttc":10000,"payment_method":"card","vendeuse":"Babette","vendorId":"babette","produits":[{"nom":"Test Babette","quantite":8,"prix_ttc":1250,"remise":0}]}'
+```
+**Résultat attendu :** CA instant = 10 000 € sous Babette
+
+### Vérification Finale
+- ✅ Onglet "Factures" : 2 factures visibles
+- ✅ Onglet "Ventes" : 2 ventes (22 000 € total)
+- ✅ Onglet "CA instant" :
+  - Sylvie : 12 000 €
+  - Babette : 10 000 €
+  - Total : 22 000 €
+
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 
 ### Ce qui a été fait
