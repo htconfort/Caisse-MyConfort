@@ -1,3 +1,61 @@
+## Caisse MyConfort — État des lieux et configuration (sept. 2025)
+
+### Ce qui a été fait
+- Netlify Functions: mise en place de deux fonctions
+  - `caisse-facture` (CommonJS) — endpoint simple de test
+  - `n8n` — proxy vers n8n avec retrait du préfixe `/api/n8n`
+- Routage Netlify
+  - `public/_redirects`: forcé avec `200!` pour `/api/n8n/*` et `/api/*`
+  - `netlify.toml`: variables d’env et headers no‑cache, fonctions `netlify/functions`
+- Environnement app (Vite)
+  - `VITE_N8N_URL=/api/n8n`
+  - `VITE_EXTERNAL_INVOICES_URL=/api/n8n/caisse/factures`
+  - `VITE_EXTERNAL_INVOICES_RUN_URL=/api/n8n/caisse/facture`
+- UI/Service factures externes
+  - Suppression des gardes qui masquaient les factures en prod
+  - Normalisation TTC plus tolérante (`amount`, `total`)
+  - Rafraîchissement depuis `localStorage` sur l’événement `external-invoices-updated`
+- Composants
+  - `InvoicesTabCompact`: bouton “Synchroniser tout” + “Diagnostic”, vue externes
+
+### Ce qui coince encore (Supabase/n8n)
+- GET n8n: le proxy répond, mais 404 si le webhook `GET caisse/factures` n’est pas actif.
+- n8n — Respond: il faut renvoyer un tableau complet. Utiliser une expression côté “Respond (GET)”: `$items().map(item => item.json)`
+
+### Procédure n8n (liste)
+1. Webhook (GET): Path `caisse/factures`, workflow Active
+2. HTTP Supabase List: URL avec `limit`, headers, format JSON
+3. Respond (GET): Respond with JSON, body: `$items().map(item => item.json)`
+
+### Bypass urgence — Import direct sans base de données
+- Ajout d’un mécanisme d’import direct via hash URL
+  - Fichier: `src/services/directImport.ts`
+  - Au chargement de l’app (`src/main.tsx`), `processImportFromHash()` détecte `#import=<base64(json)>`,
+    normalise en facture, l’insère (store local), puis crée une vente (IndexedDB) pour le CA et les ventes.
+
+Exemple d’URL d’import:
+```
+https://votre-domaine.netlify.app/#import=<BASE64_DU_JSON>
+```
+JSON minimum attendu:
+```json
+{
+  "numero_facture": "F-TEST-001",
+  "date_facture": "2025-09-23",
+  "nom_client": "Client Demo",
+  "montant_ttc": 120,
+  "payment_method": "card",
+  "vendeuse": "Alice",
+  "produits": [ { "nom": "Produit X", "prix_ht": 100, "quantite": 1 } ]
+}
+```
+
+Le JSON est encodé en base64 (UTF‑8). À l’ouverture de l’URL, la facture est stockée et une vente est créée immédiatement (CA vendeuse mis à jour, visible dans l’onglet Ventes).
+
+### Étapes suivantes conseillées
+- Finaliser la route n8n (GET) et retester `/api/n8n/caisse/factures?limit=10`
+- Option serveur (webhook → polling) si besoin d’un flux push côté “Facture”
+
 # 🏪 Caisse MyConfort - Application de Gestion
 
 ## 🎯 PROJET PRINCIPAL : `mon-projet-vite/`
