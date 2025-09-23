@@ -108,6 +108,9 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
   if ((window as any)[key]) return; // éviter doublons
   (window as any)[key] = true;
 
+  // Stockage temporaire pour déduplication par numéro de facture
+  const processedInvoices = new Set();
+
   const run = async () => {
     try {
       console.log('🔄 Direct polling: récupération factures...');
@@ -128,37 +131,50 @@ export function startDirectWebhookPolling(intervalMs: number = 5000): void {
       }
 
       console.log(`🔄 Direct polling: ${data.invoices.length} factures à traiter`);
+
+      let processedCount = 0;
       for (const raw of data.invoices) {
+        // 🚨 DÉDUPLICATION : vérifier si facture déjà traitée
+        if (processedInvoices.has(raw.numero_facture)) {
+          console.log(`⏭️ Facture ${raw.numero_facture} déjà traitée, skip`);
+          continue;
+        }
+
         console.log('🔄 Traitement facture:', raw.numero_facture, 'pour', raw.vendeuse);
         const payload = toInvoicePayload(raw);
-        externalInvoiceService.receiveInvoice(payload);
-        // créer la vente et mettre à jour CA
-        const salePayload: CreateSalePayload = {
-          ...resolveVendor(raw.vendeuse || raw.vendorName),
-          totalAmount: payload.totals.ttc,
-          paymentMethod: (payload.payment?.method as any) || 'card',
-          canceled: false,
-          timestamp: Date.parse(payload.invoiceDate) || Date.now(),
-          items: payload.items.map(it => ({
-            id: `${payload.invoiceNumber}-${it.sku}`,
-            name: it.name,
-            price: Math.round(it.unitPriceHT * (1 + it.tvaRate) * 100) / 100,
-            quantity: it.qty,
-            category: 'Externe',
-            addedAt: new Date()
-          }))
-        } as CreateSalePayload;
-        console.log('🔄 Création vente pour:', raw.vendeuse, 'montant:', payload.totals.ttc);
-        const created = await createSale(salePayload);
-        console.log('✅ Vente créée:', created.id, 'pour', created.vendorName, created.totalAmount + '€');
 
+        // Ajouter à l'ensemble des factures traitées
+        processedInvoices.add(raw.numero_facture);
+        processedCount++;
+
+        externalInvoiceService.receiveInvoice(payload);
+
+        // 🚨 IMPORTANT : Les factures externes NE DOIVENT PAS créer de ventes dans IndexedDB
+        // Elles doivent seulement être affichées dans "Factures" et impacter le CA instant
+        // Pas de createSale() pour éviter les doublons avec les ventes caisse iPad
+
+        console.log('✅ Facture externe reçue:', raw.numero_facture, 'pour', raw.vendeuse, 'montant:', payload.totals.ttc);
+
+        // Dispatch d'événement pour mettre à jour le CA instant SANS créer de vente
         if (typeof window !== 'undefined') {
-          console.log('🔄 Dispatch external-sale-created');
-          window.dispatchEvent(new CustomEvent('external-sale-created', { detail: { sale: created } }));
+          console.log('🔄 Dispatch external-invoice-received (pas de vente créée)');
+          window.dispatchEvent(new CustomEvent('external-invoice-received', {
+            detail: {
+              invoice: payload,
+              vendorId: resolveVendor(raw.vendeuse || raw.vendorName).vendorId,
+              amount: payload.totals.ttc
+            }
+          }));
         }
       }
-      console.log('🔄 Dispatch external-invoices-updated');
-      window.dispatchEvent(new CustomEvent('external-invoices-updated'));
+
+      if (processedCount > 0) {
+        console.log(`✅ ${processedCount} nouvelles factures traitées (déduplication active)`);
+        console.log('🔄 Dispatch external-invoices-updated');
+        window.dispatchEvent(new CustomEvent('external-invoices-updated'));
+      } else {
+        console.log('⏭️ Aucune nouvelle facture à traiter');
+      }
     } catch (error) {
       console.error('❌ Erreur polling:', error);
     }

@@ -33,8 +33,8 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
       setLastUpdate(Date.now()); // Force re-render
     };
 
-    const handleExternalSaleCreated = () => {
-      console.log('🔄 CA Instant: événement external-sale-created reçu');
+    const handleExternalInvoiceReceived = (event: CustomEvent) => {
+      console.log('🔄 CA Instant: événement external-invoice-received reçu', event.detail);
       setLastUpdate(Date.now()); // Force re-render
     };
 
@@ -45,14 +45,14 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
 
     if (typeof window !== 'undefined') {
       window.addEventListener('external-invoices-updated', handleExternalInvoicesUpdate as EventListener);
-      window.addEventListener('external-sale-created', handleExternalSaleCreated as EventListener);
+      window.addEventListener('external-invoice-received', handleExternalInvoiceReceived as EventListener);
       window.addEventListener('vendor-stats-updated', handleVendorStatsUpdated as EventListener);
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('external-invoices-updated', handleExternalInvoicesUpdate as EventListener);
-        window.removeEventListener('external-sale-created', handleExternalSaleCreated as EventListener);
+        window.removeEventListener('external-invoice-received', handleExternalInvoiceReceived as EventListener);
         window.removeEventListener('vendor-stats-updated', handleVendorStatsUpdated as EventListener);
       }
     };
@@ -88,22 +88,11 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
     return checkDate.toDateString() === today.toDateString();
   };
 
-  // 🔧 CORRECTION MAJEURE : Calcul du CA total incluant SEULEMENT les données du jour
+  // 🔧 CALCUL CA INSTANT : Factures externes SEULEMENT (mode facturier)
   const totalCA = useMemo(() => {
     console.log(`📅 FILTRAGE CA INSTANT - Date d'aujourd'hui: ${new Date().toLocaleDateString('fr-FR')}`);
-    
-    // CA des ventes caisse du jour SEULEMENT
-    const salesCA = sales
-      .filter(sale => !sale.canceled && isToday(sale.date))
-      .reduce((sum, sale) => sum + sale.totalAmount, 0);
-    
-    console.log(`� VENTES CAISSE DU JOUR:
-    - Total ventes stockées: ${sales.length}
-    - Ventes non annulées: ${sales.filter(s => !s.canceled).length}
-    - Ventes d'aujourd'hui: ${sales.filter(s => !s.canceled && isToday(s.date)).length}
-    - CA ventes du jour: ${salesCA.toFixed(2)}€`);
-    
-    // 🎯 CA des factures N8N du jour SEULEMENT
+
+    // 🎯 CA des factures N8N du jour SEULEMENT (mode facturier)
     const invoicesCA = currentInvoices
       .filter(invoice => isToday(invoice.createdAt))
       .reduce((sum, invoice) => {
@@ -115,40 +104,27 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
         return sum + invoiceTotal;
       }, 0);
 
-    console.log(`📄 FACTURES N8N DU JOUR:
-    - Total factures stockées: ${currentInvoices.length}
-    - Factures d'aujourd'hui: ${currentInvoices.filter(i => isToday(i.createdAt)).length}
-    - CA factures du jour: ${invoicesCA.toFixed(2)}€`);
-    
-    // Total combiné
-    const combinedCA = salesCA + invoicesCA;
-    
-    console.log(`💰 CA INSTANTANÉ CALCULÉ:
-    - Ventes caisse: ${salesCA.toFixed(2)}€ (${sales.filter(s => !s.canceled).length} ventes)
-    - Factures N8N: ${invoicesCA.toFixed(2)}€ (${currentInvoices.length} factures)
-    - TOTAL: ${combinedCA.toFixed(2)}€`);
-    
-    return combinedCA;
-  }, [sales, currentInvoices]);
+    console.log(`📄 FACTURES EXTERNES DU JOUR (MODE FACTURIER):
+    - Total factures externes: ${currentInvoices.length}
+    - Factures externes d'aujourd'hui: ${currentInvoices.filter(i => isToday(i.createdAt)).length}
+    - CA factures externes du jour: ${invoicesCA.toFixed(2)}€`);
 
-  // 🔧 CORRECTION : CA par vendeuse incluant SEULEMENT les données du jour
+    // Note: Les ventes caisse normales ne sont PAS incluses dans le mode facturier
+    console.log(`💰 CA INSTANTANÉ (MODE FACTURIER):
+    - Factures externes: ${invoicesCA.toFixed(2)}€ (${currentInvoices.filter(i => isToday(i.createdAt)).length} factures du jour)
+    - Ventes caisse normales: EXCLUES (mode facturier)
+    - TOTAL: ${invoicesCA.toFixed(2)}€`);
+
+    return invoicesCA;
+  }, [currentInvoices]);
+
+  // 🔧 CA par vendeuse : Factures externes SEULEMENT (mode facturier)
   const vendorCAs = useMemo(() => {
     const caByVendor: Record<string, number> = {};
-    
-    console.log(`👥 CALCUL CA PAR VENDEUSE - Filtrage par date du jour`);
-    
-    // 1. Calculer le CA des ventes caisse du jour pour chaque vendeuse
-    sales
-      .filter(sale => !sale.canceled && isToday(sale.date))
-      .forEach(sale => {
-        if (!caByVendor[sale.vendorId]) {
-          caByVendor[sale.vendorId] = 0;
-        }
-        caByVendor[sale.vendorId] += sale.totalAmount;
-        console.log(`    → Vente caisse ${sale.id} du ${new Date(sale.date).toLocaleDateString('fr-FR')} - ${sale.vendorName}: +${sale.totalAmount}€`);
-      });
 
-    // 2. 🎯 Ajouter le CA des factures N8N du jour pour chaque vendeuse
+    console.log(`👥 CALCUL CA PAR VENDEUSE (MODE FACTURIER) - Filtrage par date du jour`);
+
+    // 🎯 Calculer le CA des factures N8N du jour pour chaque vendeuse
     console.log(`📄 TRAITEMENT FACTURES EXTERNES (${currentInvoices.length} factures)`);
     currentInvoices
       .filter(invoice => isToday(invoice.createdAt))
@@ -181,7 +157,7 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
       });
 
     // 3. Mapper avec les données des vendeuses
-    console.log(`👥 MAPPING CA PAR VENDEUSE:`);
+    console.log(`👥 MAPPING CA PAR VENDEUSE (MODE FACTURIER):`);
     console.log(`   - caByVendor:`, caByVendor);
     console.log(`   - vendorStats disponibles:`, vendorStats.map(v => `${v.id}: ${v.name}`));
 
@@ -194,20 +170,22 @@ export const CATab: React.FC<CATabProps> = ({ sales, vendorStats, invoices }) =>
       };
     }).sort((a, b) => b.realCA - a.realCA); // Trier par CA décroissant
 
-    console.log(`👥 CA PAR VENDEUSE (FINAL):`, result.filter(v => v.realCA > 0));
-    
+    console.log(`👥 CA PAR VENDEUSE (MODE FACTURIER):`, result.filter(v => v.realCA > 0));
+
     return result;
   }, [sales, currentInvoices, vendorStats]);
 
-  // Calcul du nombre total de ventes du jour (caisse + factures)
+  // Calcul du nombre total de factures du jour (mode facturier)
   const totalSalesCount = useMemo(() => {
-    const salesCount = sales.filter(sale => !sale.canceled && isToday(sale.date)).length;
     const invoicesCount = currentInvoices.filter(invoice => isToday(invoice.createdAt)).length;
-    
-    console.log(`📊 TRANSACTIONS DU JOUR: ${salesCount} ventes caisse + ${invoicesCount} factures N8N = ${salesCount + invoicesCount} total`);
 
-    return salesCount + invoicesCount;
-  }, [sales, currentInvoices]);
+    console.log(`📊 TRANSACTIONS DU JOUR (MODE FACTURIER):
+    - Factures externes d'aujourd'hui: ${invoicesCount}
+    - Ventes caisse: 0 (mode facturier)
+    - TOTAL: ${invoicesCount} factures`);
+
+    return invoicesCount;
+  }, [currentInvoices]);
 
   console.log('🟡 CATab: Rendu du JSX commencé');
 
