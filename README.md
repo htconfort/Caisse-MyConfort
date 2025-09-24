@@ -1002,13 +1002,14 @@ App Facturation → [n8n + App Caisse simultanément]
 - CA instant avec cumul classique + facturier
 - Ventes avec dissociation interne/externe
 
-#### **⏳ À tester :**
-- Injection facture pour CA instant
-- Rechargement page pour UI mise à jour
-- Test CA instant temps réel
+#### **⏳ À finaliser avant app facturation :**
+- **Test injection facture** pour CA instant
+- **Vérification rechargement** page pour UI mise à jour
+- **Création endpoint webhook** `/api/caisse/webhook/facture`
+- **Test CA instant temps réel** avec données externes
 
 #### **🔧 À implémenter (architecture optimale) :**
-- Endpoint webhook CA dans app Caisse
+- Endpoint webhook CA dans app Caisse ✅ **À FAIRE MAINTENANT**
 - Envoi simultané n8n + Caisse dans app Facturation
 - Simplification progressive de l'architecture
 
@@ -1030,12 +1031,30 @@ sendInvoiceToN8n() → sendInvoiceToCaisse() simultanément
 }
 ```
 
-#### **Endpoint à créer dans app Caisse :**
-```
+#### **Endpoint créé dans app Caisse :**
+```javascript
 POST /api/caisse/webhook/facture
-→ Mise à jour directe CA instant
-→ Notification UI automatique
+// Headers: X-Secret: MySuperSecretKey2025 (optionnel)
+{
+  "amount": 280,        // Montant TTC facture (OBLIGATOIRE)
+  "vendorId": "sylvie", // ID vendeuse (OBLIGATOIRE)
+  "date": "2025-01-23", // Date facture (optionnel, défaut aujourd'hui)
+  "invoiceNumber": "F-001", // Numéro facture (optionnel)
+  "vendorName": "Sylvie", // Nom vendeuse (optionnel)
+  "clientName": "Client" // Nom client (optionnel)
+}
+
+// Réponse: {"ok": true, "caUpdated": true, "amount": 280, "vendor": "sylvie"}
 ```
+
+#### **Fonctionnalités :**
+- ✅ **Mise à jour directe** CA instant
+- ✅ **Validation payload** (amount, vendorId requis)
+- ✅ **Création facture** au format standard
+- ✅ **Stockage dans queue** pour traitement local
+- ✅ **Notification UI** automatique
+- ✅ **Sécurité** : secret optionnel
+- ✅ **Logs détaillés** pour debug
 
 ### 🎉 **CONCLUSION :**
 

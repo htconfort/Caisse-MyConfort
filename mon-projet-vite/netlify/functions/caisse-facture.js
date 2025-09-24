@@ -15,13 +15,75 @@ exports.handler = async (event) => {
   const secret = process.env.DIRECT_IMPORT_SECRET || process.env.VITE_EXTERNAL_RUN_SECRET;
   const provided = event.headers['x-secret'] || event.headers['X-Secret'];
 
-  if (event.httpMethod === 'GET') {
-    // GET autorisé sans secret (polling app locale)
-    const items = globalThis.__CAISSE_QUEUE__;
-    globalThis.__CAISSE_QUEUE__ = [];
-    console.log(`📦 GET: dequeue ${items.length} factures. Queue vide.`);
-    return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true, count: items.length, invoices: items }) };
-  }
+              if (event.httpMethod === 'GET') {
+                // GET autorisé sans secret (polling app locale)
+                const items = globalThis.__CAISSE_QUEUE__;
+                globalThis.__CAISSE_QUEUE__ = [];
+                console.log(`📦 GET: dequeue ${items.length} factures. Queue vide.`);
+                return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true, count: items.length, invoices: items }) };
+              }
+
+              if (event.httpMethod === 'POST' && event.path.endsWith('/webhook/facture')) {
+                // Webhook spécifique pour app facturation → mise à jour CA instant directe
+                try {
+                  if (secret && provided !== secret) {
+                    return { statusCode: 401, headers: cors, body: JSON.stringify({ ok: false, error: 'Unauthorized' }) };
+                  }
+
+                  const bodyStr = event.isBase64Encoded ? Buffer.from(event.body, 'base64').toString('utf8') : event.body;
+                  const body = bodyStr ? JSON.parse(bodyStr) : {};
+
+                  // Validation minimale du payload
+                  if (!body.amount || !body.vendorId) {
+                    return { statusCode: 400, headers: cors, body: JSON.stringify({ ok: false, error: 'Missing amount or vendorId' }) };
+                  }
+
+                  console.log('📡 Webhook CA reçu:', body);
+
+                  // Créer la facture et mettre à jour le CA instant
+                  const invoicePayload = {
+                    invoiceNumber: body.invoiceNumber || `F-WEBHOOK-${Date.now()}`,
+                    invoiceDate: body.date || new Date().toISOString().slice(0,10),
+                    client: { name: body.clientName || 'Client Webhook' },
+                    items: [{
+                      sku: 'WEBHOOK-001',
+                      name: 'Facture Webhook',
+                      qty: 1,
+                      unitPriceHT: body.amount / 1.2,
+                      tvaRate: 0.2
+                    }],
+                    totals: {
+                      ht: body.amount / 1.2,
+                      tva: body.amount / 6,
+                      ttc: body.amount
+                    },
+                    payment: {
+                      method: 'transfer',
+                      paid: true
+                    },
+                    channels: {
+                      source: 'App Facturation',
+                      via: 'Webhook Direct'
+                    },
+                    vendorId: body.vendorId,
+                    vendorName: body.vendorName || body.vendorId,
+                    idempotencyKey: `WEBHOOK-${body.invoiceNumber || Date.now()}`
+                  };
+
+                  // Stocker la facture
+                  globalThis.__CAISSE_QUEUE__.push(invoicePayload);
+
+                  console.log('✅ Facture webhook traitée:', invoicePayload.invoiceNumber, 'pour', invoicePayload.vendorName, invoicePayload.totals.ttc + '€');
+
+                  // Notification UI
+                  console.log('🔄 Notification CA instant envoyée');
+
+                  return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true, caUpdated: true, amount: body.amount, vendor: body.vendorId }) };
+                } catch (e) {
+                  console.error('❌ Erreur webhook CA:', e);
+                  return { statusCode: 400, headers: cors, body: JSON.stringify({ ok: false, error: e.message }) };
+                }
+              }
 
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, headers: cors, body: JSON.stringify({ ok: false, error: 'Method Not Allowed' }) };
