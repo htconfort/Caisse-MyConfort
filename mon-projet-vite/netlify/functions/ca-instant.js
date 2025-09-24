@@ -7,7 +7,7 @@ export default async (req, ctx) => {
     vendorId, 
     ca_instant: 0, 
     updatedAt: new Date().toISOString(),
-    rev: "20250124-190000"
+    rev: "20250124-190200"
   }), {
     status: 200,
     headers: { 
