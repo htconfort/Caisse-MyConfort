@@ -1,7 +1,7 @@
 [build]
   base    = "mon-projet-vite"   # CE dossier doit exister dans le repo
-  publish = "public"            # on met un placeholder (étape 2)
-  command = ":"                 # no-op: on déploie surtout les Functions
+  publish = "dist"              # Application React buildée
+  command = "npm install && npm run build"  # Build complet
 
 [functions]
   directory = "netlify/functions"   # chemin RELATIF à la base ci-dessus
