@@ -1,0 +1,66 @@
+{
+  "operations_log": [
+    {
+      "date": "2025-09-15",
+      "summary": "UI scrollbars, corrections chèques à venir, ajout virement (IBAN/BIC), maj workflow facturation n8n.",
+      "vite": {
+        "port": 5173
+      },
+      "ui": {
+        "scrollbars": {
+          "thumb": "#F55D3E",
+          "track": "#ffe6e0"
+        },
+        "ipad_wizard": {
+          "cheques_a_venir_default": 1,
+          "plage": "1-10"
+        }
+      },
+      "raz": {
+        "session_auto_open": true,
+        "anti_doublon": {
+          "exclusions": [
+            "colonnes: cheque, mixte",
+            "kpi: reglements_a_venir"
+          ],
+          "ca": "inclut toutes ventes (y compris chèques à venir)",
+          "suppression_bloc": "detail_cheques_onglets"
+        }
+      },
+      "facturation": {
+        "virement": {
+          "iban": "FR76 1660 7000 1708 1216 3980 964",
+          "bic": "CCBPFRPPPPG",
+          "banque": "BPS CLAIRA",
+          "files": [
+            "mon-projet-vite/src/config/company.ts",
+            "mon-projet-vite/src/components/InvoiceCard.tsx"
+          ]
+        }
+      },
+      "n8n_workflow": {
+        "file": "My_workflow_facturation_ok-2.json",
+        "steps": [
+          "Code4: ajouter payment_bank_html (IBAN/BIC/banque si Virement)",
+          "Email Client: insérer {{$json.payment_bank_html}} sous mode de paiement",
+          "Code HTML PDF: ajouter bankBlock et l’injecter dans .payment-info"
+        ]
+      },
+      "files_modified": [
+        "mon-projet-vite/src/index.css",
+        "mon-projet-vite/src/styles/index-modern.css",
+        "mon-projet-vite/src/styles/compact-stock-tabs.css",
+        "mon-projet-vite/src/components/ui/FloatingCart.tsx",
+        "mon-projet-vite/src/components/FeuilleDeRAZPro.tsx",
+        "mon-projet-vite/src/services/sessionService.ts",
+        "mon-projet-vite/src/config/company.ts",
+        "mon-projet-vite/src/components/InvoiceCard.tsx"
+      ],
+      "commits": {
+        "branch": "main",
+        "status": "deployed",
+        "server": "http://localhost:5173"
+      }
+    }
+  ]
+}

@@ -136,9 +136,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const [session, setSession] = useState<SessionDB | undefined>();
   const [sessLoading, setSessLoading] = useState(true);
   
-  // 🆕 États pour le tableau des chèques
-  const [chequesTab, setChequesTab] = useState<'classique' | 'facturier'>('classique');
-  const [editableChecks, setEditableChecks] = useState<Record<string, { nbCheques: number; perChequeAmount: number; product?: string }>>({});
+  // (Détail des chèques retiré de l'UI pour éviter les doublons)
   const [openingSession, setOpeningSession] = useState(false);
   // Champs événement (saisis le premier jour)
   const [eventName, setEventName] = useState('');
@@ -499,10 +497,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     const caisseParPaiement = {
       carte: validSales.filter(v => v.paymentMethod === 'card').reduce((s, v) => s + v.totalAmount, 0),
       especes: validSales.filter(v => v.paymentMethod === 'cash').reduce((s, v) => s + v.totalAmount, 0),
-      // Chèque au comptant uniquement: exclure les ventes avec checkDetails (chèques à venir)
+      // Chèque: inclure comptant et à venir (sans doublon ailleurs)
       cheque: validSales
-        .filter(v => v.paymentMethod === 'check' && !(v.checkDetails && v.checkDetails.count > 0))
+        .filter(v => v.paymentMethod === 'check')
         .reduce((s, v) => s + v.totalAmount, 0),
+      // Virement
+      virement: validSales.filter(v => v.paymentMethod === 'transfer').reduce((s, v) => s + v.totalAmount, 0),
       // Mixte strict: ne compter que les ventes réellement 'multi'
       mixte: validSales.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0),
     };
@@ -531,10 +531,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       const detailPaiements = {
         carte: ventesVendeur.filter(v => v.paymentMethod === 'card').reduce((s, v) => s + v.totalAmount, 0),
         especes: ventesVendeur.filter(v => v.paymentMethod === 'cash').reduce((s, v) => s + v.totalAmount, 0),
-        // Chèque au comptant uniquement pour la vendeuse
+        // Chèque: inclure comptant et à venir
         cheque: ventesVendeur
-          .filter(v => v.paymentMethod === 'check' && !(v.checkDetails && v.checkDetails.count > 0))
+          .filter(v => v.paymentMethod === 'check')
           .reduce((s, v) => s + v.totalAmount, 0),
+        // Virement
+        virement: ventesVendeur.filter(v => v.paymentMethod === 'transfer').reduce((s, v) => s + v.totalAmount, 0),
         // Mixte strict pour la vendeuse
         mixte: ventesVendeur.filter(v => v.paymentMethod === 'multi').reduce((s, v) => s + v.totalAmount, 0),
       };
@@ -588,30 +590,10 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   }, [sales, invoices, vendorStats, reglementsData]);
 
   // ====== LIGNES POUR TABLES CHÈQUES (dépendent des états existants) ======
-  const classicChequeRows = useMemo(() => {
-    const rows = toChequeRowsFromSales(
-      sales.filter(s => !s.canceled && (!s.cartMode || s.cartMode === 'classique')) // garde cohérence "classique"
-    );
-    // applique éditions locales si présentes
-    return rows.map(r => {
-      const e = editableChecks[r.id ?? r.invoiceNumber];
-      if (!e) return r;
-      const nb = Math.max(1, Number(e.nbCheques ?? r.nbCheques));
-      const per = Math.max(0, Number(e.perChequeAmount ?? r.perChequeAmount));
-      return {
-        ...r,
-        product: e.product ?? r.product,
-        nbCheques: nb,
-        perChequeAmount: per,
-        invoiceTotal: Number((nb * per).toFixed(2)),
-      };
-    });
-  }, [sales, editableChecks]);
-
-  const facturierChequeRows = useMemo(() => toChequeRowsFromPending(reglementsData), [reglementsData]);
-
-  // Data fusionnée pour l'impression
-  const checksPrintData = useMemo(() => mergeChequeRows(classicChequeRows, facturierChequeRows), [classicChequeRows, facturierChequeRows]);
+  // Détails chèques supprimés → sections non utilisées
+  const classicChequeRows: any[] = [];
+  const facturierChequeRows: any[] = [];
+  const checksPrintData: any[] = [];
 
   // Handler édition cellules (classique)
   const handleEditClassic = (row: ChequeRow, patch: Partial<{ nbCheques: number; perChequeAmount: number; product: string }>) => {
@@ -999,140 +981,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             </button>
           </div>
 
-          {/* 🆕===== BLOC NO-PRINT : DÉTAIL DES CHÈQUES (ONGLETS) ===== */}
-          <div className="no-print" style={{ marginTop: 20, marginBottom: 30 }}>
-            <div style={{ background: '#fff', border: '2px solid #477A0C', borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}>
-              <div style={{ padding: 12, background: '#f0f9ff', borderBottom: '1px solid #d1e9ff', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <h3 style={{ margin: 0, color: '#065F46', fontWeight: 800 }}>DÉTAIL DES CHÈQUES</h3>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button
-                    onClick={() => setChequesTab('classique')}
-                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: chequesTab==='classique' ? '#477A0C' : '#fff', color: chequesTab==='classique' ? '#fff' : '#111' }}
-                  >
-                    Panier classique
-                  </button>
-                  <button
-                    onClick={() => setChequesTab('facturier')}
-                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: chequesTab==='facturier' ? '#477A0C' : '#fff', color: chequesTab==='facturier' ? '#fff' : '#111' }}
-                  >
-                    Panier facturier (auto)
-                  </button>
-                </div>
-              </div>
-
-              {/* TABLEAU CLASSIQUE (éditable) */}
-              {chequesTab === 'classique' && (
-                <div style={{ padding: 12 }}>
-                  {classicChequeRows.length === 0 ? (
-                    <div style={{ padding: 12, color: '#6B7280' }}>Aucun chèque en mode classique (factures réellement éditées).</div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '12%' }}>N° FACTURE</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '25%' }}>NOM CLIENT</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '30%' }}>PRODUIT</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '10%' }}>NB CHÈQUES</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '11%' }}>MONTANT/CHÈQUE (€)</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '12%' }}>TOTAL FACTURE (€)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {classicChequeRows.map((r) => {
-                          const key = r.id ?? r.invoiceNumber;
-                          const edited = editableChecks[key];
-                          const nb = edited?.nbCheques ?? r.nbCheques;
-                          const per = edited?.perChequeAmount ?? r.perChequeAmount;
-                          const prod = edited?.product ?? r.product;
-                          const total = Number((nb * per).toFixed(2));
-                          const mismatch = Math.abs(total - r.invoiceTotal) > 0.01;
-
-                          return (
-                            <tr key={key}>
-                              <td style={{ border: '1px solid #000', padding: '8px 6px', fontWeight: 700 }}>{r.invoiceNumber}</td>
-                              <td style={{ border: '1px solid #000', padding: '8px 6px' }}>{r.clientName}</td>
-                              <td style={{ border: '1px solid #000', padding: '4px 6px' }}>
-                                <input
-                                  value={prod}
-                                  onChange={(e)=>handleEditClassic(r,{ product:e.target.value })}
-                                  style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 8px' }}
-                                />
-                              </td>
-                              <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right' }}>
-                                <input
-                                  type="number" min={1}
-                                  value={nb}
-                                  onChange={(e)=>handleEditClassic(r,{ nbCheques: Number(e.target.value) })}
-                                  style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 8px', textAlign:'right' }}
-                                />
-                              </td>
-                              <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right' }}>
-                                <input
-                                  type="number" min={0} step="0.01"
-                                  value={per}
-                                  onChange={(e)=>handleEditClassic(r,{ perChequeAmount: Number(e.target.value) })}
-                                  style={{ width:'100%', border:'1px solid #e5e7eb', borderRadius:6, padding:'6px 8px', textAlign:'right' }}
-                                />
-                              </td>
-                              <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right', fontWeight: 700, background: mismatch ? '#fff7ed' : '#f7f7f7' }}>
-                                {total.toFixed(2)}{mismatch ? ' ⚠︎' : ''}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        <tr style={{ background:'#eee', fontWeight:700 }}>
-                          <td colSpan={5} style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>TOTAL</td>
-                          <td style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>
-                            {classicChequeRows.reduce((s,r)=> s + (editableChecks[r.id ?? r.invoiceNumber]?.nbCheques ?? r.nbCheques) * (editableChecks[r.id ?? r.invoiceNumber]?.perChequeAmount ?? r.perChequeAmount), 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
-
-              {/* TABLEAU FACTURIER (lecture seule) */}
-              {chequesTab === 'facturier' && (
-                <div style={{ padding: 12 }}>
-                  {facturierChequeRows.length === 0 ? (
-                    <div style={{ padding: 12, color: '#6B7280' }}>Aucun règlement à venir (facturier) trouvé.</div>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000' }}>
-                      <thead>
-                        <tr style={{ background: '#f8fafc' }}>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '12%' }}>N° FACTURE</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '25%' }}>NOM CLIENT</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'left', width: '30%' }}>PRODUIT</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '10%' }}>NB CHÈQUES</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '11%' }}>MONTANT/CHÈQUE (€)</th>
-                          <th style={{ border: '1px solid #000', padding: '8px 6px', textAlign: 'right', width: '12%' }}>TOTAL FACTURE (€)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {facturierChequeRows.map((r) => (
-                          <tr key={r.id ?? r.invoiceNumber}>
-                            <td style={{ border: '1px solid #000', padding: '8px 6px', fontWeight: 700 }}>{r.invoiceNumber}</td>
-                            <td style={{ border: '1px solid #000', padding: '8px 6px' }}>{r.clientName}</td>
-                            <td style={{ border: '1px solid #000', padding: '8px 6px' }}>{r.product}</td>
-                            <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right' }}>{r.nbCheques}</td>
-                            <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right' }}>{r.perChequeAmount.toFixed(2)}</td>
-                            <td style={{ border: '1px solid #000', padding: '8px 6px', textAlign:'right', fontWeight: 700, background:'#f7f7f7' }}>{r.invoiceTotal.toFixed(2)}</td>
-                          </tr>
-                        ))}
-                        <tr style={{ background:'#eee', fontWeight:700 }}>
-                          <td colSpan={5} style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>TOTAL</td>
-                          <td style={{ border:'1.5px solid #000', textAlign:'right', padding:'8px 6px' }}>
-                            {facturierChequeRows.reduce((s,r)=> s + r.invoiceTotal, 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Détail des chèques retiré (éviter doublons) */}
 
           {/* Aperçu */}
           {modeApercu && (

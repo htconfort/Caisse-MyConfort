@@ -32,19 +32,36 @@ body {
 }
 
 /* === TYPOGRAPHIE GLOBALE === */
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-weight: 700;
   color: var(--black);
   margin-bottom: var(--spacing-4);
   line-height: 1.2;
 }
 
-h1 { font-size: var(--font-size-5xl); }
-h2 { font-size: var(--font-size-4xl); }
-h3 { font-size: var(--font-size-3xl); }
-h4 { font-size: var(--font-size-2xl); }
-h5 { font-size: var(--font-size-xl); }
-h6 { font-size: var(--font-size-lg); }
+h1 {
+  font-size: var(--font-size-5xl);
+}
+h2 {
+  font-size: var(--font-size-4xl);
+}
+h3 {
+  font-size: var(--font-size-3xl);
+}
+h4 {
+  font-size: var(--font-size-2xl);
+}
+h5 {
+  font-size: var(--font-size-xl);
+}
+h6 {
+  font-size: var(--font-size-lg);
+}
 
 p {
   margin-bottom: var(--spacing-4);
@@ -64,7 +81,9 @@ a:hover {
 }
 
 /* === ÉLÉMENTS DE FORMULAIRE === */
-input, textarea, select {
+input,
+textarea,
+select {
   font-family: inherit;
   font-size: var(--font-size-base);
   line-height: 1.5;
@@ -91,12 +110,12 @@ button {
 }
 
 ::-webkit-scrollbar-track {
-  background: #FFE6E0;
+  background: #ffe6e0;
   border-radius: var(--border-radius-md);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #F55D3E;
+  background: #f55d3e;
   border-radius: var(--border-radius-md);
   transition: var(--transition-normal);
 }
@@ -107,8 +126,12 @@ button {
 
 /* === ANIMATIONS GLOBALES === */
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
@@ -123,10 +146,15 @@ button {
 }
 
 @keyframes bounce {
-  0%, 20%, 53%, 80%, 100% {
+  0%,
+  20%,
+  53%,
+  80%,
+  100% {
     transform: translate3d(0, 0, 0);
   }
-  40%, 43% {
+  40%,
+  43% {
     transform: translate3d(0, -10px, 0);
   }
   70% {
@@ -154,11 +182,23 @@ button {
   .app-container {
     padding: var(--spacing-2);
   }
-  
-  h1 { font-size: var(--font-size-4xl); }
-  h2 { font-size: var(--font-size-3xl); }
-  h3 { font-size: var(--font-size-2xl); }
-  h4 { font-size: var(--font-size-xl); }
-  h5 { font-size: var(--font-size-lg); }
-  h6 { font-size: var(--font-size-base); }
+
+  h1 {
+    font-size: var(--font-size-4xl);
+  }
+  h2 {
+    font-size: var(--font-size-3xl);
+  }
+  h3 {
+    font-size: var(--font-size-2xl);
+  }
+  h4 {
+    font-size: var(--font-size-xl);
+  }
+  h5 {
+    font-size: var(--font-size-lg);
+  }
+  h6 {
+    font-size: var(--font-size-base);
+  }
 }
