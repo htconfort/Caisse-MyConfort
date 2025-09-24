@@ -1056,22 +1056,98 @@ POST /api/caisse/webhook/facture
 - ✅ **Sécurité** : secret optionnel
 - ✅ **Logs détaillés** pour debug
 
-### 🎉 **CONCLUSION :**
+### 🎉 **CONCLUSION - APP CAISSE PRÊTE POUR INTÉGRATION :**
 
-**L'app Caisse est maintenant fonctionnelle avec :**
-- ✅ Synchronisation vendeuses automatique
-- ✅ Outils de diagnostic complets
-- ✅ CA instant fonctionnel (panier classique + facturier)
-- ✅ Ventes dissociées (internes vs externes)
-- ✅ Architecture optimisée proposée
+**L'app Caisse est maintenant entièrement préparée avec :**
+- ✅ **Synchronisation vendeuses automatique** (outil 👥 Sync Vendeuses)
+- ✅ **Outils de diagnostic complets** (6 outils principaux + 6 avancés)
+- ✅ **CA instant fonctionnel** (panier classique + facturier)
+- ✅ **Ventes dissociées** (internes vs externes)
+- ✅ **Endpoint webhook CA** `/api/caisse/webhook/facture` créé
+- ✅ **Architecture optimisée** documentée et implémentée
 
-**Pour l'app Facturation :**
-- ✅ Architecture optimale identifiée
-- ✅ Code d'implémentation fourni
-- ✅ Payload et endpoint définis
-- ✅ Plan de migration progressif
+### 🔧 **POUR L'APP FACTURATION - CODE À INTÉGRER :**
 
-**Le travail du 23/09/2025 a été productif et a résolu les problèmes principaux !** 🎊
+#### **1. Dans n8nWebhookService.ts :**
+```typescript
+// Ajouter envoi simultané à app Caisse
+const promises = [
+  sendInvoiceToN8n(invoice, pdfBase64),  // Archivage n8n
+  sendInvoiceToCaisse(invoice, pdfBase64) // Mise à jour CA instant
+];
+
+const [n8nResult, caisseResult] = await Promise.all(promises);
+```
+
+#### **2. Fonction sendInvoiceToCaisse() :**
+```typescript
+static async sendInvoiceToCaisse(invoice: Invoice, pdfBase64?: string): Promise<any> {
+  const payload = {
+    amount: invoice.totalTTC,
+    vendorId: invoice.vendorId || 'sylvie',
+    date: invoice.date || new Date().toISOString().slice(0,10),
+    invoiceNumber: invoice.invoiceNumber,
+    vendorName: invoice.vendorName,
+    clientName: invoice.client?.name || 'Client'
+  };
+
+  const response = await fetch('/api/caisse/webhook/facture', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  return await response.json();
+}
+```
+
+#### **3. Résultat attendu :**
+```javascript
+// Réponse de l'app Caisse
+{
+  "ok": true,
+  "caUpdated": true,
+  "amount": 280,
+  "vendor": "sylvie"
+}
+```
+
+### 🚀 **TESTS À FAIRE AVANT INTÉGRATION :**
+
+#### **1. Test injection facture locale :**
+```
+💰 Injecter Facture → Vérifier CA instant
+```
+
+#### **2. Test endpoint webhook :**
+```bash
+curl -X POST 'https://caissemycomfort2025.netlify.app/api/caisse/webhook/facture' \
+  -H 'Content-Type: application/json' \
+  -d '{"amount":280,"vendorId":"sylvie","date":"2025-01-23","invoiceNumber":"F-TEST"}'
+```
+
+#### **3. Vérifier logs console :**
+```
+✅ Facture webhook traitée: F-TEST pour sylvie 280€
+🔄 Notification CA instant envoyée
+```
+
+### 🎯 **ÉTAT FINAL PRÊT POUR APP FACTURATION :**
+
+**App Caisse :**
+- ✅ **Endpoint webhook** : `/api/caisse/webhook/facture`
+- ✅ **Validation payload** : amount + vendorId obligatoires
+- ✅ **Mise à jour CA instant** : automatique
+- ✅ **Notification UI** : temps réel
+- ✅ **Logs détaillés** : pour debug
+
+**App Facturation :**
+- ✅ **Architecture identifiée** : envoi simultané n8n + Caisse
+- ✅ **Code d'implémentation** : fourni et documenté
+- ✅ **Payload défini** : minimal et fonctionnel
+- ✅ **Endpoint documenté** : spécifications complètes
+
+**Le travail du 23/09/2025 a été productif et a préparé l'intégration optimale entre les deux apps !** 🎊
 
 ## Caisse MyConfort — État des lieux et configuration (sept. 2025)
 
