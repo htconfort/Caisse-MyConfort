@@ -1,12 +1,11 @@
 [build]
-  base    = "mon-projet-vite"   # CE dossier doit exister dans le repo
-  publish = "dist"              # Application React buildée
-  command = "npm install && npm run build"  # Build complet
+  base    = "mon-projet-vite"
+  publish = "dist"
+  command = "npm install && npm run build"
 
 [functions]
-  directory = "netlify/functions"   # chemin RELATIF à la base ci-dessus
+  directory = "netlify/functions"
   node_bundler = "esbuild"
-  external_node_modules = ["@netlify/blobs"]
 
 [[redirects]]
   from = "/api/*"
@@ -14,7 +13,6 @@
   status = 200
   force = true
 
-# Catch-all SPA / page racine (à garder EN DERNIER)
 [[redirects]]
   from = "/*"
   to   = "/index.html"
