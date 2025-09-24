@@ -1,93 +1,21 @@
 [build]
-  # Le build se fait dans le dossier mon-projet-vite
-  base = "mon-projet-vite"
-  publish = "dist"
-  command = "npm install && npm run build"
-  # Forcer le build même si Netlify ne détecte pas de changement dans base
-  ignore = "exit 1"
+  base    = "mon-projet-vite"   # CE dossier doit exister dans le repo
+  publish = "public"            # on met un placeholder (étape 2)
+  command = ":"                 # no-op: on déploie surtout les Functions
 
 [functions]
-  # Chemin relatif à [build].base (mon-projet-vite)
-  directory = "netlify/functions"
+  directory = "netlify/functions"   # chemin RELATIF à la base ci-dessus
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/blobs"]
 
-# Forcer l'usage des fichiers CommonJS (.cjs) au lieu d'ESM (.mjs)
-# Les fichiers .cjs seront automatiquement détectés et utilisés
-
-[build.environment]
-  # Runtime Node et NPM pour Netlify
-  NODE_VERSION = "20.19.0"
-  NPM_VERSION  = "10.8.2"
-  # Supabase (clé anon publique)
-  VITE_SUPABASE_URL = "https://doxvtfojavrjrmwpafnf.supabase.co"
-  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRveHZ0Zm9qYXZyanJtd3BhZm5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4MDkzODMsImV4cCI6MjA3MDM4NTM4M30.P_Idhpdp8m53VeIV9vOuSMbbQLaaSVUuhxPUto03ZZ0"
-  # URL N8n pour la prod (utiliser le proxy Functions pour éviter CORS)
-  VITE_N8N_ENABLED = "true"
-  VITE_N8N_URL = "/api/n8n"
-  # Endpoints de synchro/GET (via proxy Functions)
-  VITE_EXTERNAL_INVOICES_URL = "/api/n8n/caisse/factures"
-  VITE_EXTERNAL_INVOICES_RUN_URL = "/api/n8n/caisse/facture"
-  VITE_EXTERNAL_RUN_SECRET = "MySuperSecretKey2025"
-  VITE_EXTERNAL_AUTOSYNC = "false"
-  # Base URL n8n pour la Function proxy (côté serveur)
-  N8N_BASE_WEBHOOK_URL = "https://n8n.srv765811.hstgr.cloud/webhook"
-
-[dev]
-  command = "npm run dev"
-  port = 5173
-  targetPort = 5173
-  autoLaunch = true
-
-[[redirects]]
-  from = "/api/n8n/*"
-  to = "/.netlify/functions/n8n/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/ca-instant"
-  to = "/.netlify/functions/ca-instant"
-  status = 200
-
-[[redirects]]
-  from = "/api/caisse/facture"
-  to = "/.netlify/functions/caisse-facture"
-  status = 200
-
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/:splat"
+  to   = "/.netlify/functions/:splat"
   status = 200
   force = true
 
+# Catch-all SPA / page racine (à garder EN DERNIER)
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to   = "/index.html"
   status = 200
-
-# Configuration Netlify optimisée pour MyConfort SPA
-
-# ✅ Sécurité basique côté CDN
-[[headers]]
-for = "/*"
-  [headers.values]
-  Cache-Control = "no-cache, no-store, must-revalidate"
-  Pragma = "no-cache"
-  Expires = "0"
-  X-Frame-Options = "DENY"
-  X-Content-Type-Options = "nosniff"
-  X-XSS-Protection = "1; mode=block"
-  Referrer-Policy = "strict-origin-when-cross-origin"
-
-# ✅ Cache fort sur les assets fingerprintés
-[[headers]]
-for = "/assets/*"
-  [headers.values]
-  Cache-Control = "public, max-age=31536000, immutable"
-
-# ✅ Images: cache long mais modifiable
-[[headers]]
-for = "/images/*"
-  [headers.values]
-  Cache-Control = "public, max-age=604800"
