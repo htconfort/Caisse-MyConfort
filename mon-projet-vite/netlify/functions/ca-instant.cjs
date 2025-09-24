@@ -1,7 +1,12 @@
 // mon-projet-vite/netlify/functions/ca-instant.cjs (CommonJS)
 const { getStore } = require('@netlify/blobs');
 
-const STORE = getStore({ name: 'caisse-store', consistency: 'strong' });
+const STORE = getStore({
+  name: 'caisse-store',
+  consistency: 'strong',
+  siteID: process.env.NETLIFY_SITE_ID,
+  token: process.env.NETLIFY_BLOBS_ACCESS_TOKEN
+});
 const jsonHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
