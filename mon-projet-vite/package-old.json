@@ -27,7 +27,6 @@
     "release:prod": "NETLIFY_DEPLOY=1 scripts/build_and_release.sh"
   },
   "dependencies": {
-    "@netlify/blobs": "^8.1.0",
     "@supabase/supabase-js": "^2.57.4",
     "@types/dexie": "^1.3.32",
     "date-fns": "^4.1.0",
