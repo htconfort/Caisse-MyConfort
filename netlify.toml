@@ -1,14 +1,14 @@
 [build]
   # Le build se fait dans le dossier mon-projet-vite
   base = "mon-projet-vite"
-  publish = "public"
-  command = "npm install && npm run build"
+  publish = "mon-projet-vite/dist"
+  command = "cd mon-projet-vite && npm install && npm run build"
   # Forcer le build même si Netlify ne détecte pas de changement dans base
   ignore = "exit 1"
 
 [functions]
   # Chemin relatif à [build].base (mon-projet-vite)
-  directory = "netlify/functions"
+  directory = "mon-projet-vite/netlify/functions"
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/blobs"]
 
@@ -46,7 +46,6 @@
   from = "/api/ca-instant"
   to = "/.netlify/functions/ca-instant"
   status = 200
-  force = true
 
 [[redirects]]
   from = "/api/*"
