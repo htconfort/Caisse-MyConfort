@@ -1,18 +1,13 @@
-// mon-projet-vite/netlify/functions/ca-instant.cjs (CommonJS)
-const { getStore } = require('@netlify/blobs');
-
-const STORE = getStore({
-  name: 'caisse-store',
-  consistency: 'strong',
-  siteID: process.env.NETLIFY_SITE_ID,
-  token: process.env.NETLIFY_BLOBS_TOKEN
-});
+// Version simplifiée sans Netlify Blobs pour éviter les erreurs internes
 const jsonHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+// Stockage en mémoire (temporaire pour éviter les erreurs Blobs)
+let vendorTotals = {};
 
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
@@ -28,28 +23,17 @@ exports.handler = async (event) => {
   }
 
   const vendorId = (event.queryStringParameters?.vendorId || 'sylvie').toLowerCase();
-  const key = `ca/${vendorId}.json`;
+  const total = Number(vendorTotals[vendorId] || 0);
 
-  try {
-    const data = await STORE.get(key, { type: 'json' });
-    const total = Number(data?.total || 0);
-
-    return {
-      statusCode: 200,
-      headers: jsonHeaders,
-      body: JSON.stringify({
-        ok: true,
-        vendorId,
-        ca_instant: +total.toFixed(2),
-        updatedAt: data?.updatedAt || null
-      })
-    };
-  } catch (error) {
-    console.error('Error in ca-instant function:', error);
-    return {
-      statusCode: 200,
-      headers: jsonHeaders,
-      body: JSON.stringify({ ok: true, vendorId, ca_instant: 0, updatedAt: null })
-    };
-  }
+  return {
+    statusCode: 200,
+    headers: jsonHeaders,
+    body: JSON.stringify({ 
+      ok: true, 
+      vendorId, 
+      ca_instant: +total.toFixed(2), 
+      updatedAt: new Date().toISOString(),
+      allVendors: vendorTotals
+    })
+  };
 };

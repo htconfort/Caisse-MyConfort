@@ -1,5 +1,13 @@
-// Version simplifiée sans Netlify Blobs pour éviter les erreurs internes
+// mon-projet-vite/netlify/functions/caisse-facture.cjs (CommonJS)
+const { getStore } = require('@netlify/blobs');
+
 const SECRET = process.env.CAISSE_SECRET || 'MySuperSecretKey2025';
+const STORE = getStore({
+  name: 'caisse-store',
+  consistency: 'strong',
+  siteID: process.env.NETLIFY_SITE_ID,
+  token: process.env.NETLIFY_BLOBS_TOKEN
+});
 
 const jsonHeaders = {
   'Content-Type': 'application/json',
@@ -8,27 +16,27 @@ const jsonHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, X-Secret',
 };
 
-// Stockage en mémoire (temporaire pour éviter les erreurs Blobs)
-let invoices = [];
-let vendorTotals = {};
-
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: jsonHeaders, body: '' };
   }
 
   if (event.httpMethod === 'GET') {
-    // Retourner la liste des factures
-    return {
-      statusCode: 200,
-      headers: jsonHeaders,
-      body: JSON.stringify({ 
-        ok: true, 
-        count: invoices.length, 
-        invoices: invoices.map(inv => inv.numero_facture),
-        vendorTotals 
-      })
-    };
+    try {
+      const { blobs } = await STORE.list({ prefix: 'invoices/', cursor: undefined, limit: 20 });
+      return {
+        statusCode: 200,
+        headers: jsonHeaders,
+        body: JSON.stringify({ ok: true, count: blobs.length, invoices: blobs.map(b => b.key) })
+      };
+    } catch (error) {
+      console.error('Error listing invoices:', error);
+      return {
+        statusCode: 500,
+        headers: jsonHeaders,
+        body: JSON.stringify({ ok: false, error: 'Internal Server Error' })
+      };
+    }
   }
 
   if (event.httpMethod !== 'POST') {
@@ -67,13 +75,6 @@ exports.handler = async (event) => {
     return Number.isFinite(n) ? n : d;
   };
 
-  const clamp01 = (x) => {
-    const n = toNum(x, 0);
-    if (n > 1) return Math.min(n / 100, 1); // 20 -> 0.2
-    if (n < 0) return 0;
-    return n;
-  };
-
   const raw = Array.isArray(body.produits) ? body.produits
             : Array.isArray(body.items) ? body.items
             : Array.isArray(body.products) ? body.products
@@ -88,12 +89,12 @@ exports.handler = async (event) => {
       const prix_ht = toNum(p?.prix_ht ?? p?.unitPriceHT ?? p?.priceHT, 0);
       prix_ttc = +(prix_ht * 1.2).toFixed(2);
     }
-    const remise = clamp01(p?.remise ?? p?.discount ?? 0);
+    const remise = Math.min(Math.max(toNum(p?.remise ?? p?.discount ?? 0, 0), 1), 1);
     return { nom, quantite, prix_ttc, remise };
   });
 
   const totalFromLines = (lines) =>
-    lines.reduce((s, p) => s + toNum(p.quantite, 1) * toNum(p.prix_ttc, 0) * (1 - clamp01(p.remise || 0)), 0);
+    lines.reduce((s, p) => s + toNum(p.quantite, 1) * toNum(p.prix_ttc, 0) * (1 - (toNum(p.remise || 0, 0))), 0);
 
   let montant_ttc = toNum(body.montant_ttc ?? body.total_ttc ?? body.totalTTC ?? body.amount ?? body.total ?? body.montant_total, NaN);
   if (!(montant_ttc > 0)) montant_ttc = totalFromLines(produits);
@@ -135,54 +136,56 @@ exports.handler = async (event) => {
     updatedAt: new Date().toISOString(),
   };
 
-  try {
-    // Idempotence: vérifier si la facture existe déjà
-    const existingIndex = invoices.findIndex(inv => inv.numero_facture === numero_facture);
-    let oldAmount = 0;
-    let oldVendorId = null;
+  // Clés blobs
+  const keyInvoice = `invoices/${numero_facture}.json`;
+  const keyIndex = `index/${numero_facture}.json`;
+  const keyVendor = (vid) => `ca/${vid}.json`;
 
-    if (existingIndex >= 0) {
-      // Facture existante: récupérer l'ancien montant et vendeuse
-      const existingInvoice = invoices[existingIndex];
-      oldAmount = existingInvoice.montant_ttc;
-      oldVendorId = existingInvoice.vendorId;
-      
-      // Remplacer la facture existante
-      invoices[existingIndex] = invoice;
-    } else {
-      // Nouvelle facture
-      invoices.push(invoice);
+  try {
+    // Lire ancien index
+    let oldIndex = null;
+    try { oldIndex = await STORE.get(keyIndex, { type: 'json' }); } catch {}
+    const oldVendorId = oldIndex?.vendorId || null;
+    const oldAmount = Number(oldIndex?.montant_ttc || 0);
+
+    // Upsert facture
+    await STORE.set(keyInvoice, JSON.stringify(invoice), { contentType: 'application/json' });
+    await STORE.set(keyIndex, JSON.stringify({ vendorId, montant_ttc }), { contentType: 'application/json' });
+
+    // Ajuster CA
+    async function getVendorTotal(vid) {
+      const v = await STORE.get(keyVendor(vid), { type: 'json' }).catch(() => null);
+      return Number(v?.total || 0);
+    }
+    async function setVendorTotal(vid, total) {
+      return STORE.set(keyVendor(vid), JSON.stringify({ vendorId: vid, total, updatedAt: new Date().toISOString() }), { contentType: 'application/json' });
     }
 
-    // Mettre à jour les totaux des vendeuses
     if (oldVendorId && oldVendorId !== vendorId) {
       // Annuler l'ancien CA sur l'ancienne vendeuse
-      vendorTotals[oldVendorId] = Math.max(0, +(vendorTotals[oldVendorId] || 0) - oldAmount);
+      const prevTotal = await getVendorTotal(oldVendorId);
+      await setVendorTotal(oldVendorId, Math.max(0, +(prevTotal - oldAmount).toFixed(2)));
       // Ajouter le nouveau CA à la nouvelle vendeuse
-      vendorTotals[vendorId] = +(vendorTotals[vendorId] || 0) + montant_ttc;
+      const newTotal = await getVendorTotal(vendorId);
+      await setVendorTotal(vendorId, +(newTotal + montant_ttc).toFixed(2));
     } else {
       // Même vendeuse: appliquer delta
+      const prevTotal = await getVendorTotal(vendorId);
       const delta = montant_ttc - oldAmount;
-      vendorTotals[vendorId] = +(vendorTotals[vendorId] || 0) + delta;
+      await setVendorTotal(vendorId, +(prevTotal + delta).toFixed(2));
     }
 
     return {
       statusCode: 200,
       headers: jsonHeaders,
-      body: JSON.stringify({ 
-        ok: true, 
-        enqueued: 1, 
-        invoice,
-        vendorTotals,
-        message: existingIndex >= 0 ? 'Invoice updated' : 'Invoice created'
-      })
+      body: JSON.stringify({ ok: true, enqueued: 1, invoice })
     };
   } catch (error) {
     console.error('Error processing invoice:', error);
     return {
       statusCode: 500,
       headers: jsonHeaders,
-      body: JSON.stringify({ ok: false, error: 'Internal Server Error', details: error.message })
+      body: JSON.stringify({ ok: false, error: 'Internal Server Error' })
     };
   }
 };
