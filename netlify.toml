@@ -8,8 +8,9 @@
 
 [functions]
   # Chemin relatif à [build].base (mon-projet-vite)
-  directory = "netlify/functions"
+  directory = "mon-projet-vite/netlify/functions"
   node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
 
 [build.environment]
   # Runtime Node et NPM pour Netlify
@@ -42,20 +43,8 @@
   force = true
 
 [[redirects]]
-  from = "/api/caisse/webhook/facture"
-  to = "/.netlify/functions/caisse-facture"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/caisse/ca"
+  from = "/api/ca-instant"
   to = "/.netlify/functions/ca-instant"
-  status = 200
-  force = true
-
-[[redirects]]
-  from = "/api/caisse/facture"
-  to = "/.netlify/functions/caisse-facture"
   status = 200
   force = true
 

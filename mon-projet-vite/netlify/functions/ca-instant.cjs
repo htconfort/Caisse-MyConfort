@@ -1,4 +1,4 @@
-export async function handler(event) {
+exports.handler = async (event) => {
   const cors = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -18,14 +18,11 @@ export async function handler(event) {
   }
 
   try {
-    const { getStore } = await import('@netlify/blobs');
-    const store = getStore('caisse-ca');
-
-    const totals = JSON.parse((await store.get('totals')) || '{}');
-    const recent = JSON.parse((await store.get('recent')) || '[]');
-
     const qs = event.queryStringParameters || {};
     const vendorId = (qs.vendorId || '').toLowerCase() || null;
+
+    const totals = globalThis.__CAISSE_TOTALS__ || {};
+    const recent = globalThis.__CAISSE_RECENT__ || [];
 
     const payload = vendorId
       ? { vendorId, total: Number(totals[vendorId] || 0) }
@@ -50,4 +47,4 @@ export async function handler(event) {
       })
     };
   }
-}
+};

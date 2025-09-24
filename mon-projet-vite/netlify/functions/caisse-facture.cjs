@@ -7,6 +7,8 @@ exports.handler = async (event) => {
 
   // Stockage en mémoire (persiste sur instance chaude uniquement) pour démo temps réel
   globalThis.__CAISSE_QUEUE__ = globalThis.__CAISSE_QUEUE__ || [];
+  globalThis.__CAISSE_TOTALS__ = globalThis.__CAISSE_TOTALS__ || {};
+  globalThis.__CAISSE_RECENT__ = globalThis.__CAISSE_RECENT__ || [];
 
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 204, headers: cors, body: '' };
@@ -17,9 +19,9 @@ exports.handler = async (event) => {
 
               if (event.httpMethod === 'GET') {
                 // GET autorisé sans secret (polling app locale)
-                const items = globalThis.__CAISSE_QUEUE__;
+                const items = globalThis.__CAISSE_QUEUE__ || [];
                 globalThis.__CAISSE_QUEUE__ = [];
-                console.log(`📦 GET: dequeue ${items.length} factures. Queue vide.`);
+                console.log(`📦 GET: dequeue ${items.length} factures. Queue vidée.`);
                 return { statusCode: 200, headers: cors, body: JSON.stringify({ ok: true, count: items.length, invoices: items }) };
               }
 
@@ -39,6 +41,27 @@ exports.handler = async (event) => {
                   }
 
                   console.log('📡 Webhook CA reçu:', body);
+
+                  // Mettre à jour le CA instant
+                  const amount = Number(body.amount);
+                  const vendorId = String(body.vendorId).toLowerCase();
+                  const next = Number(globalThis.__CAISSE_TOTALS__[vendorId] || 0) + amount;
+                  globalThis.__CAISSE_TOTALS__[vendorId] = Math.round(next * 100) / 100;
+
+                  // Ajouter à l'historique récent
+                  globalThis.__CAISSE_RECENT__.unshift({
+                    vendorId,
+                    amount,
+                    invoiceNumber: body.invoiceNumber,
+                    date: body.date || new Date().toISOString().slice(0,10),
+                    ts: Date.now()
+                  });
+
+                  if (globalThis.__CAISSE_RECENT__.length > 100) {
+                    globalThis.__CAISSE_RECENT__ = globalThis.__CAISSE_RECENT__.slice(0, 100);
+                  }
+
+                  console.log('✅ CA instant mis à jour:', vendorId, globalThis.__CAISSE_TOTALS__[vendorId] + '€ (+' + amount + '€)');
 
                   // Créer la facture et mettre à jour le CA instant
                   const invoicePayload = {
