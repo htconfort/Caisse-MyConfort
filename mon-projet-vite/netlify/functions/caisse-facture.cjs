@@ -6,7 +6,7 @@ const STORE = getStore({
   name: 'caisse-store',
   consistency: 'strong',
   siteID: process.env.NETLIFY_SITE_ID,
-  token: process.env.NETLIFY_BLOBS_ACCESS_TOKEN
+  token: process.env.NETLIFY_BLOBS_TOKEN
 });
 
 const jsonHeaders = {
