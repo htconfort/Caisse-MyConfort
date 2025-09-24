@@ -12,50 +12,47 @@ const jsonHeaders = {
 let invoices = [];
 let vendorTotals = {};
 
-exports.handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: jsonHeaders, body: '' };
+export default async (req, ctx) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('', { status: 204, headers: jsonHeaders });
   }
 
-  if (event.httpMethod === 'GET') {
+  if (req.method === 'GET') {
     // Retourner la liste des factures
-    return {
-      statusCode: 200,
-      headers: jsonHeaders,
-      body: JSON.stringify({ 
-        ok: true, 
-        count: invoices.length, 
-        invoices: invoices.map(inv => inv.numero_facture),
-        vendorTotals 
-      })
-    };
+    return new Response(JSON.stringify({ 
+      ok: true, 
+      count: invoices.length, 
+      invoices: invoices.map(inv => inv.numero_facture),
+      vendorTotals,
+      rev: "20250124-184500"
+    }), {
+      status: 200,
+      headers: jsonHeaders
+    });
   }
 
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: jsonHeaders,
-      body: JSON.stringify({ ok: false, error: 'Method Not Allowed' })
-    };
+  if (req.method !== 'POST') {
+    return new Response(JSON.stringify({ ok: false, error: 'Method Not Allowed' }), {
+      status: 405,
+      headers: jsonHeaders
+    });
   }
 
-  if ((event.headers['x-secret'] || '') !== SECRET) {
-    return {
-      statusCode: 401,
-      headers: jsonHeaders,
-      body: JSON.stringify({ ok: false, error: 'Unauthorized' })
-    };
+  if ((req.headers.get('x-secret') || '') !== SECRET) {
+    return new Response(JSON.stringify({ ok: false, error: 'Unauthorized' }), {
+      status: 401,
+      headers: jsonHeaders
+    });
   }
 
   let body;
   try {
-    body = JSON.parse(event.body);
+    body = await req.json();
   } catch {
-    return {
-      statusCode: 400,
-      headers: jsonHeaders,
-      body: JSON.stringify({ ok: false, error: 'Invalid JSON body' })
-    };
+    return new Response(JSON.stringify({ ok: false, error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: jsonHeaders
+    });
   }
 
   // Normalisation des données
@@ -116,11 +113,10 @@ exports.handler = async (event) => {
   }
 
   if (!(montant_ttc > 0) || !Array.isArray(lignes) || !lignes.length) {
-    return {
-      statusCode: 200,
-      headers: jsonHeaders,
-      body: JSON.stringify({ ok: true, enqueued: 0, reason: 'no_op', hint: 'Provide montant_ttc>0 or produits[]' })
-    };
+    return new Response(JSON.stringify({ ok: true, enqueued: 0, reason: 'no_op', hint: 'Provide montant_ttc>0 or produits[]' }), {
+      status: 200,
+      headers: jsonHeaders
+    });
   }
 
   const invoice = {
@@ -166,23 +162,24 @@ exports.handler = async (event) => {
       vendorTotals[vendorId] = +(vendorTotals[vendorId] || 0) + delta;
     }
 
-    return {
-      statusCode: 200,
-      headers: jsonHeaders,
-      body: JSON.stringify({ 
-        ok: true, 
-        enqueued: 1, 
-        invoice,
-        vendorTotals,
-        message: existingIndex >= 0 ? 'Invoice updated' : 'Invoice created'
-      })
-    };
+    return new Response(JSON.stringify({ 
+      ok: true, 
+      enqueued: 1, 
+      invoice,
+      vendorTotals,
+      message: existingIndex >= 0 ? 'Invoice updated' : 'Invoice created',
+      rev: "20250124-184500"
+    }), {
+      status: 200,
+      headers: jsonHeaders
+    });
   } catch (error) {
     console.error('Error processing invoice:', error);
-    return {
-      statusCode: 500,
-      headers: jsonHeaders,
-      body: JSON.stringify({ ok: false, error: 'Internal Server Error', details: error.message })
-    };
+    return new Response(JSON.stringify({ ok: false, error: 'Internal Server Error', details: error.message }), {
+      status: 500,
+      headers: jsonHeaders
+    });
   }
 };
+
+// rev: 20250124-184500
