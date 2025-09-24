@@ -1,4 +1,4 @@
-export default async (req, ctx) => {
+export default async (req) => {
   const url = new URL(req.url);
   const vendorId = (url.searchParams.get('vendorId') || 'sylvie').toLowerCase();
   
@@ -7,7 +7,7 @@ export default async (req, ctx) => {
     vendorId, 
     ca_instant: 0, 
     updatedAt: new Date().toISOString(),
-    rev: "20250124-190200"
+    rev: "20250124-190500"
   }), {
     status: 200,
     headers: { 

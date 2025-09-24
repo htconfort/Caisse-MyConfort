@@ -1,9 +1,9 @@
-export default async (req, ctx) => {
+export default async (req) => {
   return new Response(JSON.stringify({
     ok: true,
     name: "ping",
     time: new Date().toISOString(),
-    rev: "20250124-190200"
+    rev: "20250124-190500"
   }), { 
     status: 200, 
     headers: { 
