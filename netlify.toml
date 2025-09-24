@@ -1,25 +1,25 @@
 [build]
   command = "npm install && npm run build"
   publish = "mon-projet-vite/dist"
-  functions = "mon-projet-vite/netlify/functions"
 
 [build.environment]
-NODE_VERSION = "20.19.0"
-NPM_VERSION = "10.8.2"
-VITE_SUPABASE_URL = "https://doxvtfojavrjrmwpafnf.supabase.co"
-VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRveHZ0Zm9qYXZyanJtd3BhZm5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4MDkzODMsImV4cCI6MjA3MDM4NTM4M30.P_Idhpdp8m53VeIV9vOuSMbbQLaaSVUuhxPUto03ZZ0"
-VITE_N8N_ENABLED = "true"
-VITE_N8N_URL = "/api/n8n"
-VITE_EXTERNAL_INVOICES_URL = "/api/n8n/caisse/factures"
-VITE_EXTERNAL_INVOICES_RUN_URL = "/api/n8n/caisse/facture"
-VITE_EXTERNAL_RUN_SECRET = "MySuperSecretKey2025"
-VITE_EXTERNAL_AUTOSYNC = "false"
-N8N_BASE_WEBHOOK_URL = "https://n8n.srv765811.hstgr.cloud/webhook"
-CAISSE_SECRET = "MySuperSecretKey2025"
+  NODE_VERSION = "20.19.0"
+  NPM_VERSION = "10.8.2"
+  VITE_SUPABASE_URL = "https://doxvtfojavrjrmwpafnf.supabase.co"
+  VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRveHZ0Zm9qYXZyanJtd3BhZm5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ4MDkzODMsImV4cCI6MjA3MDM4NTM4M30.P_Idhpdp8m53VeIV9vOuSMbbQLaaSVUuhxPUto03ZZ0"
+  VITE_N8N_ENABLED = "true"
+  VITE_N8N_URL = "/api/n8n"
+  VITE_EXTERNAL_INVOICES_URL = "/api/n8n/caisse/factures"
+  VITE_EXTERNAL_INVOICES_RUN_URL = "/api/n8n/caisse/facture"
+  VITE_EXTERNAL_RUN_SECRET = "MySuperSecretKey2025"
+  VITE_EXTERNAL_AUTOSYNC = "false"
+  N8N_BASE_WEBHOOK_URL = "https://n8n.srv765811.hstgr.cloud/webhook"
+  CAISSE_SECRET = "MySuperSecretKey2025"
 
-[functions."*"]
-external_node_modules = ["@netlify/blobs"]
-node_bundler = "esbuild"
+[functions]
+  directory = "mon-projet-vite/netlify/functions"
+  external_node_modules = ["@netlify/blobs"]
+  node_bundler = "esbuild"
 
 [[headers]]
 for = "/*"
