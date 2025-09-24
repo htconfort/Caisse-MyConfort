@@ -48,6 +48,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/caisse/ca"
+  to = "/.netlify/functions/ca-instant"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/caisse/facture"
   to = "/.netlify/functions/caisse-facture"
   status = 200
