@@ -10,11 +10,7 @@
     "build": "vite build"
   },
   "dependencies": {
-<<<<<<< HEAD
     "@netlify/blobs": "^8.1.0",
-=======
-    "@netlify/blobs": "^6.5.0",
->>>>>>> 64bcb8ba43d1df3a9c8e7fa05a9533603eb7073c
     "@supabase/supabase-js": "^2.57.4",
     "@types/dexie": "^1.3.32",
     "date-fns": "^4.1.0",
