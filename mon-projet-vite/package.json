@@ -7,24 +7,7 @@
     "node": ">=20.19.0"
   },
   "scripts": {
-    "dev": "vite",
-    "dev:ipad": "vite --host --port 5173",
-    "build": "VITE_BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) VITE_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo local) VITE_COMMIT_REF=$(git rev-parse HEAD 2>/dev/null || echo dev) vite build",
-    "preview": "vite preview",
-    "preview:netlify": "netlify dev",
-    "serve:netlify": "npm run build && netlify serve",
-    "type-check": "tsc --noEmit",
-    "build:verify": "npm run type-check",
-    "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\"",
-    "lint:fix": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --fix",
-    "format": "prettier --write .",
-    "save": "bash ./auto-commit.sh",
-    "save:msg": "bash ./auto-commit.sh \"feat: update\"",
-    "predeploy:netlify": "npm run build:verify && npm run build",
-    "deploy:netlify:preview": "netlify deploy --build --dir=dist --alias=preprod",
-    "deploy:netlify:draft": "netlify deploy --dir=dist",
-    "release": "scripts/build_and_release.sh",
-    "release:prod": "NETLIFY_DEPLOY=1 scripts/build_and_release.sh"
+    "build": "vite build"
   },
   "dependencies": {
     "@netlify/blobs": "^6.5.0",
