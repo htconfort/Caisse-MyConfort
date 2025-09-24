@@ -36,11 +36,11 @@
     padding: 8px 12px;
     font-size: 14px;
   }
-  
+
   .compact-stock-tab-button span {
     display: none;
   }
-  
+
   /* Afficher seulement l'icône sur mobile */
   .compact-stock-tab-button svg {
     margin: 0;
@@ -59,12 +59,12 @@
 }
 
 .compact-stock-tab-button::-webkit-scrollbar-track {
-  background: #FFE6E0;
+  background: #ffe6e0;
   border-radius: 2px;
 }
 
 .compact-stock-tab-button::-webkit-scrollbar-thumb {
-  background: #F55D3E;
+  background: #f55d3e;
   border-radius: 2px;
 }
 
