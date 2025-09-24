@@ -12,6 +12,9 @@
   node_bundler = "esbuild"
   external_node_modules = ["@netlify/blobs"]
 
+# Forcer l'usage des fichiers CommonJS (.cjs) au lieu d'ESM (.mjs)
+# Les fichiers .cjs seront automatiquement détectés et utilisés
+
 [build.environment]
   # Runtime Node et NPM pour Netlify
   NODE_VERSION = "20.19.0"
@@ -45,6 +48,11 @@
 [[redirects]]
   from = "/api/ca-instant"
   to = "/.netlify/functions/ca-instant"
+  status = 200
+
+[[redirects]]
+  from = "/api/caisse/facture"
+  to = "/.netlify/functions/caisse-facture"
   status = 200
 
 [[redirects]]
