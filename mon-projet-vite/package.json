@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "vite --port 5173",
-    "build": "vite build"
+    "build": "node scripts/update-build-info.js && vite build",
+    "update-build": "node scripts/update-build-info.js"
   },
   "dependencies": {
     "@netlify/blobs": "^8.1.0",
