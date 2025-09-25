@@ -369,6 +369,13 @@ class ExternalInvoiceService {
       // Ne rien faire en production guard
       return;
     }
+    
+    // En mode développement local, désactiver la synchronisation automatique
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      console.log('🏠 Mode développement local: synchronisation automatique désactivée');
+      return;
+    }
+    
     if (this.syncTimer) {
       clearInterval(this.syncTimer);
     }
