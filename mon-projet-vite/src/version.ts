@@ -15,7 +15,7 @@ export const BUILD_INFO = {
   buildDate: BUILD_DATE,
   // Variables Netlify injectées au build
   branch: import.meta.env.VITE_BRANCH ?? 'main',
-  commitRef: (import.meta.env.VITE_COMMIT_REF ?? 'bb34ca0').slice(0, 7),
+  commitRef: (import.meta.env.VITE_COMMIT_REF ?? 'bcd2832').slice(0, 7),
   buildTime: import.meta.env.VITE_BUILD_TIME ?? BUILD_DATE,
   context: import.meta.env.VITE_CONTEXT ?? 'production'
 };

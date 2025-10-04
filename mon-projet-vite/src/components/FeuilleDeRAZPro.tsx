@@ -118,11 +118,54 @@ interface VendeusesAvecDetail extends Vendor {
 }
 
 function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, executeRAZ }: FeuilleDeRAZProProps) {
+
+  // 🔄 État pour les règlements perçus sur Stand
+  const [receivedPayments, setReceivedPayments] = useState<Array<{
+    id: string;
+    clientName: string;
+    invoiceNumber: string;
+    checkReceived: number;
+    numberOfChecks: number;
+    vendorName: string;
+    vendorId: string;
+    date: Date;
+  }>>([]);
+
+  // 📊 Charger les règlements perçus depuis le localStorage
+  React.useEffect(() => {
+    const savedReceivedPayments = localStorage.getItem('receivedPayments');
+    if (savedReceivedPayments) {
+      try {
+        const parsed = JSON.parse(savedReceivedPayments);
+        // Convertir les dates string en objets Date
+        const paymentsWithDates = parsed.map((payment: any) => ({
+          ...payment,
+          date: new Date(payment.date)
+        }));
+        setReceivedPayments(paymentsWithDates);
+      } catch (error) {
+        console.error('Erreur lors du chargement des règlements perçus:', error);
+      }
+    }
+  }, []);
+
+  // 📊 Calculer les statistiques des règlements perçus
+  const receivedPaymentsStats = useMemo(() => {
+    const totalReceived = receivedPayments.reduce((sum, payment) => sum + payment.checkReceived, 0);
+    const totalChecksCount = receivedPayments.reduce((sum, payment) => sum + payment.numberOfChecks, 0);
+
+    return {
+      totalReceived,
+      totalChecksCount,
+      paymentsCount: receivedPayments.length,
+      averagePerPayment: receivedPayments.length > 0 ? totalReceived / receivedPayments.length : 0
+    };
+  }, [receivedPayments]);
   const [modeApercu, setModeApercu] = useState(false);
   const [reglementsData, setReglementsData] = useState<PendingPayment[]>([]);
   const [contentHtmlForPrint, setContentHtmlForPrint] = useState<string>('');
   const [forceUpdate, setForceUpdate] = useState(0); // Pour forcer les mises à jour
-  
+
   // ===== WORKFLOW SÉCURISÉ =====
   const [isViewed, setIsViewed] = useState(false);
   const [isPrinted, setIsPrinted] = useState(false);
@@ -135,14 +178,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
   const [sessLoading, setSessLoading] = useState(true);
-  
+
   // (Détail des chèques retiré de l'UI pour éviter les doublons)
   const [openingSession, setOpeningSession] = useState(false);
   // Champs événement (saisis le premier jour)
   const [eventName, setEventName] = useState('');
   const [eventStart, setEventStart] = useState(''); // yyyy-mm-dd
   const [eventEnd, setEventEnd] = useState('');     // yyyy-mm-dd
-  
+
   // ===== NOM ÉVÉNEMENT AFFICHÉ (état local pour mise à jour immédiate) =====
   const [displayedEventName, setDisplayedEventName] = useState<string>('');
 
@@ -151,7 +194,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     if (!session?.eventEnd) return false;
     const today = new Date();
     const sessionEndDate = new Date(session.eventEnd);
-    
+
     // On peut faire RAZ Fin Session seulement si on est à la date de fin ou après
     return today.getTime() >= sessionEndDate.getTime();
   }, [session?.eventEnd]);
@@ -173,8 +216,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   const isTodayFirstDayOf = (openedAt?: number) => {
     if (!openedAt) return false;
-    const o = new Date(openedAt); o.setHours(0,0,0,0);
-    const t = new Date(); t.setHours(0,0,0,0);
+    const o = new Date(openedAt); o.setHours(0, 0, 0, 0);
+    const t = new Date(); t.setHours(0, 0, 0, 0);
     return o.getTime() === t.getTime();
   };
 
@@ -197,21 +240,21 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const eventNameDynamic = useMemo(() => {
     // Priorité : nom local affiché > session > défaut
     const name = displayedEventName || session?.eventName || 'Événement MyConfort';
-    console.log('🎯 Calcul eventNameDynamic:', { 
-      displayedEventName, 
-      sessionEventName: session?.eventName, 
-      result: name, 
-      forceUpdate 
+    console.log('🎯 Calcul eventNameDynamic:', {
+      displayedEventName,
+      sessionEventName: session?.eventName,
+      result: name,
+      forceUpdate
     });
     return name;
   }, [displayedEventName, session?.eventName, forceUpdate]);
 
   // ===== FONCTION IMPRESSION A4 AVEC NOM ÉVÉNEMENT =====
   const handleRAZPrint = () => {
-    console.log('🖨️ DEBUG Impression - État initial:', { 
-      contentHtmlForPrint: contentHtmlForPrint ? 'PRÉSENT' : 'VIDE', 
-      isViewed, 
-      modeApercu 
+    console.log('🖨️ DEBUG Impression - État initial:', {
+      contentHtmlForPrint: contentHtmlForPrint ? 'PRÉSENT' : 'VIDE',
+      isViewed,
+      modeApercu
     });
 
     // Forcer la visualisation en premier si nécessaire
@@ -219,16 +262,16 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       console.log('🔄 Forçage de la visualisation...');
       setModeApercu(true);
       setIsViewed(true);
-      
+
       // Attendre que le DOM se mette à jour avec le nouveau contenu
       setTimeout(() => {
         const contentElement = document.getElementById('zone-impression-content');
         console.log('🔍 Élément trouvé après forçage:', contentElement ? 'OUI' : 'NON');
-        
+
         if (contentElement) {
           const capturedContent = contentElement.innerHTML;
           setContentHtmlForPrint(capturedContent);
-          
+
           const fullHtml = `
             <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
               <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
@@ -245,7 +288,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           alert("Erreur technique : impossible de générer la feuille. Essayez de cliquer d'abord sur 'Voir la feuille'.");
         }
       }, 300); // Délai plus long pour s'assurer que React a rendu le composant
-      
+
       return;
     }
 
@@ -271,7 +314,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     if (contentElement) {
       const capturedContent = contentElement.innerHTML;
       setContentHtmlForPrint(capturedContent);
-      
+
       const fullHtml = `
         <div style="padding: 32px; font-family: 'Manrope', sans-serif;">
           <h1 style="text-align: center; font-size: 20px; margin-bottom: 20px;">
@@ -332,10 +375,10 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   }) => {
     try {
       console.log('🔄 Création de session interactive...', sessionData);
-      
+
       const eventStartMs = new Date(sessionData.eventStart).getTime();
       const eventEndMs = new Date(sessionData.eventEnd).getTime();
-      
+
       const sessionParams = {
         openedBy: 'system',
         eventName: sessionData.eventName,
@@ -343,10 +386,10 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         eventEnd: eventEndMs,
         ...(sessionData.note && { note: sessionData.note })
       };
-      
+
       await ensureSessionHelper(sessionParams);
       console.log('✅ Session interactive créée avec succès');
-      
+
       await refreshSession();
     } catch (e) {
       console.error('❌ Erreur création session interactive:', e);
@@ -357,14 +400,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const handleSessionUpdate = useCallback(async (sessionData: Partial<SessionDB>) => {
     try {
       console.log('🔄 Mise à jour de session...', sessionData);
-      
+
       if (!session?.id) {
         throw new Error('Aucune session active à mettre à jour');
       }
-      
+
       await sessionService.updateSession(session.id, sessionData);
       console.log('✅ Session mise à jour avec succès');
-      
+
       await refreshSession();
     } catch (e) {
       console.error('❌ Erreur mise à jour session:', e);
@@ -376,11 +419,11 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     setOpeningSession(true);
     try {
       console.log('🔄 Ouverture de session...', { eventName, eventStart, eventEnd });
-      
+
       // Convertir les dates en format approprié
       const eventStartMs = eventStart ? new Date(eventStart).getTime() : undefined;
       const eventEndMs = eventEnd ? new Date(eventEnd).getTime() : undefined;
-      
+
       // Passer les infos d'événement si fournies
       const sessionParams = {
         openedBy: 'system',
@@ -388,12 +431,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         ...(eventStartMs && { eventStart: eventStartMs }),
         ...(eventEndMs && { eventEnd: eventEndMs })
       };
-      
+
       console.log('📝 Paramètres session:', sessionParams);
-      
+
       await ensureSessionHelper(sessionParams);
       console.log('✅ Session ouverte avec succès');
-      
+
       await refreshSession();
     } catch (e) {
       console.error('❌ Erreur ouverture session:', e);
@@ -406,26 +449,26 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const onSaveEventFirstDay = useCallback(async () => {
     try {
       console.log('📝 Enregistrement événement:', { eventName, eventStart, eventEnd });
-      
+
       // 🎯 MISE À JOUR IMMÉDIATE DU NOM AFFICHÉ
       if (eventName.trim()) {
         console.log('⚡ Mise à jour immédiate du nom affiché:', eventName);
         setDisplayedEventName(eventName.trim());
       }
-      
+
       await updateCurrentSessionEventHelper({ eventName: eventName || undefined, eventStart: eventStart || undefined, eventEnd: eventEnd || undefined });
-      
+
       console.log('✅ Événement enregistré, rafraîchissement session...');
       await refreshSession();
-      
+
       // 🎯 FORCER MISE À JOUR IMMÉDIATE DE LA FEUILLE DE CAISSE
       console.log('🔄 Forçage mise à jour interface...');
       setForceUpdate(prev => prev + 1);
-      
+
       // Attendre un peu plus longtemps pour que tout soit synchronisé
       setTimeout(() => {
         console.log('🕐 Vérification après délai, session actuelle:', session?.eventName);
-        
+
         // Si la feuille est en mode aperçu, on force le rafraîchissement
         if (modeApercu) {
           console.log('🔄 Mise à jour du contenu HTML de la feuille');
@@ -435,7 +478,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           }
         }
       }, 500); // Délai plus long
-      
+
       alert('✅ Détails de l\'événement enregistrés.\n📍 Le nom devrait maintenant apparaître immédiatement !');
     } catch (e) {
       console.error('Erreur mise à jour événement:', e);
@@ -470,8 +513,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const calculs = useMemo(() => {
     // 🎯 FILTRER UNIQUEMENT LES VENTES EN MODE "CLASSIQUE" POUR ÉVITER LES DOUBLONS
     // Les ventes en mode "facturier" sont gérées par l'iPad et N8N, pas par la caisse
-    const validSales = sales.filter(sale => 
-      !sale.canceled && 
+    const validSales = sales.filter(sale =>
+      !sale.canceled &&
       (!sale.cartMode || sale.cartMode === 'classique') // Mode classique uniquement
     );
 
@@ -615,7 +658,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   // ===== EMAIL (inchangé) =====
   const envoyerEmail = () => {
-    const dateJour = new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    const dateJour = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     let contenuEmail = `MYCONFORT - FEUILLE DE CAISSE\n${dateJour.toUpperCase()}\n\n`;
     if (session?.eventName) {
       contenuEmail += `ÉVÉNEMENT : ${session.eventName}`;
@@ -626,15 +669,15 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     }
     contenuEmail += `RÉSUMÉ DU JOUR :\n- Chiffre d'affaires : ${calculs.caTotal.toFixed(2)} €\n- Nombre de ventes : ${calculs.nbVentesTotal}\n- Ticket moyen : ${calculs.ticketMoyen.toFixed(2)} €\n- Vendeuses actives : ${calculs.vendeusesActives}\n\n`;
     contenuEmail += `DÉTAIL PAR VENDEUSE :\n`;
-    calculs.vendeusesAvecDetail.filter(v => v.totalCalcule>0).sort((a,b)=>b.totalCalcule-a.totalCalcule).forEach(v=>{
+    calculs.vendeusesAvecDetail.filter(v => v.totalCalcule > 0).sort((a, b) => b.totalCalcule - a.totalCalcule).forEach(v => {
       contenuEmail += `${v.name} : ${v.totalCalcule.toFixed(2)} € (${v.nbVentesCalcule} ventes)\n`;
       contenuEmail += `  • Carte : ${v.detailPaiements.carte.toFixed(2)} €\n  • Espèces : ${v.detailPaiements.especes.toFixed(2)} €\n  • Chèque : ${v.detailPaiements.cheque.toFixed(2)} €\n`;
-      if (v.detailPaiements.mixte>0) contenuEmail += `  • Mixte : ${v.detailPaiements.mixte.toFixed(2)} €\n`;
+      if (v.detailPaiements.mixte > 0) contenuEmail += `  • Mixte : ${v.detailPaiements.mixte.toFixed(2)} €\n`;
       contenuEmail += `\n`;
     });
     contenuEmail += `TOTAUX PAR MODE DE PAIEMENT :\n- Carte bancaire : ${calculs.parPaiement.carte.toFixed(2)} €\n- Espèces : ${calculs.parPaiement.especes.toFixed(2)} €\n- Chèque : ${calculs.parPaiement.cheque.toFixed(2)} €\n- Mixte : ${calculs.parPaiement.mixte.toFixed(2)} €\n\n`;
     contenuEmail += `RÈGLEMENTS À VENIR (FACTURIER) :\nTotal attendu : ${calculs.totalReglementsAVenir.toFixed(2)} € (${calculs.nbChequesTotal} chèques)\n\n`;
-    reglementsData.forEach((r: PendingPayment)=>{
+    reglementsData.forEach((r: PendingPayment) => {
       const totalClient = r.nbCheques * r.montantCheque;
       contenuEmail += `${r.vendorName} - ${r.clientName} :\n  ${r.nbCheques} chèques de ${r.montantCheque.toFixed(2)} € = ${totalClient.toFixed(2)} €\n  Prochaine échéance : ${new Date(r.dateProchain).toLocaleDateString('fr-FR')}\n\n`;
     });
@@ -646,13 +689,13 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   };
 
   // ===== FONCTIONS WORKFLOW SÉCURISÉ =====
-  
+
   const afficherDetailReglements = () => {
     const validSales = sales.filter(sale => !sale.canceled);
     const chequesFromSales = validSales.filter(sale => sale.checkDetails && sale.checkDetails.count > 0);
-    
+
     let detailMessage = `💰 RÈGLEMENTS À VENIR - DÉTAIL COMPLET\n\n`;
-    
+
     // Chèques à venir de la caisse
     if (chequesFromSales.length > 0) {
       detailMessage += `🏪 CHÈQUES CAISSE (${chequesFromSales.length} ventes):\n`;
@@ -663,7 +706,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       });
       detailMessage += `\n`;
     }
-    
+
     // Chèques à venir du facturier
     if (reglementsData.length > 0) {
       detailMessage += `📋 CHÈQUES FACTURIER (${reglementsData.length} clients):\n`;
@@ -674,24 +717,24 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       });
       detailMessage += `\n`;
     }
-    
+
     // Total
     const totalCaisse = chequesFromSales.reduce((total, sale) => total + (sale.checkDetails?.totalAmount || 0), 0);
     const totalFacturier = reglementsData.reduce((total, r) => total + (r.nbCheques * r.montantCheque), 0);
     const totalGeneral = totalCaisse + totalFacturier;
-    
+
     detailMessage += `📊 RÉCAPITULATIF:\n`;
     detailMessage += `• Caisse: ${totalCaisse.toFixed(2)}€\n`;
     detailMessage += `• Facturier: ${totalFacturier.toFixed(2)}€\n`;
     detailMessage += `• TOTAL: ${totalGeneral.toFixed(2)}€`;
-    
+
     alert(detailMessage);
   };
 
   const effectuerVisualisation = () => {
     setModeApercu(true);
     setIsViewed(true);
-    
+
     // Capturer le contenu HTML pour l'impression
     setTimeout(() => {
       const contentElement = document.getElementById('zone-impression-content');
@@ -703,12 +746,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   const envoyerEmailSecurise = () => {
     console.log('🔍 DEBUG Email - État du workflow:', { isViewed, isPrinted, isEmailSent });
-    
+
     if (!isPrinted) {
       alert('⚠️ Veuillez d\'abord IMPRIMER la feuille de RAZ en cliquant sur "Imprimer".');
       return;
     }
-    
+
     console.log('✅ Conditions remplies, envoi de l\'email...');
     envoyerEmail(); // Appelle la fonction email existante
     setIsEmailSent(true);
@@ -717,41 +760,41 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   const effectuerRAZJourneeSecurisee = async () => {
     // DEBUG: Appel direct pour tester
     console.log('🔴 Bouton RAZ Journée cliqué - Test direct');
-    
+
     // Confirmation simple
     if (confirm('🔴 Êtes-vous sûr de vouloir effectuer la RAZ Journée ?\n\n⚠️ Cette action va :\n- Imprimer la feuille automatiquement\n- Sauvegarder les données\n- Remettre à zéro les données')) {
       await confirmerRAZJournee();
     }
-    
+
     // Version avec modal (commentée pour debug)
     // setShowRAZGuardModal(true);
   };
 
   const confirmerRAZJournee = async () => {
     setShowRAZGuardModal(false);
-    
+
     try {
       // 0. IMPRESSION AUTOMATIQUE AVANT RAZ 🖨️
       console.log('🖨️ Impression automatique de la feuille de caisse...');
       handleRAZPrint();
-      
+
       // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
       console.log('🛡️ Sauvegarde automatique avant RAZ Journée...');
       await exportDataBeforeReset();
-      
+
       // 2. Attendre 1.5 secondes pour que l'utilisateur voie la sauvegarde
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       // 3. RAZ normale
       externalInvoiceService.clearAllInvoices();
       console.log('🧹 Factures externes nettoyées (RAZ Journée)');
-      
+
       // 4. Réinitialiser le workflow
       setIsViewed(false);
       setIsPrinted(false);
       setIsEmailSent(false);
       setModeApercu(false);
-      
+
       alert('✅ RAZ Journée terminée avec succès !');
       executeRAZ();
     } catch (error) {
@@ -765,20 +808,20 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     try {
       // 0. VÉRIFICATION DATE OBLIGATOIRE
       if (!canEndSessionToday) {
-        const dateFinMessage = session?.eventEnd ? 
+        const dateFinMessage = session?.eventEnd ?
           `Vous pouvez effectuer la RAZ Fin Session à partir du ${new Date(session.eventEnd).toLocaleDateString('fr-FR')}.` :
           'Aucune date de fin de session configurée.';
         alert(`🚫 RAZ Fin Session non autorisée aujourd'hui.\n\n${dateFinMessage}\n\nSeule la RAZ Journée est disponible actuellement.`);
         return;
       }
-      
+
       // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
       console.log('🛡️ Sauvegarde automatique avant RAZ Fin Session...');
       await exportDataBeforeReset();
-      
+
       // 2. Attendre 1.5 secondes pour que l'utilisateur voie la sauvegarde
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
+
       // 3. Confirmation avec mention de la sauvegarde
       const ok = window.confirm(
         '✅ Sauvegarde automatique effectuée !\n\n' +
@@ -787,7 +830,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         'Confirmer la REMISE À ZÉRO FIN DE SESSION ?'
       );
       if (!ok) return;
-      
+
       // 4. RAZ complète
       // 1) Nettoyer factures externes
       externalInvoiceService.clearAllInvoices();
@@ -834,7 +877,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           }}
         />
       )}
-      
+
       {/* UI iPad (masquée à l'impression) */}
       <div className="no-print" style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
@@ -842,14 +885,14 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           <div style={{ textAlign: 'center', marginBottom: '30px', padding: '20px', backgroundColor: '#477A0C', color: 'white', borderRadius: '10px' }}>
             <h1 style={{ margin: 0, fontSize: '2.2em', fontWeight: 'bold' }}>📋 FEUILLE DE CAISSE MYCONFORT</h1>
             <p style={{ margin: '10px 0 0 0', fontSize: '1.1em' }}>
-              {new Date().toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}
+              {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
 
           {/* Session - Header compact coloré (format feuille de caisse) */}
           <div style={{
-            background: session 
-              ? 'linear-gradient(135deg, #065F46 0%, #047857 50%, #059669 100%)' 
+            background: session
+              ? 'linear-gradient(135deg, #065F46 0%, #047857 50%, #059669 100%)'
               : 'linear-gradient(135deg, #7C2D12 0%, #DC2626 50%, #EF4444 100%)',
             color: 'white',
             padding: 16,
@@ -857,26 +900,26 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             marginBottom: 20,
             boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
           }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div>
-                <div style={{ margin: 0, fontSize: 20, fontWeight: 800, display:'flex', alignItems:'center', gap:8 }}>
+                <div style={{ margin: 0, fontSize: 20, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
                   📍 {session?.eventName || 'Aucune session active'}
                 </div>
                 <div style={{ marginTop: 6, opacity: 0.95, fontWeight: 600 }}>
-                  {session 
+                  {session
                     ? `Session ${session.status ?? 'ouverte'} • ${session.eventStart ? new Date(session.eventStart).toLocaleDateString('fr-FR') : '—'} - ${session.eventEnd ? new Date(session.eventEnd).toLocaleDateString('fr-FR') : '—'}`
                     : `Créez une session pour démarrer l'enregistrement des ventes`
                   }
                 </div>
               </div>
-              <div style={{ display:'flex', gap:10 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
                 {!session && (
                   <button
                     onClick={openSession}
                     disabled={openingSession}
                     style={{
-                      background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
-                      padding:'10px 16px', borderRadius:8, fontWeight:800, cursor: openingSession ? 'not-allowed':'pointer'
+                      background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)', color: '#fff',
+                      padding: '10px 16px', borderRadius: 8, fontWeight: 800, cursor: openingSession ? 'not-allowed' : 'pointer'
                     }}
                   >
                     Ouvrir une session
@@ -897,8 +940,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                       updateSessionHelper(session.id, patch).then(() => refreshSession());
                     }}
                     style={{
-                      background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
-                      padding:'10px 16px', borderRadius:8, fontWeight:800, cursor:'pointer'
+                      background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.35)', color: '#fff',
+                      padding: '10px 16px', borderRadius: 8, fontWeight: 800, cursor: 'pointer'
                     }}
                   >
                     Modifier
@@ -911,72 +954,72 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           {/* Boutons - Interface Améliorée */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15, marginBottom: 30 }}>
             {/* 🖤 Bouton Noir : Voir feuille de caisse */}
-            <button 
-              onClick={effectuerVisualisation} 
+            <button
+              onClick={effectuerVisualisation}
               style={btn(isViewed ? '#4A5568' : '#1A202C', true)}
               title={isViewed ? 'Feuille visualisée ✓' : 'Étape 1: Visualiser la feuille'}
             >
               {isViewed ? <EyeOff size={20} /> : <Eye size={20} />}
               {isViewed ? "Feuille vue ✓" : 'Voir la feuille'}
             </button>
-            
+
             {/*  Bouton Jaune-Vert : Envoyer par email */}
-            <button 
-              onClick={envoyerEmailSecurise} 
-              style={!isPrinted ? btnDisabled('#84CC16') : btn('#84CC16', false, '#1A202C')} 
+            <button
+              onClick={envoyerEmailSecurise}
+              style={!isPrinted ? btnDisabled('#84CC16') : btn('#84CC16', false, '#1A202C')}
               disabled={!isPrinted}
               title={!isPrinted ? `Imprimez d'abord la feuille (Imprimé: ${isPrinted ? '✓' : '✗'})` : isEmailSent ? 'Email envoyé ✓' : 'Étape 3: Envoyer par email'}
             >
-              <Mail size={20}/>
+              <Mail size={20} />
               {isEmailSent ? 'Email envoyé ✓' : 'Envoyer par Email'}
             </button>
 
             {/* 🖨️ Bouton Bleu : Imprimer */}
-            <button 
-              onClick={handleRAZPrint} 
-              style={btn('#3B82F6', false, '#FFFFFF')} 
+            <button
+              onClick={handleRAZPrint}
+              style={btn('#3B82F6', false, '#FFFFFF')}
               title={isPrinted ? 'Impression déjà effectuée ✓' : 'CLIQUEZ ICI pour débloquer le bouton email (génère et imprime automatiquement)'}
             >
-              <Printer size={20}/>
+              <Printer size={20} />
               {isPrinted ? 'Imprimé ✓' : 'Imprimer pour débloquer email'}
             </button>
 
-          {/* 🔍 Debug: Affichage de l'état des variables */}
-          <div style={{ 
-            background: isPrinted ? '#dcfce7' : '#fef3c7', 
-            border: `1px solid ${isPrinted ? '#16a34a' : '#f59e0b'}`, 
-            borderRadius: 6, 
-            padding: 12, 
-            fontSize: 14, 
-            color: isPrinted ? '#166534' : '#92400e',
-            gridColumn: 'span 4',
-            fontWeight: 600 
-          }}>
-            📊 État du workflow: Vue={isViewed ? '✅' : '❌'} | Imprimé={isPrinted ? '✅' : '❌'} | Email={isEmailSent ? '✅' : '❌'}
-            {isPrinted && <div style={{ marginTop: 4, fontSize: 12 }}>✅ Le bouton email devrait maintenant être actif!</div>}
-          </div>
-            
+            {/* 🔍 Debug: Affichage de l'état des variables */}
+            <div style={{
+              background: isPrinted ? '#dcfce7' : '#fef3c7',
+              border: `1px solid ${isPrinted ? '#16a34a' : '#f59e0b'}`,
+              borderRadius: 6,
+              padding: 12,
+              fontSize: 14,
+              color: isPrinted ? '#166534' : '#92400e',
+              gridColumn: 'span 4',
+              fontWeight: 600
+            }}>
+              📊 État du workflow: Vue={isViewed ? '✅' : '❌'} | Imprimé={isPrinted ? '✅' : '❌'} | Email={isEmailSent ? '✅' : '❌'}
+              {isPrinted && <div style={{ marginTop: 4, fontSize: 12 }}>✅ Le bouton email devrait maintenant être actif!</div>}
+            </div>
+
             {/* 🔴 Bouton Rouge : RAZ Journée (avec sauvegarde auto) */}
-            <button 
-              onClick={effectuerRAZJourneeSecurisee} 
-              style={btn('#DC2626')} 
+            <button
+              onClick={effectuerRAZJourneeSecurisee}
+              style={btn('#DC2626')}
               title="RAZ Journée sécurisée avec impression automatique"
             >
-              <RefreshCw size={20}/>
+              <RefreshCw size={20} />
               RAZ Journée
             </button>
-            
+
             {/* 🔴 Bouton Rouge Foncé : RAZ Fin Session (avec sauvegarde auto) */}
-            <button 
-              onClick={effectuerRAZFinSessionSecurisee} 
-              style={!canEndSessionToday ? btnDisabled('#7C2D12') : btn('#7C2D12')} 
+            <button
+              onClick={effectuerRAZFinSessionSecurisee}
+              style={!canEndSessionToday ? btnDisabled('#7C2D12') : btn('#7C2D12')}
               disabled={!canEndSessionToday}
-              title={!canEndSessionToday ? 
-                `RAZ Fin Session disponible seulement à partir du ${session?.eventEnd ? new Date(session.eventEnd).toLocaleDateString('fr-FR') : 'date de fin'}` : 
+              title={!canEndSessionToday ?
+                `RAZ Fin Session disponible seulement à partir du ${session?.eventEnd ? new Date(session.eventEnd).toLocaleDateString('fr-FR') : 'date de fin'}` :
                 'RAZ Fin Session - Supprime TOUT'
               }
             >
-              <RefreshCw size={20}/>
+              <RefreshCw size={20} />
               RAZ Fin Session
             </button>
           </div>
@@ -992,16 +1035,16 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                   📍 Feuille de Caisse — {eventNameDynamic}
                 </h1>
                 <div id="zone-impression-content">
-                  <FeuilleImprimable 
-                    calculs={calculs} 
-                    event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} 
+                  <FeuilleImprimable
+                    calculs={calculs}
+                    event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined}
                     reglementsData={reglementsData}
                     onReglementsClick={afficherDetailReglements}
                     checksPrintData={checksPrintData}
                   />
                 </div>
               </div>
-              
+
               {/* Bouton d'impression avec composant réutilisable */}
               <div style={{ textAlign: 'center', marginTop: '16px' }}>
                 <FeuilleCaissePrintable
@@ -1014,9 +1057,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
           )}
 
           {/* Section WhatsApp Business */}
-          <div style={{ 
-            background: 'white', 
-            borderRadius: '10px', 
+          <div style={{
+            background: 'white',
+            borderRadius: '10px',
             marginTop: '30px',
             boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
             border: '2px solid #25d366'
@@ -1035,7 +1078,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                 Rapports quotidiens et alertes objectifs via WhatsApp
               </p>
             </div>
-            
+
             <WhatsAppIntegrated
               currentData={calculs}
               vendors={calculs.vendeusesAvecDetail.map(v => ({
@@ -1090,9 +1133,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
       {/* Version imprimable */}
       <div className="print-only">
-        <FeuilleImprimable 
-          calculs={calculs} 
-          event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} 
+        <FeuilleImprimable
+          calculs={calculs}
+          event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined}
           reglementsData={reglementsData}
           onReglementsClick={afficherDetailReglements}
           checksPrintData={checksPrintData}
@@ -1116,12 +1159,13 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       />
 
       {/* Style pour option masquer colonne % */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media print {
           /* Dé-commente pour masquer la colonne % si ça déborde encore */
           /* .payments .col-percent { display: none !important; } */
         }
-      `}}/>
+      `}} />
     </div>
   );
 }
@@ -1203,12 +1247,12 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
           ['TICKET MOYEN', `${calculs.ticketMoyen.toFixed(2)} €`, false],
           ['RÈGLEMENTS À VENIR', `${calculs.totalReglementsAVenir.toFixed(2)} €`, true],
         ].map(([title, value, isInteractive], i) => (
-          <div 
-            key={i} 
-            style={{ 
-              textAlign: 'center', 
-              padding: 8, 
-              border: isInteractive ? '2px solid #477A0C' : '1.5px solid #000', 
+          <div
+            key={i}
+            style={{
+              textAlign: 'center',
+              padding: 8,
+              border: isInteractive ? '2px solid #477A0C' : '1.5px solid #000',
               background: isInteractive ? '#f0f9ff' : '#f8f8f8',
               cursor: isInteractive ? 'pointer' : 'default'
             }}
@@ -1272,18 +1316,18 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
           <div style={{ fontSize: '11pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 2, marginBottom: 4 }}>
             RÈGLEMENTS À VENIR (FACTURIER)
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6, marginBottom: 6, textAlign: 'center' }}>
             <div style={{ padding: 6, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700, fontSize: '9pt' }}>
-              TOTAL ATTENDU<br/>
+              TOTAL ATTENDU<br />
               <span style={{ fontSize: '12pt' }}>{calculs.totalReglementsAVenir.toFixed(2)} €</span>
             </div>
             <div style={{ padding: 6, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700, fontSize: '9pt' }}>
-              CLIENTS EN ATTENTE<br/>
+              CLIENTS EN ATTENTE<br />
               <span style={{ fontSize: '12pt' }}>{calculs.nbClientsAttente}</span>
             </div>
             <div style={{ padding: 6, background: '#f0f0f0', border: '1px solid #000', fontWeight: 700, fontSize: '9pt' }}>
-              CHÈQUES TOTAUX<br/>
+              CHÈQUES TOTAUX<br />
               <span style={{ fontSize: '12pt' }}>{calculs.nbChequesTotal}</span>
             </div>
           </div>
@@ -1331,7 +1375,7 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
           <div style={{ fontSize: '11pt', fontWeight: 700, borderBottom: '1.5px solid #477A0C', paddingBottom: 2, marginBottom: 4, color: '#477A0C' }}>
             FACTURES MANUELLES (SAISIE PANIER CLASSIQUE)
           </div>
-          
+
           <div style={{ padding: 6, background: '#f0f9ff', border: '1.5px solid #477A0C', borderRadius: 4, marginBottom: 6, fontSize: '9pt', fontStyle: 'italic', color: '#477A0C' }}>
             Ventes de matelas saisies manuellement pendant une panne N8N
           </div>
@@ -1358,8 +1402,8 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
                     <td style={{ border: '1px solid #477A0C', padding: '4px 6px', textAlign: 'right', fontWeight: 700 }}>{sale.totalAmount.toFixed(2)} €</td>
                     <td style={{ border: '1px solid #477A0C', padding: '4px 6px', textAlign: 'center', fontSize: '9pt' }}>
                       {sale.paymentMethod === 'card' ? 'CARTE' :
-                       sale.paymentMethod === 'cash' ? 'ESPÈCES' :
-                       sale.paymentMethod === 'check' ? 'CHÈQUE' : 'MIXTE'}
+                        sale.paymentMethod === 'cash' ? 'ESPÈCES' :
+                          sale.paymentMethod === 'check' ? 'CHÈQUE' : 'MIXTE'}
                     </td>
                     <td style={{ border: '1px solid #477A0C', padding: '4px 6px', textAlign: 'center', fontSize: '9pt' }}>
                       {new Date(sale.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -1387,7 +1431,7 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
         <div style={{ fontSize: '12pt', fontWeight: 700, borderBottom: '1.5px solid #000', paddingBottom: 3, marginBottom: 6 }}>
           RÉPARTITION PAR MODE DE PAIEMENT
         </div>
-        
+
         <table className="payments" style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #000' }}>
           <thead>
             <tr style={{ background: '#f0f0f0' }}>
@@ -1450,18 +1494,70 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
                   <td style={{ border: '1px solid #000', padding: '4px 6px', fontWeight: 700 }}>{r.invoiceNumber}</td>
                   <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{r.clientName}</td>
                   <td style={{ border: '1px solid #000', padding: '4px 6px' }}>{r.product}</td>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'center' }}>{r.nbCheques}</td>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right' }}>{r.perChequeAmount.toFixed(2)}</td>
-                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign:'right', fontWeight: 700, background:'#f7f7f7' }}>{r.invoiceTotal.toFixed(2)}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'center' }}>{r.nbCheques}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right' }}>{r.perChequeAmount.toFixed(2)}</td>
+                  <td style={{ border: '1px solid #000', padding: '4px 6px', textAlign: 'right', fontWeight: 700, background: '#f7f7f7' }}>{r.invoiceTotal.toFixed(2)}</td>
                 </tr>
               ))}
-              <tr style={{ background:'#eee', fontWeight:700 }}>
-                <td colSpan={5} style={{ border:'1.5px solid #000', textAlign:'right', padding:'6px' }}>TOTAL</td>
-                <td style={{ border:'1.5px solid #000', textAlign:'right', padding:'6px' }}>
-                  {checksPrintData.reduce((s,r)=> s + r.invoiceTotal, 0).toFixed(2)}
+              <tr style={{ background: '#eee', fontWeight: 700 }}>
+                <td colSpan={5} style={{ border: '1.5px solid #000', textAlign: 'right', padding: '6px' }}>TOTAL</td>
+                <td style={{ border: '1.5px solid #000', textAlign: 'right', padding: '6px' }}>
+                  {checksPrintData.reduce((s, r) => s + r.invoiceTotal, 0).toFixed(2)}
                 </td>
               </tr>
             </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Section Règlements perçus sur Stand */}
+      {receivedPayments.length > 0 && (
+        <div className="print-section" style={{ marginTop: 12, paddingTop: 8, borderTop: '1.5px solid #000' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '12pt', fontWeight: 700, textAlign: 'center' }}>
+            💰 RÈGLEMENTS PERÇUS SUR STAND
+          </h3>
+
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9pt', marginBottom: 8 }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #000' }}>
+                <th style={{ padding: '4px', textAlign: 'left', fontWeight: 700, borderRight: '1px solid #ccc' }}>Client</th>
+                <th style={{ padding: '4px', textAlign: 'center', fontWeight: 700, borderRight: '1px solid #ccc' }}>Facture</th>
+                <th style={{ padding: '4px', textAlign: 'right', fontWeight: 700, borderRight: '1px solid #ccc' }}>Montant</th>
+                <th style={{ padding: '4px', textAlign: 'center', fontWeight: 700, borderRight: '1px solid #ccc' }}>Chèques</th>
+                <th style={{ padding: '4px', textAlign: 'left', fontWeight: 700, borderRight: '1px solid #ccc' }}>Vendeuse</th>
+                <th style={{ padding: '4px', textAlign: 'center', fontWeight: 700 }}>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receivedPayments.map((payment, index) => (
+                <tr key={payment.id} style={{ borderBottom: index < receivedPayments.length - 1 ? '1px solid #ddd' : 'none' }}>
+                  <td style={{ padding: '3px', borderRight: '1px solid #ccc' }}>{payment.clientName}</td>
+                  <td style={{ padding: '3px', textAlign: 'center', borderRight: '1px solid #ccc' }}>{payment.invoiceNumber}</td>
+                  <td style={{ padding: '3px', textAlign: 'right', borderRight: '1px solid #ccc' }}>
+                    {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(payment.checkReceived)}
+                  </td>
+                  <td style={{ padding: '3px', textAlign: 'center', borderRight: '1px solid #ccc' }}>{payment.numberOfChecks}</td>
+                  <td style={{ padding: '3px', borderRight: '1px solid #ccc' }}>{payment.vendorName}</td>
+                  <td style={{ padding: '3px', textAlign: 'center' }}>
+                    {payment.date.toLocaleDateString('fr-FR')}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot style={{ backgroundColor: '#f8f9fa', borderTop: '1.5px solid #000' }}>
+              <tr>
+                <td colSpan={2} style={{ padding: '4px', fontWeight: 700 }}>TOTAL :</td>
+                <td style={{ padding: '4px', textAlign: 'right', fontWeight: 700, borderRight: '1px solid #ccc' }}>
+                  {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(receivedPaymentsStats.totalReceived)}
+                </td>
+                <td style={{ padding: '4px', textAlign: 'center', fontWeight: 700, borderRight: '1px solid #ccc' }}>
+                  {receivedPaymentsStats.totalChecksCount}
+                </td>
+                <td colSpan={2} style={{ padding: '4px', fontSize: '8pt', textAlign: 'center' }}>
+                  {receivedPaymentsStats.paymentsCount} règlement{receivedPaymentsStats.paymentsCount > 1 ? 's' : ''}
+                </td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       )}
@@ -1474,13 +1570,13 @@ function FeuilleImprimable({ calculs, event, reglementsData = [], onReglementsCl
             <div style={{ borderBottom: '1.5px solid #000', height: 24, marginBottom: 6 }}></div>
             <p style={{ margin: 0, fontSize: '9pt' }}>Signature et date</p>
           </div>
-          
+
           <div>
             <p style={{ margin: '0 0 6px', fontWeight: 700 }}>CLÔTURE :</p>
             <p style={{ margin: 0, fontSize: '11pt', fontWeight: 700 }}>
               {new Date().toLocaleString('fr-FR', {
                 day: '2-digit',
-                month: '2-digit', 
+                month: '2-digit',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
