@@ -85,21 +85,25 @@ export const RAZGuardModal: React.FC<RAZGuardModalProps> = ({
         inset: 0,
         zIndex: 9999,
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)'
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        overflowY: 'auto',
+        padding: '20px 0'
       }}
     >
       <div 
         style={{
           width: '92%',
           maxWidth: '600px',
-          maxHeight: '90vh',
+          maxHeight: 'calc(100vh - 40px)',
           overflowY: 'auto',
           borderRadius: '16px',
           backgroundColor: 'white',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          padding: '32px'
+          padding: '32px',
+          margin: 'auto 0',
+          WebkitOverflowScrolling: 'touch'
         }}
       >
         {/* Titre */}
