@@ -606,13 +606,24 @@ export default function CaisseMyConfortApp() {
     console.log('🗑️ Suppression vendeuse:', vendorToDelete.name);
 
     // Supprimer la vendeuse de la liste
-    setVendorStats(prev => prev.filter(vendor => vendor.id !== vendorId));
+    setVendorStats(prev => {
+      const updatedVendors = prev.filter(vendor => vendor.id !== vendorId);
+      // Sauvegarder dans localStorage
+      localStorage.setItem('myconfort-vendors', JSON.stringify(updatedVendors));
+      return updatedVendors;
+    });
 
     // Si c'était la vendeuse sélectionnée, sélectionner la première disponible
     if (selectedVendor?.id === vendorId) {
       const remainingVendors = vendorStats.filter(vendor => vendor.id !== vendorId);
       const newSelected = remainingVendors.length > 0 ? remainingVendors[0] : null;
       setSelectedVendor(newSelected);
+      // Sauvegarder la nouvelle vendeuse sélectionnée
+      if (newSelected) {
+        localStorage.setItem('myconfort-current-vendor', JSON.stringify(newSelected));
+      } else {
+        localStorage.removeItem('myconfort-current-vendor');
+      }
       console.log('🔄 Nouvelle vendeuse sélectionnée:', newSelected?.name || 'aucune');
     }
 
@@ -918,7 +929,12 @@ export default function CaisseMyConfortApp() {
     };
 
     // Ajouter à la liste
-    setVendorStats(prev => [...prev, newVendor]);
+    setVendorStats(prev => {
+      const updatedVendors = [...prev, newVendor];
+      // Sauvegarder dans localStorage
+      localStorage.setItem('myconfort-vendors', JSON.stringify(updatedVendors));
+      return updatedVendors;
+    });
 
     // Reset du formulaire
     setNewVendorName('');
@@ -928,6 +944,8 @@ export default function CaisseMyConfortApp() {
 
     // Sélectionner automatiquement la nouvelle vendeuse
     setSelectedVendor(newVendor);
+    // Sauvegarder la vendeuse sélectionnée
+    localStorage.setItem('myconfort-current-vendor', JSON.stringify(newVendor));
 
     console.log('✅ Nouvelle vendeuse ajoutée avec couleur:', newVendor);
     alert(`🎉 Vendeuse "${newVendor.name}" ajoutée avec la couleur ${selectedColor} !`);
