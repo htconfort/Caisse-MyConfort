@@ -1069,7 +1069,7 @@ export default function CaisseMyConfortApp() {
                   maxWidth: '600px',
                   width: '90%',
                   maxHeight: '90vh',
-                  overflow: 'hidden',
+                  overflowY: 'auto',
                   boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
                   animation: 'slideIn 0.3s ease'
                 }}>

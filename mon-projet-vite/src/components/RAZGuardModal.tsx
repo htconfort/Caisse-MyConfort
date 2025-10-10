@@ -94,10 +94,12 @@ export const RAZGuardModal: React.FC<RAZGuardModalProps> = ({
         style={{
           width: '92%',
           maxWidth: '600px',
+          maxHeight: '90vh',
           borderRadius: '16px',
           backgroundColor: 'white',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          padding: '32px'
+          padding: '32px',
+          overflowY: 'auto'
         }}
       >
         {/* Titre */}
