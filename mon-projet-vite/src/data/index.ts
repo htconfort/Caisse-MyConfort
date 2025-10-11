@@ -1,6 +1,6 @@
 import type { CatalogProduct, Vendor } from '../types';
 
-// Données complètes du catalogue - EXACTEMENT SELON VOTRE LISTE (51 produits)
+// Données complètes du catalogue - EXACTEMENT SELON VOTRE LISTE (54 produits) - MIS À JOUR
 export const productCatalog: CatalogProduct[] = [
   // Matelas (10)
   { category: 'Matelas', name: 'MATELAS BAMBOU 70 x 190', priceTTC: 900, autoCalculateHT: true },
