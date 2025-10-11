@@ -53,6 +53,36 @@ function toChequeRowsFromSales(sales: Sale[]): ChequeRow[] {
     });
 }
 
+// ✅ NOUVELLE FONCTION : Extraire TOUTES les ventes avec chèques à venir (pas seulement les factures manuelles)
+function toChequeRowsFromAllSales(sales: Sale[]): ChequeRow[] {
+  return sales
+    .filter(s => !s.canceled && (s.checkDetails?.count ?? 0) > 0) // ✅ Toutes les ventes avec chèques
+    .map(s => {
+      const nb = s.checkDetails?.count ?? 0;
+      const amt = s.checkDetails?.amount ?? 0;
+      const productGuess =
+        (s.manualInvoiceData as any)?.productName
+        ?? (s as any)?.firstItemName
+        ?? s.items?.[0]?.name
+        ?? '—';
+      
+      const invoiceNum = s.manualInvoiceData?.invoiceNumber || `CAISSE-${s.id.slice(-8)}`;
+      const clientName = s.manualInvoiceData?.clientName || `Client ${s.id.slice(-8)}`;
+      
+      return {
+        source: 'classique',
+        invoiceNumber: invoiceNum,
+        clientName: clientName,
+        product: productGuess,
+        nbCheques: nb,
+        perChequeAmount: amt,
+        invoiceTotal: s.checkDetails?.totalAmount ?? s.totalAmount ?? Number((nb * amt).toFixed(2)),
+        date: s.date ? new Date(s.date).getTime() : undefined,
+        id: s.id,
+      } as ChequeRow;
+    });
+}
+
 function toChequeRowsFromPending(items: PendingPayment[]): ChequeRow[] {
   return items.map((r) => {
     const total = Number((r.nbCheques * r.montantCheque).toFixed(2));
@@ -560,12 +590,18 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
     const vendeusesActives = vendeusesAvecDetail.filter(v => v.totalCalcule > 0).length;
 
-    // Ne pas cumuler les chèques à venir de la caisse avec ceux du facturier
-    const totalReglementsAVenir = reglementsData.reduce((total: number, r: PendingPayment) => total + (r.nbCheques * r.montantCheque), 0);
-    const totalReglementsAVenirComplet = totalReglementsAVenir; // exclure chequesAVenirFromSales pour éviter doublon
-    const nbClientsAttente = reglementsData.length;
-    const nbChequesTotal = reglementsData.reduce((total: number, r: PendingPayment) => total + r.nbCheques, 0);
-    const nbChequesTotalComplet = nbChequesTotal; // ne pas ajouter ceux issus des ventes caisse
+    // ✅ CORRECTION : Inclure TOUS les règlements à venir (caisse + facturier)
+    const totalReglementsAVenirFacturier = reglementsData.reduce((total: number, r: PendingPayment) => total + (r.nbCheques * r.montantCheque), 0);
+    const totalReglementsAVenirComplet = totalReglementsAVenirFacturier + chequesAVenirFromSales; // ✅ Inclure caisse
+    
+    const nbClientsAttenteCaisse = validSales.filter(s => s.checkDetails && s.checkDetails.count > 0).length;
+    const nbChequesTotalCaisse = validSales
+      .filter(s => s.checkDetails && s.checkDetails.count > 0)
+      .reduce((total, s) => total + (s.checkDetails?.count || 0), 0);
+    
+    const nbClientsAttente = reglementsData.length + nbClientsAttenteCaisse;
+    const nbChequesTotal = reglementsData.reduce((total: number, r: PendingPayment) => total + r.nbCheques, 0) + nbChequesTotalCaisse;
+    const nbChequesTotalComplet = nbChequesTotal; // ✅ Total complet
 
     return {
       parPaiement: caisseParPaiement,
@@ -590,10 +626,13 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   }, [sales, invoices, vendorStats, reglementsData]);
 
   // ====== LIGNES POUR TABLES CHÈQUES (dépendent des états existants) ======
-  // Détails chèques supprimés → sections non utilisées
+  // ✅ CORRECTION : Remplir checksPrintData avec les chèques à venir
+  const salesChequeRows = toChequeRowsFromAllSales(sales); // ✅ Toutes les ventes avec chèques
+  const pendingChequeRows = toChequeRowsFromPending(reglementsData); // Chèques facturier
+  const checksPrintData = mergeChequeRows(salesChequeRows, pendingChequeRows); // ✅ Fusion
+  
   const classicChequeRows: any[] = [];
   const facturierChequeRows: any[] = [];
-  const checksPrintData: any[] = [];
 
   // Handler édition cellules (classique)
   const handleEditClassic = (row: ChequeRow, patch: Partial<{ nbCheques: number; perChequeAmount: number; product: string }>) => {

@@ -1,8 +1,32 @@
-import React, { useMemo, useState } from 'react';
-import { Calendar, CreditCard, Clock, AlertCircle, CheckCircle, Euro } from 'lucide-react';
-import type { Sale } from '../../types';
 import type { Invoice } from '@/services/syncService';
+import { Calendar, CheckCircle, Clock, Plus, Save, Store, X, Download } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
 import { vendors } from '../../data';
+import '../../styles/payments-tab.css';
+
+// Type Sale pour compatibilité
+type Sale = {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  totalAmount: number;
+  paymentMethod: string;
+  date: Date | string;
+  canceled: boolean;
+  checkDetails?: {
+    count: number;
+    amount: number;
+    totalAmount: number;
+    notes?: string;
+  };
+  paymentDetails?: {
+    downPayment?: number;
+  };
+  manualInvoiceData?: {
+    clientName: string;
+    invoiceNumber: string;
+  };
+};
 
 interface PaymentsTabProps {
   sales: Sale[];
@@ -26,7 +50,24 @@ interface PendingPayment {
   };
   saleTotal?: number;
   invoiceNumber?: string;
+  depositAmount?: number; // Acompte versé
+  remainingBalance?: number; // Solde restant
 }
+
+// Interface pour les règlements perçus sur Stand
+interface ReceivedPayment {
+  id: string;
+  clientName: string;
+  invoiceNumber: string;
+  checkReceived: number;
+  numberOfChecks: number;
+  vendorName: string;
+  vendorId: string;
+  date: Date;
+}
+
+// Type pour les sous-onglets
+type PaymentSubTab = 'pending' | 'received' | 'export';
 
 // Format € solide
 const fmtEUR = (n: number) =>
@@ -34,6 +75,10 @@ const fmtEUR = (n: number) =>
 
 export function PaymentsTab({ sales, invoices }: PaymentsTabProps) {
   const [expandedPayments, setExpandedPayments] = useState<Set<string>>(new Set());
+  const [activeSubTab, setActiveSubTab] = useState<PaymentSubTab>('pending');
+  const [_editingPayment, _setEditingPayment] = useState<string | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [receivedPayments, setReceivedPayments] = useState<ReceivedPayment[]>([]);
 
   // Fonction pour basculer l'expansion d'un paiement
   const togglePaymentExpansion = (paymentId: string) => {
@@ -59,27 +104,64 @@ export function PaymentsTab({ sales, invoices }: PaymentsTabProps) {
     // Règlements à venir des ventes caisse
     sales.forEach(sale => {
       if (sale.checkDetails && sale.paymentMethod === 'check' && !sale.canceled) {
+        const saleTotal = sale.totalAmount;
+        
+        // Chercher l'acompte dans différents endroits possibles
+        let depositAmount = 0;
+        if (sale.paymentDetails?.downPayment) {
+          depositAmount = sale.paymentDetails.downPayment;
+        } else if ((sale as any).depositAmount) {
+          depositAmount = (sale as any).depositAmount;
+        } else if (sale.checkDetails.notes?.includes('Acompte')) {
+          // Extraire l'acompte des notes si mentionné
+          const match = sale.checkDetails.notes.match(/Acompte[:\s]+(\d+(?:[.,]\d+)?)/i);
+          if (match) {
+            depositAmount = parseFloat(match[1].replace(',', '.'));
+          }
+        }
+        
+        const checksTotal = sale.checkDetails.totalAmount;
+        // Solde = Total - Acompte - Chèques (le solde à percevoir est le montant des chèques)
+        const remainingBalance = checksTotal;
+        
+        // Récupérer le nom du client et numéro de facture
+        const clientName = sale.manualInvoiceData?.clientName || 'Client';
+        const invoiceNumber = sale.manualInvoiceData?.invoiceNumber || null;
+        
+        
         payments.push({
           id: `sale-${sale.id}`,
           source: 'sale',
           sourceId: sale.id,
-          clientName: `Client Caisse ${sale.id.slice(-8)}`,
+          clientName: clientName,
           vendorName: sale.vendorName,
           vendorId: sale.vendorId,
           date: new Date(sale.date),
           checkDetails: sale.checkDetails,
-          saleTotal: sale.totalAmount
+          saleTotal: saleTotal,
+          depositAmount: depositAmount,
+          remainingBalance: remainingBalance,
+          invoiceNumber: invoiceNumber || undefined
         });
       }
     });
 
     // Règlements à venir des factures N8N
     invoices.forEach(invoice => {
-      if (invoice.paymentDetails?.checkDetails && 
-          invoice.paymentDetails.method === 'check' && 
-          invoice.paymentDetails.status !== 'completed') {
-        
+      if (invoice.paymentDetails?.checkDetails &&
+        invoice.paymentDetails.method === 'check' &&
+        invoice.paymentDetails.status !== 'completed') {
+
         const checkDetails = invoice.paymentDetails.checkDetails;
+        const invoiceTotal = invoice.totalTTC;
+        const depositAmount = (invoice.paymentDetails as any).downPayment || 0;
+        
+        // Calculer le montant total des chèques
+        const checksTotal = checkDetails.totalChecks * (checkDetails.checkAmounts?.[0] || 0);
+        
+        // Solde = Total facture - Acompte - Montant total des chèques
+        const remainingBalance = Math.max(0, invoiceTotal - depositAmount - checksTotal);
+        
         payments.push({
           id: `invoice-${invoice.id}`,
           source: 'invoice',
@@ -90,11 +172,14 @@ export function PaymentsTab({ sales, invoices }: PaymentsTabProps) {
           date: new Date(invoice.createdAt),
           checkDetails: {
             count: checkDetails.totalChecks,
-            amount: checkDetails.checkAmounts?.[0] || (invoice.totalTTC / checkDetails.totalChecks),
-            totalAmount: invoice.totalTTC,
+            amount: checkDetails.checkAmounts?.[0] || 0,
+            totalAmount: checksTotal,
             notes: checkDetails.characteristics || invoice.paymentDetails.paymentNotes
           },
-          invoiceNumber: invoice.number
+          invoiceNumber: invoice.number,
+          depositAmount: depositAmount,
+          remainingBalance: remainingBalance,
+          saleTotal: invoiceTotal
         });
       }
     });
@@ -103,295 +188,744 @@ export function PaymentsTab({ sales, invoices }: PaymentsTabProps) {
     return payments.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [sales, invoices]);
 
-  // Statistiques des règlements à venir
-  const paymentStats = useMemo(() => {
-    const totalAmount = pendingPayments.reduce((sum, payment) => sum + payment.checkDetails.totalAmount, 0);
-    const totalChecks = pendingPayments.reduce((sum, payment) => sum + payment.checkDetails.count, 0);
-    const salesCount = pendingPayments.filter(p => p.source === 'sale').length;
-    const invoicesCount = pendingPayments.filter(p => p.source === 'invoice').length;
 
-    return {
-      totalAmount,
-      totalChecks,
-      salesCount,
-      invoicesCount,
-      totalOperations: pendingPayments.length
-    };
-  }, [pendingPayments]);
-
-  // Couleurs pour les différents éléments
-  const colors = {
-    header: {
-      bg: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-      border: '#F59E0B'
-    },
-    stats: {
-      totalAmount: { bg: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', border: '#F59E0B', text: '#92400E' },
-      totalChecks: { bg: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)', border: '#10B981', text: '#065F46' },
-      operations: { bg: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)', border: '#3B82F6', text: '#1E40AF' }
+  // Initialisation des données des règlements perçus
+  React.useEffect(() => {
+    if (receivedPayments.length === 0) {
+      // Charger depuis localStorage si disponible
+      const stored = localStorage.getItem('receivedPayments');
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const payments = parsed.map((p: ReceivedPayment) => ({
+            ...p,
+            date: new Date(p.date)
+          }));
+          setReceivedPayments(payments);
+        } catch (e) {
+          console.error('Erreur chargement règlements perçus:', e);
+        }
+      }
     }
+  }, [receivedPayments.length]);
+
+  // Fonctions pour l'édition des règlements perçus (non utilisées pour le moment)
+  const _handleEditPayment = (paymentId: string) => {
+    _setEditingPayment(paymentId);
+  };
+
+  const _handleSavePayment = (paymentId: string, updatedPayment: Partial<ReceivedPayment>) => {
+    setReceivedPayments(prev => {
+      const updated = prev.map(payment =>
+        payment.id === paymentId
+          ? { ...payment, ...updatedPayment }
+          : payment
+      ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      localStorage.setItem('receivedPayments', JSON.stringify(updated));
+      return updated;
+    });
+    _setEditingPayment(null);
+  };
+
+  const _handleCancelEdit = () => {
+    _setEditingPayment(null);
+  };
+
+  const handleAddPayment = (newPayment: Omit<ReceivedPayment, 'id'>) => {
+    const id = `rec-${Date.now()}`;
+    const paymentWithId: ReceivedPayment = { ...newPayment, id };
+    setReceivedPayments(prev => {
+      const updated = [...prev, paymentWithId].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      localStorage.setItem('receivedPayments', JSON.stringify(updated));
+      return updated;
+    });
+    setShowAddModal(false);
+  };
+
+  const _handleDeletePayment = (paymentId: string) => {
+    setReceivedPayments(prev => {
+      const updated = prev.filter(payment => payment.id !== paymentId);
+      localStorage.setItem('receivedPayments', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // Fonction d'export CSV
+  const exportToCSV = () => {
+    if (pendingPayments.length === 0) {
+      alert('Aucun règlement à exporter');
+      return;
+    }
+
+    // En-têtes CSV
+    const headers = [
+      'N° Facture',
+      'Client',
+      'Vendeuse',
+      'Date',
+      'Acompte versé (€)',
+      'Nombre de chèques',
+      'Montant par chèque (€)',
+      'Total chèques (€)',
+      'Total TTC (€)',
+      'Source'
+    ];
+
+    // Données CSV
+    const csvData = pendingPayments.map(payment => [
+      payment.invoiceNumber || '-',
+      payment.clientName,
+      payment.vendorName,
+      payment.date.toLocaleDateString('fr-FR'),
+      payment.depositAmount?.toFixed(2) || '0.00',
+      payment.checkDetails.count,
+      payment.checkDetails.amount.toFixed(2),
+      payment.checkDetails.totalAmount.toFixed(2),
+      payment.saleTotal?.toFixed(2) || payment.checkDetails.totalAmount.toFixed(2),
+      payment.source === 'sale' ? 'Vente Caisse' : 'Facture N8N'
+    ]);
+
+    // Créer le contenu CSV
+    const csvContent = [
+      headers.join(','),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Créer et télécharger le fichier
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `reglements-avenir-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log(`✅ Export CSV: ${pendingPayments.length} règlements exportés`);
   };
 
   return (
-    <div className="animate-fadeIn">
+    <div className="payments-container">
       {/* En-tête */}
-      <div 
-        className="section-header"
-        style={{
-          background: colors.header.bg,
-          color: 'white',
-          padding: '24px',
-          borderRadius: '12px',
-          marginBottom: '24px'
-        }}
-      >
-        <div className="flex justify-between items-center">
+      <div className="payments-header">
+        <div className="payments-header-content">
           <div>
-            <h2 className="text-3xl font-bold mb-2">💳 Règlements à venir</h2>
-            <p className="text-lg opacity-90">
-              Suivi des chèques en attente de toutes les ventes et factures
+            <h2 className="payments-header-title">
+              💳 Règlements
+            </h2>
+            <p className="payments-header-subtitle">
+              Suivi complet des règlements et paiements
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">{pendingPayments.length}</div>
-            <div className="text-sm opacity-90">opérations</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div 
-          className="card text-center"
-          style={{
-            background: colors.stats.totalAmount.bg,
-            borderLeft: `4px solid ${colors.stats.totalAmount.border}`,
-            borderTop: `1px solid ${colors.stats.totalAmount.border}20`
-          }}
-        >
-          <div className="flex items-center justify-center mb-2">
-            <Euro size={24} style={{ color: colors.stats.totalAmount.text }} />
-          </div>
-          <h3 className="text-sm font-semibold mb-2" style={{ color: colors.stats.totalAmount.text }}>
-            Montant total
-          </h3>
-          <p className="text-3xl font-bold" style={{ color: colors.stats.totalAmount.text }}>
-            {fmtEUR(paymentStats.totalAmount)}
-          </p>
-        </div>
-
-        <div 
-          className="card text-center"
-          style={{
-            background: colors.stats.totalChecks.bg,
-            borderLeft: `4px solid ${colors.stats.totalChecks.border}`,
-            borderTop: `1px solid ${colors.stats.totalChecks.border}20`
-          }}
-        >
-          <div className="flex items-center justify-center mb-2">
-            <CreditCard size={24} style={{ color: colors.stats.totalChecks.text }} />
-          </div>
-          <h3 className="text-sm font-semibold mb-2" style={{ color: colors.stats.totalChecks.text }}>
-            Total chèques
-          </h3>
-          <p className="text-3xl font-bold" style={{ color: colors.stats.totalChecks.text }}>
-            {paymentStats.totalChecks}
-          </p>
-        </div>
-
-        <div 
-          className="card text-center"
-          style={{
-            background: colors.stats.operations.bg,
-            borderLeft: `4px solid ${colors.stats.operations.border}`,
-            borderTop: `1px solid ${colors.stats.operations.border}20`
-          }}
-        >
-          <div className="flex items-center justify-center mb-2">
-            <Clock size={24} style={{ color: colors.stats.operations.text }} />
-          </div>
-          <h3 className="text-sm font-semibold mb-2" style={{ color: colors.stats.operations.text }}>
-            Ventes caisse
-          </h3>
-          <p className="text-3xl font-bold" style={{ color: colors.stats.operations.text }}>
-            {paymentStats.salesCount}
-          </p>
-        </div>
-
-        <div 
-          className="card text-center"
-          style={{
-            background: colors.stats.operations.bg,
-            borderLeft: `4px solid ${colors.stats.operations.border}`,
-            borderTop: `1px solid ${colors.stats.operations.border}20`
-          }}
-        >
-          <div className="flex items-center justify-center mb-2">
-            <AlertCircle size={24} style={{ color: colors.stats.operations.text }} />
-          </div>
-          <h3 className="text-sm font-semibold mb-2" style={{ color: colors.stats.operations.text }}>
-            Factures N8N
-          </h3>
-          <p className="text-3xl font-bold" style={{ color: colors.stats.operations.text }}>
-            {paymentStats.invoicesCount}
-          </p>
-        </div>
-      </div>
-
-      {/* Liste des règlements */}
-      <div className="card">
-        <h3 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-          📋 Règlements en attente
-        </h3>
-
-        {pendingPayments.length === 0 ? (
-          <div className="text-center py-12">
-            <CheckCircle size={64} className="mx-auto text-green-500 mb-4" />
-            <p className="text-xl text-gray-500 mb-2">Aucun règlement en attente</p>
-            <p className="text-gray-400">Tous les paiements sont à jour !</p>
-          </div>
-        ) : (
-          <div className="rounded-lg border overflow-hidden" style={{ borderColor: '#E5E7EB' }}>
-            <div className="table-scroll table-sticky">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b" style={{ borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' }}>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Source</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Client</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Vendeuse</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Date</th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Chèques</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Montant</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingPayments.map((payment) => {
-                    const isExpanded = expandedPayments.has(payment.id);
-                    
-                    return (
-                      <React.Fragment key={payment.id}>
-                        <tr
-                          className="border-b cursor-pointer transition-all duration-200 hover:bg-gray-50"
-                          style={{
-                            borderColor: '#F3F4F6',
-                            borderLeft: `6px solid ${getVendorColor(payment.vendorId)}`,
-                            background: `${getVendorColor(payment.vendorId)}10`
-                          }}
-                          onClick={() => togglePaymentExpansion(payment.id)}
-                          title="Cliquer pour voir les détails"
-                        >
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="px-2 py-1 rounded text-xs font-semibold"
-                                style={{
-                                  background: payment.source === 'sale' ? '#EBF8FF' : '#F3E8FF',
-                                  color: payment.source === 'sale' ? '#1E40AF' : '#7C3AED'
-                                }}
-                              >
-                                {payment.source === 'sale' ? '🛒 Caisse' : '📋 Facture'}
-                              </span>
-                              {payment.invoiceNumber && (
-                                <span className="text-xs text-gray-500">#{payment.invoiceNumber}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 font-medium text-gray-900">
-                            {payment.clientName}
-                          </td>
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              <span 
-                                className="w-3 h-3 rounded-full" 
-                                style={{ background: getVendorColor(payment.vendorId) }} 
-                              />
-                              <span className="font-semibold text-gray-700">{payment.vendorName}</span>
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-gray-600">
-                            <div className="flex items-center gap-1">
-                              <Calendar size={14} />
-                              {payment.date.toLocaleDateString('fr-FR')}
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                              {payment.checkDetails.count} chèques
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-right font-bold text-gray-900">
-                            {fmtEUR(payment.checkDetails.totalAmount)}
-                          </td>
-                        </tr>
-                        
-                        {/* Ligne de détails expansible */}
-                        {isExpanded && (
-                          <tr style={{ background: '#F8F9FA' }}>
-                            <td colSpan={6} className="px-4 py-4">
-                              <div className="space-y-3">
-                                <h4 className="font-semibold text-gray-700 flex items-center gap-2">
-                                  📄 Détail des chèques à venir
-                                </h4>
-                                
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                  <div className="bg-white p-3 rounded border border-gray-200">
-                                    <div className="text-sm text-gray-600">Nombre de chèques</div>
-                                    <div className="text-2xl font-bold text-amber-600">
-                                      {payment.checkDetails.count}
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="bg-white p-3 rounded border border-gray-200">
-                                    <div className="text-sm text-gray-600">Montant par chèque</div>
-                                    <div className="text-2xl font-bold text-green-600">
-                                      {fmtEUR(payment.checkDetails.amount)}
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="bg-white p-3 rounded border border-gray-200">
-                                    <div className="text-sm text-gray-600">Montant total</div>
-                                    <div className="text-2xl font-bold text-blue-600">
-                                      {fmtEUR(payment.checkDetails.totalAmount)}
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                {payment.checkDetails.notes && (
-                                  <div className="bg-amber-50 border border-amber-200 rounded p-3">
-                                    <div className="text-sm font-semibold text-amber-800 mb-1">Notes :</div>
-                                    <div className="text-sm text-amber-700">{payment.checkDetails.notes}</div>
-                                  </div>
-                                )}
-                                
-                                <div className="flex items-center gap-4 text-sm text-gray-600 pt-2 border-t">
-                                  <div className="flex items-center gap-1">
-                                    <Calendar size={14} />
-                                    {payment.date.toLocaleString('fr-FR')}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <CreditCard size={14} />
-                                    Paiement par chèques
-                                  </div>
-                                  {payment.saleTotal && (
-                                    <div className="flex items-center gap-1">
-                                      <Euro size={14} />
-                                      Total vente: {fmtEUR(payment.saleTotal)}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className="payments-header-count">
+            <div className="payments-header-count-value">
+              {activeSubTab === 'pending' ? pendingPayments.length : receivedPayments.length}
+            </div>
+            <div className="payments-header-count-label">
+              {activeSubTab === 'pending' ? 'en attente' : 'perçus'}
             </div>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Navigation des sous-onglets */}
+      <div className="payments-subnav">
+        <button
+          onClick={() => setActiveSubTab('pending')}
+          className={`payments-subnav-btn ${activeSubTab === 'pending' ? 'active pending' : ''}`}
+        >
+          <Clock size={18} />
+          Règlements à venir
+        </button>
+        <button
+          onClick={() => setActiveSubTab('received')}
+          className={`payments-subnav-btn ${activeSubTab === 'received' ? 'active received' : ''}`}
+        >
+          <Store size={18} />
+          Règlement perçu sur Stand
+        </button>
+        <button
+          onClick={() => setActiveSubTab('export')}
+          className={`payments-subnav-btn ${activeSubTab === 'export' ? 'active export' : ''}`}
+        >
+          <Download size={18} />
+          Export CSV
+        </button>
+      </div>
+
+      {/* Contenu conditionnel selon l'onglet actif */}
+      {activeSubTab === 'pending' ? (
+        <>
+
+          {/* Liste des règlements à venir */}
+          <div className="payments-section">
+            <div className="payments-section-header">
+              <h3 className="payments-section-title">
+                📋 Règlements en attente de chèque à venir
+              </h3>
+            </div>
+
+            {pendingPayments.length === 0 ? (
+              <div className="payments-empty-state">
+                <CheckCircle size={64} className="payments-empty-icon" style={{ color: '#10B981' }} />
+                <p className="payments-empty-title">Aucun règlement en attente</p>
+                <p className="payments-empty-subtitle">Tous les paiements sont à jour !</p>
+              </div>
+            ) : (
+              <div className="payments-table-container">
+                <table className="payments-table">
+                  <thead>
+                    <tr>
+                      <th>N° Facture</th>
+                      <th>Client</th>
+                      <th>Vendeuse</th>
+                      <th>Date</th>
+                      <th style={{ textAlign: 'right' }}>Acompte versé</th>
+                      <th style={{ textAlign: 'center' }}>Nb chèques</th>
+                      <th style={{ textAlign: 'right' }}>Solde à percevoir</th>
+                      <th style={{ textAlign: 'right' }}>Total TTC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingPayments.map((payment) => {
+                      const isExpanded = expandedPayments.has(payment.id);
+                      const vendorColor = getVendorColor(payment.vendorId);
+
+                      return (
+                        <React.Fragment key={payment.id}>
+                          <tr
+                            className="clickable"
+                            data-vendor-color={vendorColor}
+                            style={{
+                              '--vendor-color': vendorColor,
+                              '--vendor-color-light': `${vendorColor}15`
+                            } as React.CSSProperties}
+                            onClick={() => togglePaymentExpansion(payment.id)}
+                            title="Cliquer pour voir les détails"
+                          >
+                            <td style={{ fontWeight: 600, color: '#374151', fontSize: '0.8125rem' }}>
+                              {payment.invoiceNumber || '-'}
+                            </td>
+                            <td style={{ fontWeight: 600, color: '#111827', fontSize: '0.8125rem' }} title={payment.clientName}>
+                              {payment.clientName}
+                            </td>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span
+                                  style={{ 
+                                    width: '8px', 
+                                    height: '8px', 
+                                    borderRadius: '50%', 
+                                    background: vendorColor,
+                                    border: '1px solid white',
+                                    boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
+                                  }}
+                                />
+                                <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.8125rem' }}>
+                                  {payment.vendorName}
+                                </span>
+                              </div>
+                            </td>
+                            <td style={{ color: '#6B7280', fontSize: '0.75rem' }}>
+                              {payment.date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                            </td>
+                            <td style={{ 
+                              textAlign: 'right', 
+                              color: payment.depositAmount && payment.depositAmount > 0 ? '#10B981' : '#9CA3AF', 
+                              fontWeight: payment.depositAmount && payment.depositAmount > 0 ? 700 : 400, 
+                              fontSize: '0.8125rem' 
+                            }}>
+                              {payment.depositAmount && payment.depositAmount > 0 ? fmtEUR(payment.depositAmount) : '0 €'}
+                            </td>
+                            <td style={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                              <span style={{ 
+                                background: '#FEF3C7', 
+                                color: '#92400E', 
+                                padding: '3px 8px', 
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {payment.checkDetails.count} × {fmtEUR(payment.checkDetails.amount)}
+                              </span>
+                            </td>
+                            <td style={{ 
+                              textAlign: 'right', 
+                              color: '#F59E0B',
+                              fontWeight: 700,
+                              fontSize: '0.875rem'
+                            }}>
+                              {fmtEUR(payment.checkDetails.totalAmount)}
+                            </td>
+                            <td style={{ 
+                              textAlign: 'right', 
+                              fontWeight: 800, 
+                              color: '#111827', 
+                              fontSize: '0.9375rem',
+                              background: 'linear-gradient(90deg, transparent 0%, #F9FAFB 100%)',
+                              borderLeft: '1px solid #E5E7EB'
+                            }}>
+                              {fmtEUR(payment.saleTotal || payment.checkDetails.totalAmount)}
+                            </td>
+                          </tr>
+
+                          {/* Ligne de détails expansible */}
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={8}>
+                                <div className="payments-details-panel">
+                                  <h4 className="payments-details-title">
+                                    📄 Détail des chèques à venir
+                                  </h4>
+
+                                  <div className="payments-details-grid">
+                                    <div className="payments-detail-box" style={{ background: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)', borderLeft: '3px solid #10B981' }}>
+                                      <div className="payments-detail-label" style={{ color: '#065F46' }}>Acompte versé</div>
+                                      <div className="payments-detail-value green">
+                                        {fmtEUR(payment.depositAmount || 0)}
+                                      </div>
+                                    </div>
+
+                                    <div className="payments-detail-box" style={{ background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)', borderLeft: '3px solid #F59E0B' }}>
+                                      <div className="payments-detail-label" style={{ color: '#92400E' }}>Chèques ({payment.checkDetails.count}×{fmtEUR(payment.checkDetails.amount)})</div>
+                                      <div className="payments-detail-value amber">
+                                        {fmtEUR(payment.checkDetails.totalAmount)}
+                                      </div>
+                                    </div>
+
+                                    <div className="payments-detail-box" style={{ 
+                                      background: payment.remainingBalance && payment.remainingBalance > 0 
+                                        ? 'linear-gradient(135deg, #FEE2E2 0%, #FECACA 100%)' 
+                                        : 'linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%)', 
+                                      borderLeft: payment.remainingBalance && payment.remainingBalance > 0 ? '3px solid #EF4444' : '3px solid #9CA3AF'
+                                    }}>
+                                      <div className="payments-detail-label" style={{ 
+                                        color: payment.remainingBalance && payment.remainingBalance > 0 ? '#991B1B' : '#6B7280' 
+                                      }}>Solde à percevoir</div>
+                                      <div className="payments-detail-value" style={{ 
+                                        color: payment.remainingBalance && payment.remainingBalance > 0 ? '#EF4444' : '#6B7280' 
+                                      }}>
+                                        {fmtEUR(payment.remainingBalance || 0)}
+                                      </div>
+                                    </div>
+
+                                    <div className="payments-detail-box" style={{ background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)', borderLeft: '3px solid #3B82F6' }}>
+                                      <div className="payments-detail-label" style={{ color: '#1E40AF' }}>Total TTC</div>
+                                      <div className="payments-detail-value blue" style={{ fontSize: '1.75rem' }}>
+                                        {fmtEUR(payment.saleTotal || payment.checkDetails.totalAmount)}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {payment.checkDetails.notes && (
+                                    <div className="payments-notes">
+                                      <div className="payments-notes-label">Notes :</div>
+                                      <div className="payments-notes-text">{payment.checkDetails.notes}</div>
+                                    </div>
+                                  )}
+
+                                  <div className="payments-meta">
+                                    <div className="payments-meta-item">
+                                      <Calendar size={14} />
+                                      {payment.date.toLocaleString('fr-FR')}
+                                    </div>
+                                    <div className="payments-meta-item">
+                                      💳 Paiement par chèques
+                                    </div>
+                                    {payment.saleTotal && (
+                                      <div className="payments-meta-item">
+                                        💰 Total vente: {fmtEUR(payment.saleTotal)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      ) : activeSubTab === 'received' ? (
+        <>
+          {/* Tableau des règlements perçus */}
+          <div className="payments-section">
+            <div className="payments-section-header">
+              <h3 className="payments-section-title">
+                💰 Règlements perçus sur Stand
+              </h3>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="payments-add-btn"
+              >
+                <Plus size={16} />
+                Ajouter
+              </button>
+            </div>
+
+            {receivedPayments.length === 0 ? (
+              <div className="payments-empty-state">
+                <Store size={64} className="payments-empty-icon" />
+                <p className="payments-empty-title">Aucun règlement perçu</p>
+                <p className="payments-empty-subtitle">Les règlements reçus apparaîtront ici</p>
+              </div>
+            ) : (
+              <div className="payments-table-container">
+                <table className="payments-table">
+                  <thead>
+                    <tr>
+                      <th>N° Facture</th>
+                      <th>Client</th>
+                      <th>Vendeuse</th>
+                      <th>Date</th>
+                      <th style={{ textAlign: 'right' }}>Acompte versé</th>
+                      <th style={{ textAlign: 'center' }}>Nb chèques</th>
+                      <th style={{ textAlign: 'right' }}>Solde à percevoir</th>
+                      <th style={{ textAlign: 'right' }}>Total TTC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receivedPayments.map((payment) => {
+                      const vendorColor = getVendorColor(payment.vendorId);
+
+                      return (
+                        <tr
+                          key={payment.id}
+                          data-vendor-color={vendorColor}
+                          style={{
+                            '--vendor-color': vendorColor,
+                            '--vendor-color-light': `${vendorColor}15`
+                          } as React.CSSProperties}
+                        >
+                          <td style={{ fontWeight: 600, color: '#374151', fontSize: '0.8125rem' }}>
+                            {payment.invoiceNumber}
+                          </td>
+                          <td style={{ fontWeight: 600, color: '#111827', fontSize: '0.8125rem' }} title={payment.clientName}>
+                            {payment.clientName}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span
+                                style={{ 
+                                  width: '8px', 
+                                  height: '8px', 
+                                  borderRadius: '50%', 
+                                  background: vendorColor,
+                                  border: '1px solid white',
+                                  boxShadow: '0 0 0 1px rgba(0,0,0,0.1)'
+                                }}
+                              />
+                              <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.8125rem' }}>
+                                {payment.vendorName}
+                              </span>
+                            </div>
+                          </td>
+                          <td style={{ color: '#6B7280', fontSize: '0.75rem' }}>
+                            {payment.date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                          </td>
+                          <td style={{ 
+                            textAlign: 'right', 
+                            color: '#10B981', 
+                            fontWeight: 700, 
+                            fontSize: '0.8125rem' 
+                          }}>
+                            - {/* Pas d'acompte pour les règlements perçus */}
+                          </td>
+                          <td style={{ textAlign: 'center', fontSize: '0.75rem' }}>
+                            <span style={{ 
+                              background: '#FEF3C7', 
+                              color: '#92400E', 
+                              padding: '3px 8px', 
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {payment.numberOfChecks} chèque{payment.numberOfChecks > 1 ? 's' : ''}
+                            </span>
+                          </td>
+                          <td style={{ 
+                            textAlign: 'right', 
+                            color: '#F59E0B',
+                            fontWeight: 700,
+                            fontSize: '0.875rem'
+                          }}>
+                            {fmtEUR(payment.checkReceived)}
+                          </td>
+                          <td style={{ 
+                            textAlign: 'right', 
+                            fontWeight: 800, 
+                            color: '#111827', 
+                            fontSize: '0.9375rem',
+                            background: 'linear-gradient(90deg, transparent 0%, #F9FAFB 100%)',
+                            borderLeft: '1px solid #E5E7EB'
+                          }}>
+                            {fmtEUR(payment.checkReceived)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Onglet Export CSV */}
+          <div className="payments-section">
+            <div className="payments-section-header">
+              <h3 className="payments-section-title">
+                📊 Export des règlements à venir
+              </h3>
+            </div>
+
+            <div style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '32px',
+              border: '1px solid #E5E7EB',
+              textAlign: 'center'
+            }}>
+              <div style={{
+                fontSize: '48px',
+                marginBottom: '16px'
+              }}>
+                📋
+              </div>
+              
+              <h4 style={{
+                fontSize: '20px',
+                fontWeight: '600',
+                color: '#111827',
+                marginBottom: '8px'
+              }}>
+                Règlements à exporter
+              </h4>
+              
+              <p style={{
+                fontSize: '16px',
+                color: '#6B7280',
+                marginBottom: '24px'
+              }}>
+                {pendingPayments.length > 0 
+                  ? `${pendingPayments.length} règlement${pendingPayments.length > 1 ? 's' : ''} en attente de chèque à venir`
+                  : 'Aucun règlement à exporter'
+                }
+              </p>
+
+              {pendingPayments.length > 0 && (
+                <div style={{
+                  background: '#F9FAFB',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '24px',
+                  textAlign: 'left'
+                }}>
+                  <h5 style={{
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    marginBottom: '8px'
+                  }}>
+                    Résumé des données à exporter :
+                  </h5>
+                  <ul style={{
+                    fontSize: '14px',
+                    color: '#6B7280',
+                    margin: 0,
+                    paddingLeft: '20px'
+                  }}>
+                    <li>N° Facture et nom du client</li>
+                    <li>Vendeuse et date de la vente</li>
+                    <li>Acompte versé et nombre de chèques</li>
+                    <li>Montant par chèque et total TTC</li>
+                    <li>Source (Vente Caisse ou Facture N8N)</li>
+                  </ul>
+                </div>
+              )}
+
+              <button
+                onClick={exportToCSV}
+                disabled={pendingPayments.length === 0}
+                style={{
+                  backgroundColor: pendingPayments.length > 0 ? '#10B981' : '#9CA3AF',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '16px 32px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  cursor: pendingPayments.length > 0 ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  margin: '0 auto',
+                  opacity: pendingPayments.length > 0 ? 1 : 0.6,
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Download size={20} />
+                Exporter en CSV
+                {pendingPayments.length > 0 && ` (${pendingPayments.length} règlements)`}
+              </button>
+
+              {pendingPayments.length > 0 && (
+                <p style={{
+                  fontSize: '12px',
+                  color: '#9CA3AF',
+                  marginTop: '16px',
+                  marginBottom: 0
+                }}>
+                  Le fichier sera téléchargé avec le nom : reglements-avenir-{new Date().toISOString().split('T')[0]}.csv
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Modale d'ajout de règlement */}
+      {showAddModal && (
+        <div className="payments-modal-overlay">
+          <div className="payments-modal">
+            <div className="payments-modal-header">
+              <Plus size={24} style={{ color: '#10B981' }} />
+              <h3 className="payments-modal-title">
+                Nouveau règlement perçu
+              </h3>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.currentTarget);
+              const newPayment: Omit<ReceivedPayment, 'id'> = {
+                clientName: formData.get('clientName') as string,
+                invoiceNumber: formData.get('invoiceNumber') as string,
+                checkReceived: parseFloat(formData.get('checkReceived') as string),
+                numberOfChecks: parseInt(formData.get('numberOfChecks') as string),
+                vendorId: formData.get('vendorId') as string,
+                vendorName: vendors.find(v => v.id === formData.get('vendorId'))?.name || '',
+                date: new Date(formData.get('date') as string)
+              };
+              handleAddPayment(newPayment);
+            }}>
+              <div className="payments-form-group">
+                <label className="payments-form-label required">
+                  Nom du client
+                </label>
+                <input
+                  type="text"
+                  name="clientName"
+                  required
+                  className="payments-form-input"
+                  placeholder="Nom complet du client"
+                />
+              </div>
+
+              <div className="payments-form-group">
+                <label className="payments-form-label required">
+                  Numéro de facture
+                </label>
+                <input
+                  type="text"
+                  name="invoiceNumber"
+                  required
+                  className="payments-form-input"
+                  placeholder="Ex: FAC-2024-001"
+                />
+              </div>
+
+              <div className="payments-form-group">
+                <label className="payments-form-label required">
+                  Montant du chèque reçu
+                </label>
+                <input
+                  type="number"
+                  name="checkReceived"
+                  step="0.01"
+                  required
+                  className="payments-form-input"
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="payments-form-group">
+                <label className="payments-form-label required">
+                  Nombre de chèques
+                </label>
+                <input
+                  type="number"
+                  name="numberOfChecks"
+                  min="1"
+                  required
+                  defaultValue="1"
+                  className="payments-form-input"
+                  placeholder="1"
+                />
+              </div>
+
+              <div className="payments-form-group">
+                <label className="payments-form-label required">
+                  Vendeuse
+                </label>
+                <select
+                  name="vendorId"
+                  required
+                  className="payments-form-select"
+                >
+                  <option value="">Sélectionner une vendeuse</option>
+                  {vendors.map(vendor => (
+                    <option key={vendor.id} value={vendor.id}>
+                      {vendor.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="payments-form-group">
+                <label className="payments-form-label required">
+                  Date du règlement
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  required
+                  defaultValue={new Date().toISOString().split('T')[0]}
+                  className="payments-form-input"
+                />
+              </div>
+
+              <div className="payments-form-actions">
+                <button
+                  type="submit"
+                  className="payments-form-btn submit"
+                >
+                  <Save size={16} />
+                  Ajouter
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="payments-form-btn cancel"
+                >
+                  <X size={16} />
+                  Annuler
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

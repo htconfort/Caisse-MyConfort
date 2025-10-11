@@ -24,6 +24,8 @@ type ResetOptionKey =
   | 'invoices'
   | 'selectedVendor'
   | 'vendorStats'
+  | 'keepSalesHistory'    // ✅ NOUVEAU: Conserver l'historique des ventes
+  | 'keepPendingChecks'   // ✅ NOUVEAU: Conserver les chèques à venir
   | 'allData';
 
 import { getDB } from '@/db/index';
@@ -181,6 +183,8 @@ export default function CaisseMyConfortApp() {
     invoices: true,
     selectedVendor: false,
     vendorStats: false,
+    keepSalesHistory: false,     // ✅ NOUVEAU: Par défaut, conserver l'historique (décoché = conserver)
+    keepPendingChecks: false,    // ✅ NOUVEAU: Par défaut, conserver les chèques (décoché = conserver)
     allData: false
   });
   const [resetStep, setResetStep] = useState<'options' | 'confirmation' | 'executing' | 'completed'>('options');
@@ -647,15 +651,19 @@ export default function CaisseMyConfortApp() {
   const handleResetOption = useCallback((option: ResetOptionKey, value: boolean) => {
     if (option === 'allData') {
       setResetOptions(value
-        ? { dailySales: true, cart: true, invoices: true, selectedVendor: true, vendorStats: true, allData: true }
-        : { dailySales: false, cart: false, invoices: false, selectedVendor: false, vendorStats: false, allData: false }
+        ? { dailySales: true, cart: true, invoices: true, selectedVendor: true, vendorStats: true, keepSalesHistory: true, keepPendingChecks: true, allData: true }
+        : { dailySales: false, cart: false, invoices: false, selectedVendor: false, vendorStats: false, keepSalesHistory: false, keepPendingChecks: false, allData: false }
       );
       return;
     }
     setResetOptions(prev => {
       const next = { ...prev, [option]: value };
       if (!value) next.allData = false;
-      if (next.dailySales && next.cart && next.selectedVendor && next.vendorStats) next.allData = true;
+      // ✅ CORRECTION: RAZ complète active automatiquement la suppression
+      if (next.allData) {
+        next.keepSalesHistory = true;  // Coché = supprimer
+        next.keepPendingChecks = true; // Coché = supprimer
+      }
       return next;
     });
   }, []);
@@ -752,6 +760,7 @@ export default function CaisseMyConfortApp() {
 
           // RAZ complète
           if (resetOptions.allData) {
+            // ✅ RAZ complète ignore les options de conservation
             setSales([]);
             setCart([]);
             resetInvoices();
@@ -772,6 +781,25 @@ export default function CaisseMyConfortApp() {
             } catch (e) {
               console.warn('⚠️ Impossible de gérer la session après RAZ:', e);
             }
+          } else {
+            // ✅ GESTION DES OPTIONS DE CONSERVATION (seulement si pas RAZ complète)
+            
+            // Conservation de l'historique des ventes (INVERSÉ)
+            if (resetOptions.keepSalesHistory && !resetOptions.allData) {
+              setSales([]);
+              console.log('✅ Historique des ventes supprimé');
+            } else if (!resetOptions.keepSalesHistory) {
+              console.log('📚 Historique des ventes conservé');
+            }
+
+            // Conservation des chèques à venir (INVERSÉ)
+            if (resetOptions.keepPendingChecks && !resetOptions.allData) {
+              // Supprimer les chèques à venir du localStorage
+              localStorage.removeItem('pendingPayments');
+              console.log('✅ Chèques à venir supprimés');
+            } else if (!resetOptions.keepPendingChecks) {
+              console.log('💳 Chèques à venir conservés');
+            }
           }
 
           // Log de l'action
@@ -785,6 +813,8 @@ export default function CaisseMyConfortApp() {
             invoices: true,
             selectedVendor: false,
             vendorStats: false,
+            keepSalesHistory: false,     // ✅ NOUVEAU: Par défaut, conserver l'historique (décoché = conserver)
+            keepPendingChecks: false,    // ✅ NOUVEAU: Par défaut, conserver les chèques (décoché = conserver)
             allData: false
           });
           setResetStep('options');
@@ -1260,6 +1290,58 @@ export default function CaisseMyConfortApp() {
                           </div>
                         </label>
 
+                        {/* ✅ NOUVEAU: Conserver l'historique des ventes */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '2px solid #28a745',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.keepSalesHistory ? '#d4edda' : '#f8f9fa'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.keepSalesHistory}
+                            onChange={(e) => handleResetOption('keepSalesHistory', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#155724' }}>📚 Supprimer l'historique des ventes</strong>
+                            <br />
+                            <small style={{ color: '#6c757d' }}>
+                              ⚠️ Efface toutes les ventes passées (décoché = conserver)
+                            </small>
+                          </div>
+                        </label>
+
+                        {/* ✅ NOUVEAU: Conserver les chèques à venir */}
+                        <label style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          border: '2px solid #17a2b8',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          background: resetOptions.keepPendingChecks ? '#d1ecf1' : '#f8f9fa'
+                        }}>
+                          <input
+                            type="checkbox"
+                            checked={resetOptions.keepPendingChecks}
+                            onChange={(e) => handleResetOption('keepPendingChecks', e.target.checked)}
+                            style={{ marginRight: '10px', transform: 'scale(1.2)' }}
+                          />
+                          <div>
+                            <strong style={{ color: '#0c5460' }}>💳 Supprimer les chèques à venir</strong>
+                            <br />
+                            <small style={{ color: '#6c757d' }}>
+                              ⚠️ Efface tous les chèques non encaissés (décoché = conserver)
+                            </small>
+                          </div>
+                        </label>
+
                         {/* RAZ Complète */}
                         <label style={{
                           display: 'flex',
@@ -1288,7 +1370,7 @@ export default function CaisseMyConfortApp() {
                       </div>
 
                       {/* Aperçu des actions */}
-                      {(resetOptions.dailySales || resetOptions.cart || resetOptions.invoices || resetOptions.selectedVendor || resetOptions.vendorStats || resetOptions.allData) && (
+                      {(resetOptions.dailySales || resetOptions.cart || resetOptions.invoices || resetOptions.selectedVendor || resetOptions.vendorStats || resetOptions.keepSalesHistory || resetOptions.keepPendingChecks || resetOptions.allData) && (
                         <div style={{
                           background: '#fff3cd',
                           border: '1px solid #ffeaa7',
@@ -1305,6 +1387,10 @@ export default function CaisseMyConfortApp() {
                             {resetOptions.invoices && <li>📋 Effacement des factures N8N ({invoices.length} factures)</li>}
                             {resetOptions.selectedVendor && <li>Désélection de la vendeuse active</li>}
                             {resetOptions.vendorStats && <li>Remise à zéro des statistiques vendeuses</li>}
+                            {resetOptions.keepSalesHistory && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>📚 Suppression de l'historique des ventes</li>}
+                            {resetOptions.keepPendingChecks && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>💳 Suppression des chèques à venir</li>}
+                            {!resetOptions.keepSalesHistory && <li style={{ color: '#28a745', fontWeight: 'bold' }}>📚 Conservation de l'historique des ventes</li>}
+                            {!resetOptions.keepPendingChecks && <li style={{ color: '#17a2b8', fontWeight: 'bold' }}>💳 Conservation des chèques à venir</li>}
                             {resetOptions.allData && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>🚨 SUPPRESSION COMPLÈTE DE TOUTES LES DONNÉES</li>}
                           </ul>
                         </div>
