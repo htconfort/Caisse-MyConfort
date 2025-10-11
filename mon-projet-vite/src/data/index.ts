@@ -39,7 +39,9 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Oreillers', name: 'Oreiller Voyage', priceTTC: 35, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 140', priceTTC: 140, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Traversin 160', priceTTC: 160, autoCalculateHT: true },
-  { category: 'Oreillers', name: 'Pack deux oreillers', priceTTC: 100, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack oreillers dual et thalasso', priceTTC: 100, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack oreillers 150 euros, douceur et papillon', priceTTC: 150, autoCalculateHT: true },
+  { category: 'Oreillers', name: 'Pack oreiller dual plus douceur', priceTTC: 130, autoCalculateHT: true },
   
   // Plateaux (10)
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 70 x 190', priceTTC: 70, autoCalculateHT: true },

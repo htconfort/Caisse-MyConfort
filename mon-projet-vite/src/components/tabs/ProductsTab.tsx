@@ -251,9 +251,23 @@ export function ProductsTab({
             const isSpecialCategory = backgroundColor !== 'white';
 
             const getGradientBackground = (category: string, productName?: string) => {
-              if (category === 'Oreillers' && productName?.toLowerCase().includes('pack')) {
-                return '#DC2626';
+              // Couleurs spécifiques pour les packs d'oreillers
+              if (category === 'Oreillers' && productName) {
+                const name = productName.toLowerCase();
+                if (name.includes('pack oreillers dual et thalasso')) {
+                  return '#DC2626'; // Rouge pour "Pack oreillers dual et thalasso" - 100€
+                }
+                if (name.includes('pack oreillers 150 euros, douceur et papillon')) {
+                  return '#F97316'; // Orange pour "Pack oreillers 150 euros, douceur et papillon" - 150€
+                }
+                if (name.includes('pack oreiller dual plus douceur')) {
+                  return '#059669'; // Vert sapin pour "Pack oreiller dual plus douceur" - 130€
+                }
+                if (name.includes('pack')) {
+                  return '#DC2626'; // Rouge par défaut pour les autres packs
+                }
               }
+              
               switch (category) {
                 case 'Matelas':
                   return 'linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%)';
