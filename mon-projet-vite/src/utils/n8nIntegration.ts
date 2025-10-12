@@ -165,9 +165,9 @@ export const n8nWebhookConfig = {
   options: {
     timeout: 30000,
     retry: {
-      enabled: true,
-      maxRetries: 3,
-      retryDelay: 2000
+      enabled: false, // 🚫 DÉSACTIVÉ pour éviter les boucles infinies
+      maxRetries: 0,
+      retryDelay: 0
     }
   }
 };
