@@ -94,6 +94,12 @@ exports.handler = async (event, context) => {
   } catch (error) {
     console.error('❌ Proxy error:', error);
     
+    // Get the endpoint from the path for error reporting
+    const path = event.path.replace('/.netlify/functions/n8n-proxy', '');
+    const endpoint = path.startsWith('/') ? path : `/${path}`;
+    const baseUrl = process.env.VITE_N8N_URL || process.env.VITE_N8N_TARGET || 'https://n8n.srv765811.hstgr.cloud';
+    const targetUrl = `${baseUrl.replace(/\/$/, '')}${endpoint}`;
+    
     return {
       statusCode: 500,
       headers,
