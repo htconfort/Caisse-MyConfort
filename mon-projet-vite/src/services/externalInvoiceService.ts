@@ -370,6 +370,10 @@ class ExternalInvoiceService {
       return;
     }
     
+    // DÉSACTIVER l'auto-sync en production pour éviter les boucles infinies
+    console.log('🚫 Synchronisation automatique désactivée en production pour éviter les boucles infinies');
+    return;
+    
     // En mode développement local, désactiver la synchronisation automatique
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       console.log('🏠 Mode développement local: synchronisation automatique désactivée');
