@@ -14,5 +14,5 @@ createRoot(document.getElementById('root')!).render(
 // Import direct via hash (#import=base64)
 processImportFromHash().catch(() => {})
 
-// Démarrage d'un polling léger pour consommer les factures poussées par webhook
-startDirectWebhookPolling(5000)
+// 🚫 DÉSACTIVÉ : Démarrage d'un polling léger pour consommer les factures poussées par webhook
+// startDirectWebhookPolling(5000) // Désactivé pour éviter les boucles infinies
