@@ -120,8 +120,8 @@ export const useSyncInvoices = () => {
   useEffect(() => {
     syncInvoices();
     
-    // Démarrer la sync auto
-    syncService.startAutoSync();
+    // 🚫 DÉSACTIVÉ : Démarrer la sync auto (pour éviter les boucles infinies)
+    // syncService.startAutoSync();
     
     // Écouter les événements de sync
     const unsubscribe = syncService.addListener((data: { type: string }) => {
