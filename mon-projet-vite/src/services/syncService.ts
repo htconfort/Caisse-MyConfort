@@ -355,6 +355,10 @@ class SyncService {
   startAutoSync(intervalMs: number = 30000): void {
     this.stopAutoSync();
     
+    // 🚫 DÉSACTIVÉ pour éviter les boucles infinies
+    console.log('🚫 syncService.startAutoSync désactivé pour éviter les boucles infinies');
+    return;
+    
     if (this.isOnline && !this.stopPolling) {
       this.syncInterval = window.setInterval(() => {
         this.getInvoices().then(() => {

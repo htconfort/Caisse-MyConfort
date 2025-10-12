@@ -165,14 +165,14 @@ export const useExternalInvoices = () => {
     };
   }, []);
 
-  // Recharger périodiquement les factures (pour refléter les changements)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadInvoices();
-    }, 60000); // Recharger toutes les minutes
+  // 🚫 DÉSACTIVÉ : Recharger périodiquement les factures (pour éviter les boucles infinies)
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     loadInvoices();
+  //   }, 60000); // Recharger toutes les minutes
 
-    return () => clearInterval(interval);
-  }, [loadInvoices]);
+  //   return () => clearInterval(interval);
+  // }, [loadInvoices]);
 
   return {
     // État
