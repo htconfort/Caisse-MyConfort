@@ -48,8 +48,8 @@ export async function updateStatus(numero_facture: string, patch: Record<string,
 
 export async function listInvoices(limit: number = 50): Promise<any> {
   assertConfigured();
-  // Utiliser l'URL directe de la Netlify Function qui fonctionne
-  const listBase = N8N_GET_FACTURES_URL || `https://caissemyconfort2025.netlify.app/.netlify/functions/caisse-factures`;
+  // Utiliser directement l'URL N8N avec l'ID du webhook GET correct
+  const listBase = N8N_GET_FACTURES_URL || `${N8N_BASE}/webhook/053170e3-fe71-4382-80c3-eaef4751cdeb`;
   const fullUrl = `${listBase}?limit=${encodeURIComponent(String(limit))}`;
   
   console.log('🔍 listInvoices - Configuration:', {
