@@ -6,7 +6,7 @@ function normalizeBase(url?: string): string {
 // Priorités d'URL (override explicite > base proxy > vide)
 const WEBHOOK_BASE: string = normalizeBase(import.meta.env.VITE_N8N_WEBHOOK_URL as string) || '';
 // Base proxy par défaut sur Netlify/Vite
-const N8N_BASE: string = normalizeBase((import.meta.env.VITE_N8N_URL as string) || '/api/n8n');
+const N8N_BASE: string = normalizeBase((import.meta.env.VITE_N8N_URL as string) || 'https://n8n.srv765811.hstgr.cloud');
 // URL spécifiques (si directement fournies)
 const N8N_SYNC_URL: string = normalizeBase(import.meta.env.VITE_N8N_SYNC_URL as string) || '';
 const N8N_GET_FACTURES_URL: string = normalizeBase(import.meta.env.VITE_N8N_GET_FACTURES_URL as string) || '';
@@ -21,8 +21,8 @@ function assertConfigured(): void {
 
 export async function sendInvoice(payload: unknown): Promise<any> {
   assertConfigured();
-  // Priorité: URL webhook complète > URL sync dédiée > base proxy + chemin
-  const url = WEBHOOK_BASE || N8N_SYNC_URL || `${N8N_BASE}/caisse/facture`;
+  // Utiliser directement l'ID du webhook POST correct pour envoyer les factures
+  const url = WEBHOOK_BASE || N8N_SYNC_URL || `${N8N_BASE}/webhook/bc49c897-8666-4127-ad8-4bc688c2272c`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -48,12 +48,36 @@ export async function updateStatus(numero_facture: string, patch: Record<string,
 
 export async function listInvoices(limit: number = 50): Promise<any> {
   assertConfigured();
-  const baseFromWebhook = WEBHOOK_BASE?.replace(/\/caisse\/facture$/, '') || '';
-  // Priorité: URL listes dédiée > dérivée du webhook > base proxy
-  const listBase = N8N_GET_FACTURES_URL || (baseFromWebhook ? `${baseFromWebhook}/caisse/factures` : `${N8N_BASE}/caisse/factures`);
-  const response = await fetch(`${listBase}?limit=${encodeURIComponent(String(limit))}`);
-  if (!response.ok) throw new Error('n8n list failed');
-  return response.json();
+  // Utiliser l'URL directe de la Netlify Function qui fonctionne
+  const listBase = N8N_GET_FACTURES_URL || `https://caissemyconfort2025.netlify.app/.netlify/functions/caisse-factures`;
+  const fullUrl = `${listBase}?limit=${encodeURIComponent(String(limit))}`;
+  
+  console.log('🔍 listInvoices - Configuration:', {
+    N8N_BASE,
+    N8N_GET_FACTURES_URL,
+    listBase,
+    fullUrl,
+    limit
+  });
+  
+  const response = await fetch(fullUrl);
+  
+  console.log('🔍 listInvoices - Response:', {
+    ok: response.ok,
+    status: response.status,
+    statusText: response.statusText,
+    url: response.url
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('❌ listInvoices - Error response:', errorText);
+    throw new Error(`n8n list failed: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  console.log('✅ listInvoices - Success:', { dataLength: Array.isArray(data) ? data.length : 'not array', data });
+  return data;
 }
 
 
