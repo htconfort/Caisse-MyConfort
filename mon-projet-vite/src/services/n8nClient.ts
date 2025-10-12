@@ -48,6 +48,10 @@ export async function updateStatus(numero_facture: string, patch: Record<string,
 
 export async function listInvoices(limit: number = 50): Promise<any> {
   assertConfigured();
+  // 🚫 TEMPORAIREMENT DÉSACTIVÉ pour éviter la boucle infinie
+  console.log('🚫 listInvoices temporairement désactivé pour éviter la boucle infinie N8N');
+  return Promise.resolve([]);
+  
   // Utiliser directement l'URL N8N avec l'ID du webhook GET correct
   const listBase = N8N_GET_FACTURES_URL || `${N8N_BASE}/webhook/053170e3-fe71-4382-80c3-eaef4751cdeb`;
   const fullUrl = `${listBase}?limit=${encodeURIComponent(String(limit))}`;
