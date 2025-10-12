@@ -511,7 +511,7 @@ export const externalInvoiceService = new ExternalInvoiceService({
   // Permet de pointer vers N8N directement si fourni (ex: https://.../webhook/sync/invoices)
   apiEndpoint: (import.meta.env.VITE_EXTERNAL_INVOICES_URL as string) || '/api/invoices',
   authToken: import.meta.env.VITE_INVOICE_AUTH_TOKEN || 'myconfort-secret-2025',
-  autoSync: true,
+  autoSync: false, // 🚫 DÉSACTIVÉ pour éviter les boucles infinies
   syncInterval: 30000 // 30 secondes
 });
 
