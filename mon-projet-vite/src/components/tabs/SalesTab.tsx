@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Download, ChevronDown, ChevronRight, ShoppingBag, Calendar, CreditCard, TrendingUp, Euro, FileText, Store } from 'lucide-react';
+import { Download, ChevronDown, ChevronRight, ShoppingBag, Calendar, CreditCard, TrendingUp, Euro, FileText, Store, Search } from 'lucide-react';
 import type { Sale } from '../../types';
 import type { Invoice } from '@/services/syncService';
 import { convertToCSV } from '../../utils';
@@ -11,7 +11,7 @@ interface SalesTabProps {
   invoices: Invoice[];
 }
 
-type SalesSubTab = 'all' | 'caisse' | 'facturier';
+type SalesSubTab = 'all' | 'caisse' | 'facturier' | 'search';
 
 // Format € solide
 const fmtEUR = (n: number) =>
@@ -37,6 +37,7 @@ const getVendorColor = (vendorId: string): string => {
 export function SalesTab({ sales, invoices }: SalesTabProps) {
   const [activeSubTab, setActiveSubTab] = useState<SalesSubTab>('all');
   const [expandedSales, setExpandedSales] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Convertir factures N8N -> ventes externes
   const invoicesAsSales = useMemo<Sale[]>(() => {
@@ -75,15 +76,35 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
 
   // Filtrer selon l'onglet actif
   const filteredSales = useMemo(() => {
+    let salesToFilter = allSales;
+    
     switch (activeSubTab) {
       case 'caisse':
-        return sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        salesToFilter = sales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        break;
       case 'facturier':
-        return invoicesAsSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        salesToFilter = invoicesAsSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        break;
+      case 'search':
+        if (searchQuery.trim()) {
+          const query = searchQuery.toLowerCase().trim();
+          salesToFilter = allSales.filter(sale => {
+            const invoiceNumber = sale.manualInvoiceData?.invoiceNumber || 
+                                 (sale.isExternal ? `N8N-${sale.invoiceNumber}` : '');
+            const clientName = sale.clientName || sale.manualInvoiceData?.clientName || '';
+            
+            return invoiceNumber.toLowerCase().includes(query) ||
+                   clientName.toLowerCase().includes(query) ||
+                   sale.id.toLowerCase().includes(query);
+          });
+        }
+        break;
       default:
-        return allSales;
+        salesToFilter = allSales;
     }
-  }, [allSales, sales, invoicesAsSales, activeSubTab]);
+    
+    return salesToFilter;
+  }, [allSales, sales, invoicesAsSales, activeSubTab, searchQuery]);
 
   // Statistiques
   const stats = useMemo(() => {
@@ -195,6 +216,13 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
           <FileText size={16} />
           Ventes Facturier N8N
         </button>
+        <button
+          className={`sales-subtab ${activeSubTab === 'search' ? 'active' : ''}`}
+          onClick={() => setActiveSubTab('search')}
+        >
+          <Search size={16} />
+          🔍 Recherche
+        </button>
       </div>
 
       {/* Statistiques rapides */}
@@ -236,13 +264,64 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
         </div>
       </div>
 
+      {/* Zone de recherche */}
+      {activeSubTab === 'search' && (
+        <div style={{
+          background: 'white',
+          padding: '20px',
+          borderRadius: '12px',
+          marginBottom: '20px',
+          border: '1px solid #e5e7eb'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '12px'
+          }}>
+            <Search size={20} style={{ color: '#6b7280' }} />
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#374151' }}>
+              Rechercher une facture
+            </h3>
+          </div>
+          <input
+            type="text"
+            placeholder="Numéro de facture, nom du client, ou ID de vente..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '12px 16px',
+              border: '2px solid #e5e7eb',
+              borderRadius: '8px',
+              fontSize: '14px',
+              outline: 'none',
+              transition: 'border-color 0.2s ease'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+            onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
+          />
+          {searchQuery.trim() && (
+            <p style={{
+              margin: '8px 0 0 0',
+              fontSize: '12px',
+              color: '#6b7280'
+            }}>
+              {filteredSales.length} résultat{filteredSales.length > 1 ? 's' : ''} trouvé{filteredSales.length > 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Tableau des ventes */}
       <div className="sales-table-container">
         <div className="sales-table-header">
           <h2 className="sales-table-title">
             <ShoppingBag size={20} />
             {activeSubTab === 'all' ? 'Toutes les ventes' : 
-             activeSubTab === 'caisse' ? 'Ventes Caisse/iPad' : 'Ventes Facturier N8N'}
+             activeSubTab === 'caisse' ? 'Ventes Caisse/iPad' : 
+             activeSubTab === 'facturier' ? 'Ventes Facturier N8N' :
+             activeSubTab === 'search' ? 'Résultats de recherche' : 'Toutes les ventes'}
           </h2>
           <span className="sales-table-count">
             {filteredSales.length} vente{filteredSales.length > 1 ? 's' : ''}
@@ -264,11 +343,10 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
             <table className="sales-table">
               <thead>
                 <tr>
-                  <th className="col-id">ID</th>
+                  <th className="col-facture">Numéro Facture</th>
                   <th className="col-date">Date/Heure</th>
                   <th className="col-vendor">Vendeuse</th>
                   <th className="col-client">Client</th>
-                  <th className="col-facture">Facture</th>
                   <th className="col-items">Articles</th>
                   <th className="col-payment">Paiement</th>
                   <th className="col-amount">Montant</th>
@@ -285,8 +363,45 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
                   return (
                     <React.Fragment key={sale.id}>
                       <tr>
-                        <td className="col-id">
-                          {sale.id.slice(-8)}
+                        <td className="col-facture">
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            {sale.manualInvoiceData?.invoiceNumber && (
+                              <div style={{ 
+                                fontWeight: '700', 
+                                color: '#059669',
+                                background: '#dcfce7',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                textAlign: 'center'
+                              }}>
+                                {sale.manualInvoiceData.invoiceNumber}
+                              </div>
+                            )}
+                            {sale.isExternal && sale.invoiceNumber && (
+                              <div style={{ 
+                                fontWeight: '600', 
+                                color: '#f59e0b',
+                                background: '#fef3c7',
+                                padding: '2px 6px',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                textAlign: 'center'
+                              }}>
+                                N8N-{sale.invoiceNumber}
+                              </div>
+                            )}
+                            {!sale.manualInvoiceData?.invoiceNumber && !sale.invoiceNumber && (
+                              <div style={{ 
+                                color: '#6b7280', 
+                                fontStyle: 'italic', 
+                                fontSize: '12px',
+                                textAlign: 'center'
+                              }}>
+                                ID: {sale.id.slice(-8)}
+                              </div>
+                            )}
+                          </div>
                         </td>
                         <td className="col-date">
                           <div>
@@ -323,39 +438,6 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
                             )}
                             {!sale.clientName && !sale.manualInvoiceData?.clientName && (
                               <span style={{ color: '#6b7280', fontStyle: 'italic' }}>-</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="col-facture">
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                            {sale.manualInvoiceData?.invoiceNumber && (
-                              <div style={{ 
-                                fontWeight: '700', 
-                                color: '#059669',
-                                background: '#dcfce7',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '12px',
-                                textAlign: 'center'
-                              }}>
-                                {sale.manualInvoiceData.invoiceNumber}
-                              </div>
-                            )}
-                            {sale.isExternal && sale.invoiceNumber && (
-                              <div style={{ 
-                                fontWeight: '600', 
-                                color: '#f59e0b',
-                                background: '#fef3c7',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontSize: '12px',
-                                textAlign: 'center'
-                              }}>
-                                N8N-{sale.invoiceNumber}
-                              </div>
-                            )}
-                            {!sale.manualInvoiceData?.invoiceNumber && !sale.invoiceNumber && (
-                              <span style={{ color: '#6b7280', fontStyle: 'italic', fontSize: '12px' }}>-</span>
                             )}
                           </div>
                         </td>
@@ -412,7 +494,7 @@ export function SalesTab({ sales, invoices }: SalesTabProps) {
                       
                       {isExpanded && (
                         <tr>
-                          <td colSpan={10}>
+                          <td colSpan={9}>
                             <div className="sale-details">
                               <div className="sale-details-header">
                                 <h3 className="sale-details-title">
