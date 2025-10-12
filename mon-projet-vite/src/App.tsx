@@ -558,30 +558,35 @@ export default function CaisseMyConfortApp() {
 
     // Mettre à jour la vendeuse
     console.log('🔄 Mise à jour vendorStats...');
-    setVendorStats(prev => prev.map(vendor => 
-      vendor.id === editingVendor
-        ? {
-            ...vendor,
-            name: editVendorName.trim(),
-            email: editVendorEmail.trim(),
-            color: editVendorColor
-          }
-        : vendor
-    ));
+    setVendorStats(prev => {
+      const updatedVendors = prev.map(vendor => 
+        vendor.id === editingVendor
+          ? {
+              ...vendor,
+              name: editVendorName.trim(),
+              email: editVendorEmail.trim(),
+              color: editVendorColor
+            }
+          : vendor
+      );
+      // 🔧 CORRECTION : Sauvegarder dans localStorage
+      localStorage.setItem('myconfort-vendors', JSON.stringify(updatedVendors));
+      console.log('💾 Vendeuses sauvegardées dans localStorage:', updatedVendors);
+      return updatedVendors;
+    });
 
     // Mettre à jour la vendeuse sélectionnée si c'est celle modifiée
     if (selectedVendor?.id === editingVendor) {
-      const updatedSelectedVendor = vendorStats.find(v => v.id === editingVendor);
-      if (updatedSelectedVendor) {
-        const newSelectedVendor = {
-          ...updatedSelectedVendor,
-          name: editVendorName.trim(),
-          email: editVendorEmail.trim(),
-          color: editVendorColor
-        };
-        setSelectedVendor(newSelectedVendor);
-        console.log('🔄 selectedVendor mise à jour:', newSelectedVendor);
-      }
+      const newSelectedVendor = {
+        ...selectedVendor,
+        name: editVendorName.trim(),
+        email: editVendorEmail.trim(),
+        color: editVendorColor
+      };
+      setSelectedVendor(newSelectedVendor);
+      // 🔧 CORRECTION : Sauvegarder la vendeuse sélectionnée
+      localStorage.setItem('myconfort-current-vendor', JSON.stringify(newSelectedVendor));
+      console.log('🔄 selectedVendor mise à jour et sauvegardée:', newSelectedVendor);
     }
 
     // Reset du mode édition
