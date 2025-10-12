@@ -5,9 +5,10 @@
 [functions]
   directory = "netlify/functions"
 
+# Redirects spécifiques (doivent être AVANT les wildcards)
 [[redirects]]
-  from = "/api/n8n/*"
-  to = "/.netlify/functions/n8n-proxy/:splat"
+  from = "/api/n8n/webhook/caisse/factures"
+  to = "/.netlify/functions/caisse-factures"
   status = 200
 
 [[redirects]]
@@ -15,9 +16,10 @@
   to = "/.netlify/functions/caisse-facture"
   status = 200
 
+# Redirect wildcard (doit être APRÈS les spécifiques)
 [[redirects]]
-  from = "/api/n8n/webhook/caisse/factures"
-  to = "/.netlify/functions/caisse-factures"
+  from = "/api/n8n/*"
+  to = "/.netlify/functions/n8n-proxy/:splat"
   status = 200
 
 [[headers]]
