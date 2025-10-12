@@ -10,6 +10,16 @@
   to = "/.netlify/functions/n8n-proxy/:splat"
   status = 200
 
+[[redirects]]
+  from = "/api/caisse/facture"
+  to = "/.netlify/functions/caisse-facture"
+  status = 200
+
+[[redirects]]
+  from = "/api/n8n/webhook/caisse/factures"
+  to = "/.netlify/functions/caisse-factures"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

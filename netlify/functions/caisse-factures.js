@@ -20,11 +20,15 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    // Get query parameters
+    const queryString = event.queryStringParameters || {};
+    const limit = queryString.limit || '50';
+    
     // Base URL from environment variable
     const baseUrl = process.env.VITE_N8N_URL || process.env.VITE_N8N_TARGET || 'https://n8n.srv765811.hstgr.cloud';
-    const targetUrl = `${baseUrl}/webhook/053170e3-fe71-4382-80c3-eaef4751cdeb`;
+    const targetUrl = `${baseUrl}/webhook/053170e3-fe71-4382-80c3-eaef4751cdeb?limit=${limit}`;
     
-    console.log(`🔄 Caisse Facture - Proxying request to: ${targetUrl}`);
+    console.log(`🔄 Caisse Factures - Proxying request to: ${targetUrl}`);
     
     // Prepare request options
     const url = new URL(targetUrl);
@@ -32,19 +36,12 @@ exports.handler = async (event, context) => {
       hostname: url.hostname,
       port: url.port || (url.protocol === 'https:' ? 443 : 80),
       path: url.pathname + url.search,
-      method: event.httpMethod,
+      method: 'GET', // Always GET for listing invoices
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'Netlify-Caisse-Proxy/1.0'
+        'User-Agent': 'Netlify-Caisse-Factures-Proxy/1.0'
       }
     };
-
-    // Add request body for POST/PUT requests
-    let requestBody = '';
-    if (['POST', 'PUT', 'PATCH'].includes(event.httpMethod) && event.body) {
-      requestBody = event.body;
-      options.headers['Content-Length'] = Buffer.byteLength(requestBody);
-    }
 
     // Make the request
     const response = await new Promise((resolve, reject) => {
@@ -70,10 +67,6 @@ exports.handler = async (event, context) => {
         reject(error);
       });
       
-      if (requestBody) {
-        req.write(requestBody);
-      }
-      
       req.end();
     });
 
@@ -88,13 +81,13 @@ exports.handler = async (event, context) => {
     };
 
   } catch (error) {
-    console.error('❌ Caisse Facture - Proxy error:', error);
+    console.error('❌ Caisse Factures - Proxy error:', error);
     
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({
-        error: 'Caisse Facture Proxy failed',
+        error: 'Caisse Factures Proxy failed',
         message: error.message
       })
     };
