@@ -59,6 +59,11 @@ export const useExternalInvoices = () => {
       setIsLoading(true);
       setError(null);
       
+      // 🚫 DÉSACTIVÉ pour éviter les boucles infinies
+      console.log('🚫 syncWithAPI désactivé pour éviter les boucles infinies');
+      setIsLoading(false);
+      return;
+      
       const success = await externalInvoiceService.syncWithAPI(forceRun, runPayload);
       if (success) {
         // Recharger les factures après sync
