@@ -178,6 +178,10 @@ class SyncService {
    */
   async getInvoices(): Promise<Invoice[]> {
     try {
+      // 🚫 DÉSACTIVÉ pour éviter les boucles infinies GET
+      console.log('🚫 syncService.getInvoices désactivé pour éviter les boucles infinies');
+      return [];
+      
       // Si N8N est désactivé par configuration, retourner le cache (ou vide)
       if (!RUNTIME.N8N_ENABLED) {
         return this.getCachedInvoices().map(inv => this.normalizeInvoiceDates(inv));
