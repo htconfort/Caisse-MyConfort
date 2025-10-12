@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Test Panier Facturier - Build 7b54317</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #28a745;
+        }
+
+        .status-card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-steps {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #007bff;
+        }
+
+        .test-steps h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .step {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .step-number {
+            background: #007bff;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+
+        .step-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .step-description {
+            color: #666;
+            font-size: 14px;
+            margin-left: 34px;
+        }
+
+        .url-display {
+            background: #e3f2fd;
+            border: 2px solid #2196f3;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+            color: #1976d2;
+            font-weight: bold;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(40, 167, 69, 0.4);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-indicator.green {
+            background: #28a745;
+        }
+
+        .status-indicator.orange {
+            background: #ffc107;
+        }
+
+        .status-indicator.red {
+            background: #dc3545;
+        }
+
+        .checklist {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .checklist h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+
+        .checklist-item:hover {
+            background: #f8f9fa;
+        }
+
+        .checklist-item input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.2);
+        }
+
+        .checklist-item label {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .webhook-info {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .webhook-info h4 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .webhook-info p {
+            color: #856404;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Panier Facturier</h1>
+        <p class="subtitle">Build 7b54317 - Test complet du système</p>
+
+        <!-- Status -->
+        <div class="status-card">
+            <h2>
+                <span class="status-indicator green"></span>
+                Build 7b54317 - Fonctionnel
+            </h2>
+            <div class="url-display">
+                http://localhost:5173
+            </div>
+            <p>✅ Serveur démarré - Prêt pour les tests</p>
+        </div>
+
+        <!-- Webhook Info -->
+        <div class="webhook-info">
+            <h4>🔗 Configuration N8N</h4>
+            <p><strong>URL Webhook:</strong> https://n8n.srv765811.hstgr.cloud/webhook/dc73da8d-bc62-45ef-8838-3f455861d29e</p>
+            <p><strong>Status:</strong> ✅ Activé et fonctionnel</p>
+            <p><strong>CORS:</strong> ✅ Configuré</p>
+        </div>
+
+        <!-- Instructions de test -->
+        <div class="test-steps">
+            <h2>📋 Instructions de test</h2>
+            
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">1</span>
+                    Vérifier les onglets
+                </div>
+                <div class="step-description">
+                    Ouvrir http://localhost:5173 et vérifier que les onglets Règlements et Ventes sont présents et fonctionnels
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">2</span>
+                    Basculer en mode Facturier
+                </div>
+                <div class="step-description">
+                    Dans le panier, basculer du mode "Classique" vers "Facturier"
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">3</span>
+                    Tester les restrictions
+                </div>
+                <div class="step-description">
+                    Essayer d'ajouter un matelas → doit être bloqué<br>
+                    Ajouter des oreillers/couettes → doit fonctionner
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">4</span>
+                    Finaliser une vente
+                </div>
+                <div class="step-description">
+                    Ajouter des produits autorisés, saisir les infos client, finaliser la vente
+                </div>
+            </div>
+
+            <div class="step">
+                <div class="step-title">
+                    <span class="step-number">5</span>
+                    Vérifier la synchronisation
+                </div>
+                <div class="step-description">
+                    Vérifier que la vente apparaît dans l'onglet Ventes<br>
+                    Vérifier les logs console pour la sync N8N
+                </div>
+            </div>
+        </div>
+
+        <!-- Checklist -->
+        <div class="checklist">
+            <h3>✅ Checklist de validation</h3>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check1">
+                <label for="check1">Onglet Règlements visible et fonctionnel</label>
+            </div>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check2">
+                <label for="check2">Onglet Ventes visible et fonctionnel</label>
+            </div>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check3">
+                <label for="check3">Sélecteur mode panier (Classique/Facturier) présent</label>
+            </div>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check4">
+                <label for="check4">Mode Facturier bloque les matelas/sur-matelas</label>
+            </div>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check5">
+                <label for="check5">Mode Facturier autorise oreillers/couettes</label>
+            </div>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check6">
+                <label for="check6">Vente en mode Facturier fonctionne</label>
+            </div>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check7">
+                <label for="check7">Synchronisation N8N visible dans les logs console</label>
+            </div>
+            
+            <div class="checklist-item">
+                <input type="checkbox" id="check8">
+                <label for="check8">Vente apparaît dans l'onglet Ventes</label>
+            </div>
+        </div>
+
+        <button class="button" onclick="window.open('http://localhost:5173', '_blank')">
+            🚀 Ouvrir l'application dans un nouvel onglet
+        </button>
+
+        <button class="button" onclick="testWebhookDirect()">
+            🧪 Tester le webhook N8N directement
+        </button>
+    </div>
+
+    <script>
+        async function testWebhookDirect() {
+            const webhookUrl = 'https://n8n.srv765811.hstgr.cloud/webhook/dc73da8d-bc62-45ef-8838-3f455861d29e';
+            
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        test: true,
+                        numero_facture: 'TEST-BUILD-7B54317',
+                        nom_client: 'Test Build 7b54317',
+                        montant_ttc: 150,
+                        produits: [
+                            { nom: 'Oreiller Douceur', quantite: 2, prix_ttc: 80 }
+                        ],
+                        source: 'test-build-7b54317'
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    alert(`✅ Test webhook réussi!\n\nRéponse:\n${JSON.stringify(result, null, 2)}`);
+                } else {
+                    alert(`❌ Erreur webhook\n\nStatus: ${response.status}\nRéponse: ${JSON.stringify(result, null, 2)}`);
+                }
+            } catch (error) {
+                alert(`❌ Erreur réseau\n\n${error.message}`);
+            }
+        }
+
+        // Auto-ouverture après 2 secondes
+        setTimeout(() => {
+            if (confirm('🚀 Ouvrir automatiquement l\'application pour les tests ?')) {
+                window.open('http://localhost:5173', '_blank');
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
+
+

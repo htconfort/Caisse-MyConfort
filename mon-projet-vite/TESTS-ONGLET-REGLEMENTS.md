@@ -234,3 +234,6 @@ git restore mon-projet-vite/src/styles/payments-tab.css
 
 **🎯 TESTEZ MAINTENANT SUR http://localhost:5173 ET DITES-MOI LE RÉSULTAT !**
 
+
+
+

@@ -511,9 +511,8 @@ export const externalInvoiceService = new ExternalInvoiceService({
   syncInterval: 30000 // 30 secondes
 });
 
-// Exposer le service dans la console pour les tests (mode développement)
-if (typeof window !== 'undefined' && import.meta.env.DEV) {
-   
+// Exposer le service dans la console pour les tests (mode développement ET production)
+if (typeof window !== 'undefined') {
   (window as any).externalInvoiceService = externalInvoiceService;
   console.log('🔧 ExternalInvoiceService exposé dans window.externalInvoiceService pour les tests');
 }

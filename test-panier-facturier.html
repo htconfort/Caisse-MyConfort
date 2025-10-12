@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Test Panier Facturier - MyConfort</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+            display: block;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+            display: block;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            border: 2px solid #17a2b8;
+            color: #0c5460;
+            display: block;
+        }
+
+        .result-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .result-content {
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(255,255,255,0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status-badge.active {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-badge.inactive {
+            background: #dc3545;
+            color: white;
+        }
+
+        .status-badge.unknown {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Panier Facturier</h1>
+        <p class="subtitle">Test d'envoi de facture vers N8N - MyConfort Caisse</p>
+
+        <!-- Configuration -->
+        <div class="section">
+            <h2>⚙️ Configuration N8N</h2>
+            <div class="input-group">
+                <label for="webhookUrl">URL Webhook N8N <span class="status-badge unknown" id="statusBadge">Non testé</span></label>
+                <input 
+                    type="url" 
+                    id="webhookUrl" 
+                    placeholder="https://n8n.srv765811.hstgr.cloud/webhook/caisse/facture"
+                    value="https://n8n.srv765811.hstgr.cloud/webhook/caisse/facture"
+                />
+                <button onclick="testConnection()" style="margin-top: 10px;">🔌 Tester la connexion</button>
+            </div>
+        </div>
+
+        <!-- Données de test -->
+        <div class="section">
+            <h2>📝 Données de la facture test</h2>
+            
+            <div class="grid">
+                <div class="input-group">
+                    <label for="clientName">Nom du client</label>
+                    <input type="text" id="clientName" value="Client Test" />
+                </div>
+                <div class="input-group">
+                    <label for="clientEmail">Email</label>
+                    <input type="email" id="clientEmail" value="test@myconfort.fr" />
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="input-group">
+                    <label for="clientPhone">Téléphone</label>
+                    <input type="tel" id="clientPhone" value="0600000000" />
+                </div>
+                <div class="input-group">
+                    <label for="invoiceNumber">N° Facture</label>
+                    <input type="text" id="invoiceNumber" value="" placeholder="AUTO-généré" />
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="paymentMethod">Mode de paiement</label>
+                <select id="paymentMethod">
+                    <option value="CB">Carte Bancaire</option>
+                    <option value="espèces">Espèces</option>
+                    <option value="chèque">Chèque</option>
+                    <option value="virement">Virement</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label for="products">Produits (JSON)</label>
+                <textarea id="products">[
+  { "nom": "Oreiller Douceur", "quantite": 2, "prix_ht": 66.67, "prix_ttc": 80, "taux_tva": 20 },
+  { "nom": "Couette 220x240", "quantite": 1, "prix_ht": 250, "prix_ttc": 300, "taux_tva": 20 }
+]</textarea>
+            </div>
+
+            <button onclick="sendTestInvoice()">🚀 Envoyer la facture test</button>
+        </div>
+
+        <!-- Résultat -->
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        async function testConnection() {
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            const statusBadge = document.getElementById('statusBadge');
+            const resultDiv = document.getElementById('result');
+
+            if (!webhookUrl) {
+                showResult('error', 'Erreur', 'Veuillez saisir une URL webhook');
+                return;
+            }
+
+            statusBadge.textContent = 'Test en cours...';
+            statusBadge.className = 'status-badge unknown';
+
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        test: true,
+                        timestamp: new Date().toISOString(),
+                        source: 'test-panier-facturier'
+                    })
+                });
+
+                if (response.ok) {
+                    statusBadge.textContent = 'Connecté';
+                    statusBadge.className = 'status-badge active';
+                    const data = await response.json().catch(() => ({}));
+                    showResult('success', '✅ Connexion réussie', 
+                        `Status: ${response.status} ${response.statusText}\n\nRéponse:\n${JSON.stringify(data, null, 2)}`);
+                } else {
+                    statusBadge.textContent = 'Erreur';
+                    statusBadge.className = 'status-badge inactive';
+                    showResult('error', '❌ Erreur de connexion', 
+                        `Status: ${response.status} ${response.statusText}\n\n${await response.text()}`);
+                }
+            } catch (error) {
+                statusBadge.textContent = 'Déconnecté';
+                statusBadge.className = 'status-badge inactive';
+                showResult('error', '❌ Erreur réseau', 
+                    `Impossible de contacter le webhook:\n\n${error.message}\n\nVérifiez:\n- L'URL du webhook\n- La connexion internet\n- Le serveur N8N est actif`);
+            }
+        }
+
+        async function sendTestInvoice() {
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            const clientName = document.getElementById('clientName').value;
+            const clientEmail = document.getElementById('clientEmail').value;
+            const clientPhone = document.getElementById('clientPhone').value;
+            const invoiceNumber = document.getElementById('invoiceNumber').value || `TEST-${Date.now()}`;
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            
+            let products;
+            try {
+                products = JSON.parse(document.getElementById('products').value);
+            } catch (e) {
+                showResult('error', 'Erreur', 'Format JSON des produits invalide:\n' + e.message);
+                return;
+            }
+
+            // Calculer les totaux
+            const montant_ht = products.reduce((sum, p) => sum + (p.prix_ht * p.quantite), 0);
+            const montant_ttc = products.reduce((sum, p) => sum + (p.prix_ttc * p.quantite), 0);
+            const montant_tva = montant_ttc - montant_ht;
+
+            const invoiceData = {
+                numero_facture: invoiceNumber,
+                date_facture: new Date().toISOString().split('T')[0],
+                nom_client: clientName,
+                email_client: clientEmail,
+                telephone_client: clientPhone,
+                montant_ht: montant_ht,
+                montant_ttc: montant_ttc,
+                montant_tva: montant_tva,
+                payment_method: paymentMethod,
+                status: 'draft',
+                produits: products,
+                source: 'test-panier-facturier',
+                timestamp: new Date().toISOString()
+            };
+
+            showResult('info', '⏳ Envoi en cours...', 
+                `Envoi de la facture ${invoiceNumber}...\n\nDonnées envoyées:\n${JSON.stringify(invoiceData, null, 2)}`);
+
+            try {
+                const response = await fetch(webhookUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(invoiceData)
+                });
+
+                const responseText = await response.text();
+                let responseData;
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch {
+                    responseData = responseText;
+                }
+
+                if (response.ok) {
+                    showResult('success', '✅ Facture envoyée avec succès!', 
+                        `Status: ${response.status} ${response.statusText}\n\n` +
+                        `Facture: ${invoiceNumber}\n` +
+                        `Client: ${clientName}\n` +
+                        `Montant TTC: ${montant_ttc.toFixed(2)}€\n\n` +
+                        `Réponse N8N:\n${JSON.stringify(responseData, null, 2)}`);
+                } else {
+                    showResult('error', '❌ Erreur lors de l\'envoi', 
+                        `Status: ${response.status} ${response.statusText}\n\n${responseText}`);
+                }
+            } catch (error) {
+                showResult('error', '❌ Erreur réseau', 
+                    `Impossible d'envoyer la facture:\n\n${error.message}`);
+            }
+        }
+
+        function showResult(type, title, content) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.innerHTML = `
+                <div class="result-title">${title}</div>
+                <div class="result-content">${content}</div>
+            `;
+            resultDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // Auto-test au chargement si URL présente
+        window.addEventListener('load', () => {
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            if (webhookUrl) {
+                setTimeout(() => {
+                    showResult('info', '💡 Prêt pour les tests', 
+                        'Cliquez sur "Tester la connexion" pour vérifier le webhook N8N,\n' +
+                        'puis sur "Envoyer la facture test" pour simuler un envoi depuis la caisse.');
+                }, 500);
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
