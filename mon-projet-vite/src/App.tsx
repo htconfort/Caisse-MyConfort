@@ -2926,7 +2926,7 @@ function DiagnosticIPad() {
       });
 
       // Test 2: API n8n proxy
-      fetch('/api/n8n/caisse/factures', {
+      fetch('/api/n8n/webhook/caisse/factures', {
         method: 'GET',
         cache: 'no-store'
       }).then(response => {
