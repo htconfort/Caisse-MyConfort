@@ -498,22 +498,35 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
   // ===== CALCULS =====
   const calculs = useMemo(() => {
-    // 🎯 FILTRER UNIQUEMENT LES VENTES EN MODE "CLASSIQUE" POUR ÉVITER LES DOUBLONS
+    // 🔧 FONCTION POUR VÉRIFIER SI UNE DATE EST AUJOURD'HUI
+    const isToday = (date: Date | string): boolean => {
+      const checkDate = typeof date === 'string' ? new Date(date) : date;
+      const today = new Date();
+      return checkDate.toDateString() === today.toDateString();
+    };
+
+    // 🎯 FILTRER UNIQUEMENT LES VENTES DU JOUR EN MODE "CLASSIQUE"
     // Les ventes en mode "facturier" sont gérées par l'iPad et N8N, pas par la caisse
     const validSales = sales.filter(sale => 
       !sale.canceled && 
-      (!sale.cartMode || sale.cartMode === 'classique') // Mode classique uniquement
+      (!sale.cartMode || sale.cartMode === 'classique') && // Mode classique uniquement
+      isToday(sale.date) // ✅ UNIQUEMENT LES VENTES DU JOUR
     );
 
     console.log('🔍 RAZ - Filtrage des ventes:', {
       totalSales: sales.length,
       salesAfterCancelFilter: sales.filter(s => !s.canceled).length,
+      salesToday: sales.filter(s => !s.canceled && isToday(s.date)).length,
       validSalesClassique: validSales.length,
       modeCounts: {
         classique: sales.filter(s => !s.canceled && (!s.cartMode || s.cartMode === 'classique')).length,
         facturier: sales.filter(s => !s.canceled && s.cartMode === 'facturier').length,
         undefined: sales.filter(s => !s.canceled && !s.cartMode).length
-      }
+      },
+      totalInvoices: invoices.length,
+      invoicesToday: validInvoices.length,
+      totalReglements: reglementsData.length,
+      reglementsToday: validReglements.length
     });
 
     // Calcul des chèques à venir depuis les ventes de la caisse (mode classique uniquement)
@@ -541,8 +554,10 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     const caisseNbVentes = validSales.length;
     const caisseTicketMoyen = caisseNbVentes > 0 ? caisseTotal / caisseNbVentes : 0;
 
-    const facturierTotal = invoices.reduce((s, inv) => s + inv.totalTTC, 0);
-    const facturierNbVentes = invoices.length;
+    // 🔧 FILTRER UNIQUEMENT LES FACTURES DU JOUR
+    const validInvoices = invoices.filter(inv => isToday(inv.createdAt || inv.date));
+    const facturierTotal = validInvoices.reduce((s, inv) => s + inv.totalTTC, 0);
+    const facturierNbVentes = validInvoices.length;
     const facturierTicketMoyen = facturierNbVentes > 0 ? facturierTotal / facturierNbVentes : 0;
 
     const caTotal = caisseTotal + facturierTotal;
@@ -551,7 +566,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
     const vendeusesAvecDetail = vendorStats.map(vendeur => {
       const ventesVendeur = validSales.filter(v => v.vendorName === vendeur.name);
-      const facturesVendeur = invoices.filter(f => f.vendorName === vendeur.name);
+      const facturesVendeur = validInvoices.filter(f => f.vendorName === vendeur.name);
 
       // Calcul des chèques à venir pour cette vendeuse
       const chequesAVenirVendeur = ventesVendeur
@@ -590,8 +605,18 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
 
     const vendeusesActives = vendeusesAvecDetail.filter(v => v.totalCalcule > 0).length;
 
-    // ✅ CORRECTION : Inclure TOUS les règlements à venir (caisse + facturier)
-    const totalReglementsAVenirFacturier = reglementsData.reduce((total: number, r: PendingPayment) => total + (r.nbCheques * r.montantCheque), 0);
+    // ✅ FILTRER UNIQUEMENT LES RÈGLEMENTS À VENIR DU JOUR
+    const validReglements = reglementsData.filter(r => {
+      // Si le règlement a une date de facture, la vérifier
+      if (r.dateFacture) {
+        return isToday(r.dateFacture);
+      }
+      // Sinon, garder tous les règlements (ils sont probablement récents)
+      return true;
+    });
+    
+    // ✅ CORRECTION : Inclure TOUS les règlements à venir (caisse + facturier) DU JOUR
+    const totalReglementsAVenirFacturier = validReglements.reduce((total: number, r: PendingPayment) => total + (r.nbCheques * r.montantCheque), 0);
     const totalReglementsAVenirComplet = totalReglementsAVenirFacturier + chequesAVenirFromSales; // ✅ Inclure caisse
     
     const nbClientsAttenteCaisse = validSales.filter(s => s.checkDetails && s.checkDetails.count > 0).length;
@@ -599,8 +624,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       .filter(s => s.checkDetails && s.checkDetails.count > 0)
       .reduce((total, s) => total + (s.checkDetails?.count || 0), 0);
     
-    const nbClientsAttente = reglementsData.length + nbClientsAttenteCaisse;
-    const nbChequesTotal = reglementsData.reduce((total: number, r: PendingPayment) => total + r.nbCheques, 0) + nbChequesTotalCaisse;
+    const nbClientsAttente = validReglements.length + nbClientsAttenteCaisse;
+    const nbChequesTotal = validReglements.reduce((total: number, r: PendingPayment) => total + r.nbCheques, 0) + nbChequesTotalCaisse;
     const nbChequesTotalComplet = nbChequesTotal; // ✅ Total complet
 
     return {
@@ -621,7 +646,8 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       nbClientsAttente,
       nbChequesTotal: nbChequesTotalComplet, // Utiliser le total complet
       chequesAVenirFromSales, // Ajouter pour debug/info
-      salesWithManualInvoices // Ajouter les ventes avec factures manuelles
+      salesWithManualInvoices, // Ajouter les ventes avec factures manuelles
+      validReglements // Ajouter les règlements filtrés
     };
   }, [sales, invoices, vendorStats, reglementsData]);
 
@@ -673,7 +699,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     });
     contenuEmail += `TOTAUX PAR MODE DE PAIEMENT :\n- Carte bancaire : ${calculs.parPaiement.carte.toFixed(2)} €\n- Espèces : ${calculs.parPaiement.especes.toFixed(2)} €\n- Chèque : ${calculs.parPaiement.cheque.toFixed(2)} €\n- Mixte : ${calculs.parPaiement.mixte.toFixed(2)} €\n\n`;
     contenuEmail += `RÈGLEMENTS À VENIR (FACTURIER) :\nTotal attendu : ${calculs.totalReglementsAVenir.toFixed(2)} € (${calculs.nbChequesTotal} chèques)\n\n`;
-    reglementsData.forEach((r: PendingPayment)=>{
+    calculs.validReglements.forEach((r: PendingPayment)=>{
       const totalClient = r.nbCheques * r.montantCheque;
       contenuEmail += `${r.vendorName} - ${r.clientName} :\n  ${r.nbCheques} chèques de ${r.montantCheque.toFixed(2)} € = ${totalClient.toFixed(2)} €\n  Prochaine échéance : ${new Date(r.dateProchain).toLocaleDateString('fr-FR')}\n\n`;
     });
@@ -704,9 +730,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     }
     
     // Chèques à venir du facturier
-    if (reglementsData.length > 0) {
-      detailMessage += `📋 CHÈQUES FACTURIER (${reglementsData.length} clients):\n`;
-      reglementsData.forEach(r => {
+    if (calculs.validReglements.length > 0) {
+      detailMessage += `📋 CHÈQUES FACTURIER (${calculs.validReglements.length} clients):\n`;
+      calculs.validReglements.forEach(r => {
         const totalClient = r.nbCheques * r.montantCheque;
         detailMessage += `• ${r.vendorName} - ${r.clientName}: ${r.nbCheques} chèques de ${r.montantCheque.toFixed(2)}€ = ${totalClient.toFixed(2)}€\n`;
         detailMessage += `  Prochaine échéance: ${new Date(r.dateProchain).toLocaleDateString('fr-FR')}\n`;
@@ -716,7 +742,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
     
     // Total
     const totalCaisse = chequesFromSales.reduce((total, sale) => total + (sale.checkDetails?.totalAmount || 0), 0);
-    const totalFacturier = reglementsData.reduce((total, r) => total + (r.nbCheques * r.montantCheque), 0);
+    const totalFacturier = calculs.validReglements.reduce((total, r) => total + (r.nbCheques * r.montantCheque), 0);
     const totalGeneral = totalCaisse + totalFacturier;
     
     detailMessage += `📊 RÉCAPITULATIF:\n`;
@@ -1034,7 +1060,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
                   <FeuilleImprimable 
                     calculs={calculs} 
                     event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} 
-                    reglementsData={reglementsData}
+                    reglementsData={calculs.validReglements}
                     onReglementsClick={afficherDetailReglements}
                     checksPrintData={checksPrintData}
                   />
@@ -1132,7 +1158,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
         <FeuilleImprimable 
           calculs={calculs} 
           event={session ? { name: session.eventName, start: session.eventStart, end: session.eventEnd } : undefined} 
-          reglementsData={reglementsData}
+          reglementsData={calculs.validReglements}
           onReglementsClick={afficherDetailReglements}
           checksPrintData={checksPrintData}
         />

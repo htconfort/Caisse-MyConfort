@@ -737,7 +737,9 @@ export default function CaisseMyConfortApp() {
           // RAZ du panier
           if (resetOptions.cart) {
             setCart([]);
-            console.log('✅ RAZ panier effectuée');
+            // 🔧 CORRECTION CUMUL : Vider AUSSI le localStorage du panier
+            localStorage.removeItem('myconfort-cart');
+            console.log('✅ RAZ panier effectuée (IndexedDB + localStorage)');
           }
 
           // RAZ des factures N8N
@@ -760,7 +762,9 @@ export default function CaisseMyConfortApp() {
               totalSales: 0
             }));
             setVendorStats(resetVendors);
-            console.log('✅ RAZ statistiques vendeuses effectuée');
+            // 🔧 CORRECTION CUMUL : Vider AUSSI le localStorage des vendeuses
+            localStorage.removeItem('myconfort-vendors');
+            console.log('✅ RAZ statistiques vendeuses effectuée (IndexedDB + localStorage)');
           }
 
           // RAZ complète
@@ -776,7 +780,12 @@ export default function CaisseMyConfortApp() {
               totalSales: 0
             }));
             setVendorStats(resetVendors);
-            console.log('✅ RAZ complète effectuée');
+            
+            // 🔧 CORRECTION CUMUL : Vider AUSSI le localStorage
+            localStorage.removeItem('myconfort-sales');
+            localStorage.removeItem('myconfort-cart');
+            localStorage.removeItem('myconfort-vendors');
+            console.log('✅ RAZ complète effectuée (IndexedDB + localStorage)');
 
             // Clôturer la session en cours puis en ouvrir une nouvelle pour la reprise
             try {
@@ -792,7 +801,9 @@ export default function CaisseMyConfortApp() {
             // Conservation de l'historique des ventes (INVERSÉ)
             if (resetOptions.keepSalesHistory && !resetOptions.allData) {
               setSales([]);
-              console.log('✅ Historique des ventes supprimé');
+              // 🔧 CORRECTION CUMUL : Vider AUSSI le localStorage des ventes
+              localStorage.removeItem('myconfort-sales');
+              console.log('✅ Historique des ventes supprimé (IndexedDB + localStorage)');
             } else if (!resetOptions.keepSalesHistory) {
               console.log('📚 Historique des ventes conservé');
             }

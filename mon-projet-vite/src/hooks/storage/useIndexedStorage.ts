@@ -111,7 +111,8 @@ export function useIndexedStorage<T>(
         const fromIDB = toWrapper<T>(idbRaw as LSValue<T>);
         const fromLS = toWrapper<T>(lsRaw as LSValue<T>);
 
-        let chosen = fromLS || fromIDB; // LS prioritaire (limite le flash)
+        // 🔧 CORRECTION CUMUL : Prioriser IndexedDB pour éviter les conflits
+        let chosen = fromIDB || fromLS; // IndexedDB prioritaire (évite les cumuls)
         if (fromIDB && fromLS) {
           chosen = fromIDB.timestamp >= fromLS.timestamp ? fromIDB : fromLS;
         }
