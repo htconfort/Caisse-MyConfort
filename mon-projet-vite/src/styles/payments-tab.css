@@ -719,11 +719,32 @@
   }
 
   .payments-table-container {
-    overflow-x: auto;
+    overflow-x: auto; /* Forcer le scroll horizontal sur petits écrans */
+  }
+
+  .payments-table {
+    min-width: 900px; /* Largeur minimale pour permettre le scroll horizontal */
+  }
+
+  .payments-table thead th,
+  .payments-table tbody td {
+    white-space: nowrap;
+    padding: 12px 8px;
   }
 
   .payments-table {
     font-size: 0.8125rem;
+  }
+}
+
+/* Spécialement pour iPad et écrans moyens - PAIEMENTS */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .payments-table-container {
+    overflow-x: auto;
+  }
+
+  .payments-table {
+    min-width: 1000px; /* Largeur minimale pour iPad */
   }
 
   .payments-table thead th,
