@@ -267,7 +267,7 @@ export function ProductsTab({
                   return '#DC2626'; // Rouge par défaut pour les autres packs
                 }
               }
-              
+
               switch (category) {
                 case 'Matelas':
                   return 'linear-gradient(135deg, #3B82F6 0%, #1E3A8A 100%)';
@@ -278,7 +278,9 @@ export function ProductsTab({
                 case 'Oreillers':
                   return '#F2EFE2';
                 case 'Plateau':
-                  return '#000000';
+                  return '#000000'; // Plateaux Prestige - noir
+                case 'Plateau Fraîche':
+                  return 'linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%)'; // Plateaux Fraîche - bleu
                 case 'Accessoires':
                   return 'linear-gradient(135deg, #EAB308 0%, #854D0E 100%)';
                 default:
@@ -317,7 +319,7 @@ export function ProductsTab({
                   padding: '12px',
                   minHeight: '160px',
                   maxHeight: '180px',
-                  border: (product.category === 'Oreillers' || product.category === 'Sur-matelas' || product.category === 'Couettes' || product.category === 'Plateau' || product.category === 'Accessoires') ? '3px solid #000000' : '1px solid rgba(0,0,0,0.1)',
+                  border: (product.category === 'Oreillers' || product.category === 'Sur-matelas' || product.category === 'Couettes' || product.category === 'Plateau' || product.category === 'Plateau Fraîche' || product.category === 'Accessoires') ? '3px solid #000000' : '1px solid rgba(0,0,0,0.1)',
                   borderRadius: '8px',
                   opacity: product.priceTTC === 0 ? 0.5 : (!selectedVendor ? 0.7 : 1),
                   transform: 'scale(1)',
@@ -398,19 +400,41 @@ export function ProductsTab({
                       </>
                     )}
                   </>
-                ) : (product.category === 'Sur-matelas' || product.category === 'Couettes' || product.category === 'Plateau' || product.category === 'Accessoires') ? (
+                ) : (product.category === 'Sur-matelas' || product.category === 'Couettes' || product.category === 'Plateau' || product.category === 'Plateau Fraîche' || product.category === 'Accessoires') ? (
                   <>
-                    <h3 style={{ color: '#FFFFFF', fontSize: '16px', fontWeight: 'bold', marginBottom: '4px', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    <h3 style={{
+                      color: product.category === 'Plateau Fraîche' ? '#FFFFFF' : '#FFFFFF',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      marginBottom: '4px',
+                      lineHeight: '1.2',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical'
+                    }}>
                       {productNameOnly}
                     </h3>
                     {dimensions && (
                       <div style={{ marginBottom: '6px' }}>
-                        <p style={{ color: '#FF0000', fontSize: '28px', fontWeight: 'bold', lineHeight: '1.1' }}>
+                        <p style={{
+                          color: product.category === 'Plateau Fraîche' ? '#FF0000' : '#FF0000',
+                          fontSize: '28px',
+                          fontWeight: 'bold',
+                          lineHeight: '1.1'
+                        }}>
                           {dimensions}
                         </p>
                       </div>
                     )}
-                    <p style={{ color: product.category === 'Plateau' ? '#FFFFFF' : '#000000', fontSize: '20px', fontWeight: 'bold', lineHeight: '1', margin: 0 }}>
+                    <p style={{
+                      color: product.category === 'Plateau Fraîche' ? '#FFFFFF' : (product.category === 'Plateau' ? '#FFFFFF' : '#000000'),
+                      fontSize: '20px',
+                      fontWeight: 'bold',
+                      lineHeight: '1',
+                      margin: 0
+                    }}>
                       {product.priceTTC > 0 ? `${discountedPrice}€` : 'Non vendu seul'}
                     </p>
                   </>

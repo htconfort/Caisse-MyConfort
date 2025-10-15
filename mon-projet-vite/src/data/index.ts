@@ -43,7 +43,7 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Oreillers', name: 'Pack oreillers 150 euros, douceur et papillon', priceTTC: 150, autoCalculateHT: true },
   { category: 'Oreillers', name: 'Pack oreiller dual plus douceur', priceTTC: 130, autoCalculateHT: true },
   
-  // Plateaux (10)
+  // Plateaux Prestige (10)
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 70 x 190', priceTTC: 70, autoCalculateHT: true },
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 80 x 200', priceTTC: 80, autoCalculateHT: true },
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 90 x 190', priceTTC: 100, autoCalculateHT: true },
@@ -54,6 +54,18 @@ export const productCatalog: CatalogProduct[] = [
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 160 x 200', priceTTC: 210, autoCalculateHT: true },
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 180 x 200', priceTTC: 220, autoCalculateHT: true },
   { category: 'Plateau', name: 'PLATEAU PRESTIGE 200 x 200', priceTTC: 230, autoCalculateHT: true },
+
+  // Plateaux Fraîche (10) - Même tailles, même prix
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 70 x 190', priceTTC: 70, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 80 x 200', priceTTC: 80, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 90 x 190', priceTTC: 100, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 90 x 200', priceTTC: 110, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 120 x 190', priceTTC: 160, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 140 x 190', priceTTC: 180, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 140 x 200', priceTTC: 190, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 160 x 200', priceTTC: 210, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 180 x 200', priceTTC: 220, autoCalculateHT: true },
+  { category: 'Plateau Fraîche', name: 'PLATEAU FRAÎCHE 200 x 200', priceTTC: 230, autoCalculateHT: true },
   
   // Accessoires (7)
   { category: 'Accessoires', name: 'Le régule jambes', priceTTC: 70, autoCalculateHT: true },

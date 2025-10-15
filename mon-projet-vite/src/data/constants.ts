@@ -17,7 +17,7 @@ export const tabs: Array<{id: TabType, label: string, icon: LucideIcon}> = [
 ];
 
 // Configuration des catégories de produits
-export const categories = ['Matelas', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Accessoires', 'Divers'] as const;
+export const categories = ['Matelas', 'Sur-matelas', 'Couettes', 'Oreillers', 'Plateau', 'Plateau Fraîche', 'Accessoires', 'Divers'] as const;
 
 // Configuration des moyens de paiement (inspirés de Facturassion)
 export const paymentMethods = [
