@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite --port 5173",
     "build": "node scripts/update-build-info.js && vite build",
+    "build:netlify": "node scripts/update-build-info.js && vite build",
     "update-build": "node scripts/update-build-info.js"
   },
   "dependencies": {

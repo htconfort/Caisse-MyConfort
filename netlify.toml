@@ -1,6 +1,6 @@
 [build]
   publish = "mon-projet-vite/dist"
-  command = "npm install && npm run build"
+  command = "npm install && npm run build:netlify"
 
 [functions]
   directory = "netlify/functions"
