@@ -11,7 +11,7 @@ L'intégration du système de synchronisation N8N avec l'application Caisse MyCo
 ## 🔧 **Modifications techniques principales**
 
 ### **1. Service de synchronisation (`syncService.ts`)**
-- ✅ **URL N8N correcte** : `https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices`
+- ✅ **URL N8N correcte** : `https://n8n.myconfort.fr/webhook/sync/invoices`
 - ✅ **Gestion multi-environnement** : développement/production automatique
 - ✅ **Mode test N8N** : activable via `localStorage.setItem("n8n-test-mode", "true")`
 - ✅ **Transformateur de données** : adaptation aux vraies données N8N
@@ -20,7 +20,7 @@ L'intégration du système de synchronisation N8N avec l'application Caisse MyCo
 - ✅ **Gestion d'erreurs** : robuste avec retry automatique
 
 ### **2. Configuration Vite (`vite.config.ts`)**
-- ✅ **Proxy CORS** : `/api/n8n` → `https://n8n.srv765811.hstgr.cloud/webhook`
+- ✅ **Proxy CORS** : `/api/n8n` → `https://n8n.myconfort.fr/webhook`
 - ✅ **Développement local** : contournement CORS pour tests
 
 ### **3. Interface utilisateur**
@@ -127,8 +127,8 @@ localStorage.setItem("n8n-test-mode", "true")
 
 ### **URLs de production** :
 - **Application** : http://localhost:5175 (développement)
-- **API N8N** : https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices
-- **Status N8N** : https://n8n.srv765811.hstgr.cloud/webhook/sync/status-update
+- **API N8N** : https://n8n.myconfort.fr/webhook/sync/invoices
+- **Status N8N** : https://n8n.myconfort.fr/webhook/sync/status-update
 
 ### **Commandes de démarrage** :
 ```bash
@@ -141,7 +141,7 @@ npm run dev
 
 ### **Test 1** : Récupération factures ✅
 ```bash
-curl "https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices"
+curl "https://n8n.myconfort.fr/webhook/sync/invoices"
 # Retour : 8 factures réelles
 ```
 

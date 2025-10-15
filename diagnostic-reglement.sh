@@ -9,7 +9,7 @@ echo ""
 echo "1️⃣ Test direct N8N :"
 echo "--------------------"
 echo "📡 Test de l'API N8N directe..."
-curl -s "https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices" \
+curl -s "https://n8n.myconfort.fr/webhook/sync/invoices" \
   -H "Content-Type: application/json" | \
   jq -r '.invoices[] | select(.paymentMethod | contains("chèque") or contains("Chèque")) | .invoiceNumber + " : " + .paymentMethod' 2>/dev/null || \
   echo "❌ jq non disponible, utilisez python3 pour parser"

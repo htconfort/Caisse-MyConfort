@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 
 const isProd = process.env.NODE_ENV === 'production';
 const enableSourceMap = !!process.env.VITE_SOURCEMAP; // mets VITE_SOURCEMAP=1 pour build avec sourcemap
-const n8nProxyTarget = 'https://n8n.srv765811.hstgr.cloud';
+const n8nProxyTarget = 'https://n8n.myconfort.fr';
 
 export default defineConfig({
   plugins: [react()],

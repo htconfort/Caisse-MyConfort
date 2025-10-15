@@ -6,12 +6,12 @@ Le webhook N8N répond toujours : **"The requested webhook 'sync/invoices' is no
 ## 🔧 Solutions à essayer
 
 ### **Solution 1 : Activation temporaire**
-1. **Connectez-vous à N8N** : https://n8n.srv765811.hstgr.cloud
+1. **Connectez-vous à N8N** : https://n8n.myconfort.fr
 2. **Ouvrez votre workflow "Sync Caisse-Facturation"**
 3. **Cliquez sur "Test workflow"** (bouton en haut)
 4. **Testez immédiatement** avec cette commande :
    ```bash
-   curl "https://n8n.srv765811.hstgr.cloud/webhook-test/sync/invoices"
+   curl "https://n8n.myconfort.fr/webhook-test/sync/invoices"
    ```
 
 ### **Solution 2 : Activation permanente**

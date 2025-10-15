@@ -65,11 +65,11 @@ Dans `/mon-projet-vite/.env` :
 
 ```env
 # Webhook existants
-VITE_N8N_EMAIL_WEBHOOK=https://n8n.srv765811.hstgr.cloud/webhook/email/report
-VITE_N8N_RAZ_WEBHOOK=https://n8n.srv765811.hstgr.cloud/webhook/raz
+VITE_N8N_EMAIL_WEBHOOK=https://n8n.myconfort.fr/webhook/email/report
+VITE_N8N_RAZ_WEBHOOK=https://n8n.myconfort.fr/webhook/raz
 
 # Nouveau webhook pour synchronisation Google Drive
-VITE_N8N_SYNC_WEBHOOK=https://n8n.srv765811.hstgr.cloud/webhook/sync/daily
+VITE_N8N_SYNC_WEBHOOK=https://n8n.myconfort.fr/webhook/sync/daily
 ```
 
 ### 2.2 Payload envoyé automatiquement
@@ -125,7 +125,7 @@ VITE_N8N_SYNC_WEBHOOK=https://n8n.srv765811.hstgr.cloud/webhook/sync/daily
 
 ### 3.1 Créer le workflow n8n
 
-1. **Se connecter à n8n** : https://n8n.srv765811.hstgr.cloud
+1. **Se connecter à n8n** : https://n8n.myconfort.fr
 2. **Créer un nouveau workflow** : `Sync_Caisse_Google_Sheets` 
 3. **Activer le workflow** (toggle en haut à droite)
 
@@ -198,7 +198,7 @@ return [{
 ### 4.1 Test manuel du webhook
 
 ```bash
-curl -X POST "https://n8n.srv765811.hstgr.cloud/webhook/sync/daily" \
+curl -X POST "https://n8n.myconfort.fr/webhook/sync/daily" \
   -H "Content-Type: application/json" \
   -d '{
     "sessionId": "test-2025",

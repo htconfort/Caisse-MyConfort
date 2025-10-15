@@ -68,14 +68,14 @@ Webhook → Set (CORS Headers) → [Condition OPTIONS] → Traitement → Respon
 
 ## 📋 URL de test à utiliser
 ```
-https://n8n.srv765811.hstgr.cloud/webhook/caisse/facture
+https://n8n.myconfort.fr/webhook/caisse/facture
 ```
 
 ## ⚡ Alternative rapide : Test direct
 Si la correction CORS ne fonctionne pas immédiatement, vous pouvez tester directement avec curl :
 
 ```bash
-curl -X POST https://n8n.srv765811.hstgr.cloud/webhook/caisse/facture \
+curl -X POST https://n8n.myconfort.fr/webhook/caisse/facture \
   -H "Content-Type: application/json" \
   -d '{
     "test": true,

@@ -731,7 +731,30 @@ export default function CaisseMyConfortApp() {
               dailySales: 0
             }));
             setVendorStats(resetVendors);
-            console.log('✅ RAZ ventes du jour effectuée');
+            
+            // 🔧 CORRECTION CUMUL CRITIQUE : Supprimer AUSSI les ventes du jour
+            const today = new Date();
+            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+            const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
+            
+            // Filtrer les ventes pour garder seulement celles qui ne sont PAS d'aujourd'hui
+            const salesNotToday = sales.filter(sale => {
+              const saleDate = new Date(sale.date).getTime();
+              return saleDate < todayStart || saleDate > todayEnd;
+            });
+            
+            setSales(salesNotToday);
+            
+            // Vider aussi IndexedDB des ventes du jour
+            try {
+              const db = await getDB();
+              await db.sales.where('date').between(todayStart, todayEnd).delete();
+              console.log('✅ Ventes du jour supprimées d\'IndexedDB');
+            } catch (error) {
+              console.error('❌ Erreur suppression ventes du jour IndexedDB:', error);
+            }
+            
+            console.log('✅ RAZ ventes du jour effectuée (React + IndexedDB)');
           }
 
           // RAZ du panier
@@ -781,7 +804,18 @@ export default function CaisseMyConfortApp() {
             }));
             setVendorStats(resetVendors);
             
-            // 🔧 CORRECTION CUMUL : Vider AUSSI le localStorage
+            // 🔧 CORRECTION CUMUL DÉFINITIVE : Vider AUSSI IndexedDB
+            try {
+              const db = await getDB();
+              await db.sales.clear();
+              await db.cartItems.clear();
+              await db.vendors.clear();
+              console.log('✅ IndexedDB vidée (sales, cartItems, vendors)');
+            } catch (error) {
+              console.error('❌ Erreur vidage IndexedDB:', error);
+            }
+            
+            // Vider localStorage
             localStorage.removeItem('myconfort-sales');
             localStorage.removeItem('myconfort-cart');
             localStorage.removeItem('myconfort-vendors');
@@ -798,22 +832,33 @@ export default function CaisseMyConfortApp() {
           } else {
             // ✅ GESTION DES OPTIONS DE CONSERVATION (seulement si pas RAZ complète)
             
-            // Conservation de l'historique des ventes (INVERSÉ)
-            if (resetOptions.keepSalesHistory && !resetOptions.allData) {
+            // Conservation de l'historique des ventes (LOGIQUE CORRIGÉE)
+            if (!resetOptions.keepSalesHistory && !resetOptions.allData) {
+              // Si on ne veut PAS conserver l'historique, on le supprime
               setSales([]);
-              // 🔧 CORRECTION CUMUL : Vider AUSSI le localStorage des ventes
+              
+              // 🔧 CORRECTION CUMUL DÉFINITIVE : Vider AUSSI IndexedDB
+              try {
+                const db = await getDB();
+                await db.sales.clear();
+                console.log('✅ IndexedDB sales vidée');
+              } catch (error) {
+                console.error('❌ Erreur vidage IndexedDB sales:', error);
+              }
+              
+              // Vider localStorage
               localStorage.removeItem('myconfort-sales');
               console.log('✅ Historique des ventes supprimé (IndexedDB + localStorage)');
-            } else if (!resetOptions.keepSalesHistory) {
+            } else {
               console.log('📚 Historique des ventes conservé');
             }
 
-            // Conservation des chèques à venir (INVERSÉ)
-            if (resetOptions.keepPendingChecks && !resetOptions.allData) {
-              // Supprimer les chèques à venir du localStorage
+            // Conservation des chèques à venir (LOGIQUE CORRIGÉE)
+            if (!resetOptions.keepPendingChecks && !resetOptions.allData) {
+              // Si on ne veut PAS conserver les chèques, on les supprime
               localStorage.removeItem('pendingPayments');
               console.log('✅ Chèques à venir supprimés');
-            } else if (!resetOptions.keepPendingChecks) {
+            } else {
               console.log('💳 Chèques à venir conservés');
             }
           }

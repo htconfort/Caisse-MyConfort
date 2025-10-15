@@ -7,7 +7,7 @@ Votre système était en train d'essayer de se connecter à N8N mais recevait de
 ## ✅ SOLUTIONS MISES EN PLACE
 
 ### 1. **Configuration Proxy Vite** ✅
-- ✅ Proxy configuré : `/api/n8n` → `https://n8n.srv765811.hstgr.cloud/webhook`
+- ✅ Proxy configuré : `/api/n8n` → `https://n8n.myconfort.fr/webhook`
 - ✅ Gestion d'erreurs améliorée
 - ✅ Logs de debug activés
 
@@ -88,7 +88,7 @@ Puis rechargez la page.
 
 ### **Ports Utilisés :**
 - **Application** : http://localhost:5181
-- **N8N (optionnel)** : https://n8n.srv765811.hstgr.cloud
+- **N8N (optionnel)** : https://n8n.myconfort.fr
 
 ## 🎉 CONCLUSION
 

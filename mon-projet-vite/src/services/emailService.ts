@@ -71,7 +71,7 @@ export const EmailService = {
         },
       };
 
-      const webhookUrl = import.meta.env.VITE_N8N_EMAIL_WEBHOOK || 'https://n8n.srv765811.hstgr.cloud/webhook/email-rapport';
+      const webhookUrl = import.meta.env.VITE_N8N_EMAIL_WEBHOOK || 'https://n8n.myconfort.fr/webhook/email-rapport';
       if (!webhookUrl) {
         throw new Error('Webhook n8n non configuré (VITE_N8N_EMAIL_WEBHOOK)');
       }
@@ -143,7 +143,7 @@ export const EmailService = {
 
   async performRAZ(): Promise<SendResult> {
     try {
-      const webhookUrl = import.meta.env.VITE_N8N_RAZ_WEBHOOK || 'https://n8n.srv765811.hstgr.cloud/webhook/raz-journee';
+      const webhookUrl = import.meta.env.VITE_N8N_RAZ_WEBHOOK || 'https://n8n.myconfort.fr/webhook/raz-journee';
       if (!webhookUrl) {
         console.warn('Webhook RAZ non configuré, fallback console.log');
         console.log('🔄 RAZ demandée (simulée)');

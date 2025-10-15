@@ -15,7 +15,7 @@ fi
 echo ""
 
 echo "🌐 Test de connectivité N8N..."
-if curl -s --max-time 5 "https://n8n.srv765811.hstgr.cloud/webhook/sync/invoices" >/dev/null ; then
+if curl -s --max-time 5 "https://n8n.myconfort.fr/webhook/sync/invoices" >/dev/null ; then
     echo "✅ N8N accessible"
 else
     echo "❌ N8N non accessible - mode démo recommandé"

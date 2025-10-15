@@ -6,7 +6,7 @@ function normalizeBase(url?: string): string {
 // Priorités d'URL (override explicite > base proxy > vide)
 const WEBHOOK_BASE: string = normalizeBase(import.meta.env.VITE_N8N_WEBHOOK_URL as string) || '';
 // Base proxy par défaut sur Netlify/Vite
-const N8N_BASE: string = normalizeBase((import.meta.env.VITE_N8N_URL as string) || 'https://n8n.srv765811.hstgr.cloud');
+const N8N_BASE: string = normalizeBase((import.meta.env.VITE_N8N_URL as string) || 'https://n8n.myconfort.fr');
 // URL spécifiques (si directement fournies)
 const N8N_SYNC_URL: string = normalizeBase(import.meta.env.VITE_N8N_SYNC_URL as string) || '';
 const N8N_GET_FACTURES_URL: string = normalizeBase(import.meta.env.VITE_N8N_GET_FACTURES_URL as string) || '';

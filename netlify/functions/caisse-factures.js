@@ -25,7 +25,7 @@ exports.handler = async (event, context) => {
     const limit = queryString.limit || '50';
     
     // Base URL from environment variable
-    const baseUrl = process.env.VITE_N8N_URL || process.env.VITE_N8N_TARGET || 'https://n8n.srv765811.hstgr.cloud';
+    const baseUrl = process.env.VITE_N8N_URL || process.env.VITE_N8N_TARGET || 'https://n8n.myconfort.fr';
     const targetUrl = `${baseUrl}/webhook/053170e3-fe71-4382-80c3-eaef4751cdeb?limit=${limit}`;
     
     console.log(`🔄 Caisse Factures - Proxying request to: ${targetUrl}`);

@@ -30,7 +30,7 @@ Prévu pour utiliser un Credential n8n “HTTP Header Auth” nommé `supabase_s
 - `VITE_SUPABASE_URL` (ex: `https://doxvtfojavrjrmwpafnf.supabase.co`)
 - `VITE_SUPABASE_ANON_KEY` (clé anon publique Supabase)
 - `VITE_N8N_ENABLED=true`
-- `VITE_N8N_URL` (ex: `https://n8n.srv765811.hstgr.cloud/webhook`)
+- `VITE_N8N_URL` (ex: `https://n8n.myconfort.fr/webhook`)
 - `VITE_EXTERNAL_INVOICES_URL` (ex: `.../webhook/caisse/factures`)
 - `VITE_EXTERNAL_INVOICES_RUN_URL` (ex: `.../webhook/caisse/facture`)
 - `VITE_EXTERNAL_AUTOSYNC=true`

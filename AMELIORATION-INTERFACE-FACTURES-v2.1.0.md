@@ -33,7 +33,7 @@ async getInvoices(): Promise<Invoice[]> {
 
 ### **Résultat :**
 - ✅ 14 factures réelles synchronisées depuis N8N
-- ✅ Proxy Vite configuré (`/api/n8n` → `https://n8n.srv765811.hstgr.cloud`)
+- ✅ Proxy Vite configuré (`/api/n8n` → `https://n8n.myconfort.fr`)
 - ✅ Fallback intelligent vers démo en cas d'erreur
 - ✅ Scripts de diagnostic créés
 

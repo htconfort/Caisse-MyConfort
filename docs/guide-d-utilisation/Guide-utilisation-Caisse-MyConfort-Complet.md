@@ -591,7 +591,7 @@ Le système N8N est configurable via les variables d'environnement :
 ```ini
 VITE_N8N_ENABLED=true|false
 VITE_N8N_URL=/api/n8n
-VITE_N8N_TARGET=https://n8n.srv765811.hstgr.cloud
+VITE_N8N_TARGET=https://n8n.myconfort.fr
 ```
 
 #### Proxy Vite
@@ -1192,12 +1192,12 @@ npm run dev
 1. **Vérifier la configuration**
    ```ini
    VITE_N8N_ENABLED=true
-   VITE_N8N_TARGET=https://n8n.srv765811.hstgr.cloud
+   VITE_N8N_TARGET=https://n8n.myconfort.fr
    ```
 
 2. **Tester la connectivité**
    ```bash
-   curl -I https://n8n.srv765811.hstgr.cloud/webhook
+   curl -I https://n8n.myconfort.fr/webhook
    ```
 
 3. **Mode fallback**
@@ -1289,7 +1289,7 @@ cat > .env.production << EOF
 VITE_ENV=production
 VITE_DEMO_MODE=false
 VITE_N8N_ENABLED=true
-VITE_N8N_TARGET=https://n8n.srv765811.hstgr.cloud
+VITE_N8N_TARGET=https://n8n.myconfort.fr
 VITE_LOG_LEVEL=error
 EOF
 

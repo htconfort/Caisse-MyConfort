@@ -21,7 +21,7 @@ fi
 if ! grep -q "VITE_N8N_SYNC_WEBHOOK" mon-projet-vite/.env; then
     echo "⚠️  VITE_N8N_SYNC_WEBHOOK manquant dans .env"
     echo "Ajout automatique..."
-    echo "VITE_N8N_SYNC_WEBHOOK=https://n8n.srv765811.hstgr.cloud/webhook/sync/daily" >> mon-projet-vite/.env
+    echo "VITE_N8N_SYNC_WEBHOOK=https://n8n.myconfort.fr/webhook/sync/daily" >> mon-projet-vite/.env
 fi
 
 echo "✅ Variables d'environnement OK"
