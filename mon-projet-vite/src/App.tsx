@@ -687,18 +687,90 @@ export default function CaisseMyConfortApp() {
         exportVersion: '1.0.0'
       }
     };
-    
-    const dataStr = JSON.stringify(dataToExport, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `myconfort-backup-${new Date().toISOString().split('T')[0]}.json`;
-    
+
+    // Générer un rapport texte formaté au lieu du JSON brut
+    const currentDate = new Date().toLocaleDateString('fr-FR', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const textReport = `
+================================================================================
+📋 RAPPORT DE SAUVEGARDE CAISSE MYCONFORT
+================================================================================
+
+📅 Date d'export : ${currentDate}
+🔄 Version : ${dataToExport.metadata.exportVersion}
+
+================================================================================
+📊 STATISTIQUES GÉNÉRALES
+================================================================================
+
+• Nombre total de ventes : ${dataToExport.metadata.totalSales}
+• Nombre de vendeuses : ${dataToExport.metadata.totalVendors}
+• Articles dans le panier : ${dataToExport.metadata.cartItems}
+
+================================================================================
+👥 VENDEUSES
+================================================================================
+
+${dataToExport.vendorStats.map((vendor, index) => `
+${index + 1}. ${vendor.name || 'Vendeuse inconnue'}
+   • Ventes du jour : ${vendor.dailySales || 0}€
+   • Total des ventes : ${vendor.totalSales || 0}€
+   • Dernière vente : ${vendor.lastSaleDate ? new Date(vendor.lastSaleDate).toLocaleDateString('fr-FR') : 'Aucune'}`).join('\n')}
+
+================================================================================
+🛒 PANIER ACTUEL
+================================================================================
+
+${dataToExport.cart.length > 0 ?
+  dataToExport.cart.map((item, index) => `
+${index + 1}. ${item.name || 'Article inconnu'}
+   • Quantité : ${item.quantity || 0}
+   • Prix unitaire : ${item.price ? item.price.toFixed(2) + '€' : 'N/A'}
+   • Prix total : ${item.price && item.quantity ? (item.price * item.quantity).toFixed(2) + '€' : 'N/A'}`).join('\n') :
+  'Panier vide'}
+
+================================================================================
+💰 VENTES DU JOUR (DERNIÈRES 5)
+================================================================================
+
+${dataToExport.sales.slice(-5).map((sale, index) => `
+${index + 1}. Vente #${sale.id.slice(-8)}
+   • Date : ${new Date(sale.date).toLocaleDateString('fr-FR')} ${new Date(sale.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+   • Vendeuse : ${sale.vendorName || 'Inconnue'}
+   • Montant : ${sale.totalAmount ? sale.totalAmount.toFixed(2) + '€' : 'N/A'}
+   • Paiement : ${sale.paymentMethod || 'Non spécifié'}
+   • Articles : ${sale.items?.length || 0}`).join('\n')}
+
+================================================================================
+📋 DONNÉES TECHNIQUES (JSON BRUT)
+================================================================================
+
+${JSON.stringify(dataToExport, null, 2)}
+
+================================================================================
+🏪 CAISSE MYCONFORT - SAUVEGARDE TERMINÉE
+================================================================================
+    `;
+
+    const dataUri = 'data:text/plain;charset=utf-8,'+ encodeURIComponent(textReport);
+    const exportFileDefaultName = `myconfort-backup-${new Date().toISOString().split('T')[0]}.txt`;
+
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
     linkElement.setAttribute('download', exportFileDefaultName);
     linkElement.click();
-    
+
     console.log('💾 Sauvegarde exportée:', exportFileDefaultName);
-    alert('💾 Sauvegarde exportée avec succès !');
+    alert(`💾 Sauvegarde exportée avec succès !
+📄 Fichier : ${exportFileDefaultName}
+📊 Rapport détaillé généré avec statistiques et données structurées`);
   }, [sales, vendorStats, selectedVendor, cart]);
 
   const logRAZAction = useCallback((action: string, options: typeof resetOptions, success: boolean) => {
