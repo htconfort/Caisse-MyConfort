@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Download, Eye, Mail, Printer, Trash2 } from 'lucide-react';
+import { Calendar, Download, Eye, Mail, Printer, Trash2, Sparkles } from 'lucide-react';
 import { getDB, type RAZHistoryEntry } from '@/db/index';
 import { printHtmlA4 } from '@/utils/printA4';
+import { populateRAZHistoryWithTestData, clearRAZHistory } from '@/utils/populateRAZHistory';
 
 export const RAZHistoryTab: React.FC = () => {
   const [history, setHistory] = useState<RAZHistoryEntry[]>([]);
@@ -46,6 +47,39 @@ export const RAZHistoryTab: React.FC = () => {
     } catch (error) {
       console.error('❌ Erreur suppression:', error);
       alert('Erreur lors de la suppression');
+    }
+  };
+
+  const loadTestData = async () => {
+    if (!confirm('Charger des données de test pour la démonstration ?\n\n5 RAZ fictifs seront créés avec des foires et événements de test.')) {
+      return;
+    }
+    
+    try {
+      setLoading(true);
+      await populateRAZHistoryWithTestData();
+      await loadHistory();
+      alert('✅ Données de test chargées !\n\n5 RAZ de démonstration ont été créés.\nVous pouvez maintenant tester l\'impression et la consultation.');
+    } catch (error) {
+      console.error('❌ Erreur chargement données test:', error);
+      alert('Erreur lors du chargement des données de test');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearAllHistory = async () => {
+    if (!confirm('Supprimer TOUT l\'historique ?\n\nCette action est irréversible.')) {
+      return;
+    }
+    
+    try {
+      await clearRAZHistory();
+      await loadHistory();
+      alert('✅ Historique RAZ vidé');
+    } catch (error) {
+      console.error('❌ Erreur nettoyage:', error);
+      alert('Erreur lors du nettoyage');
     }
   };
 
@@ -315,19 +349,69 @@ export const RAZHistoryTab: React.FC = () => {
           marginBottom: '30px',
           boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
         }}>
-          <h1 style={{ 
-            margin: 0, 
-            fontSize: '2.5em', 
-            fontWeight: 'bold',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '15px'
-          }}>
-            📚 Historique des RAZ
-          </h1>
-          <p style={{ margin: '10px 0 0 0', fontSize: '1.2em', opacity: 0.9 }}>
-            Consultez toutes vos feuilles de caisse et résumés de journée
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+            <div>
+              <h1 style={{ 
+                margin: 0, 
+                fontSize: '2.5em', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                📚 Historique des RAZ
+              </h1>
+              <p style={{ margin: '10px 0 0 0', fontSize: '1.2em', opacity: 0.9 }}>
+                Consultez toutes vos feuilles de caisse et résumés de journée
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {history.length === 0 && (
+                <button
+                  onClick={loadTestData}
+                  style={{
+                    padding: '12px 20px',
+                    background: 'rgba(255,255,255,0.2)',
+                    color: 'white',
+                    border: '2px solid rgba(255,255,255,0.5)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  title="Charger des données de démonstration"
+                >
+                  <Sparkles size={16} />
+                  Charger données de test
+                </button>
+              )}
+              {history.length > 0 && (
+                <button
+                  onClick={clearAllHistory}
+                  style={{
+                    padding: '12px 20px',
+                    background: 'rgba(239,68,68,0.9)',
+                    color: 'white',
+                    border: '2px solid rgba(255,255,255,0.5)',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                  title="Supprimer tout l'historique"
+                >
+                  <Trash2 size={16} />
+                  Tout supprimer
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Stats globales */}
@@ -396,9 +480,49 @@ export const RAZHistoryTab: React.FC = () => {
             <h2 style={{ fontSize: '24px', color: '#333', marginBottom: '10px' }}>
               Aucun RAZ archivé
             </h2>
-            <p style={{ fontSize: '16px', color: '#666' }}>
+            <p style={{ fontSize: '16px', color: '#666', marginBottom: '30px' }}>
               Les feuilles de caisse seront automatiquement sauvegardées ici après chaque RAZ
             </p>
+            
+            <div style={{
+              background: '#f0f9ff',
+              border: '2px dashed #3b82f6',
+              borderRadius: '10px',
+              padding: '25px',
+              marginTop: '20px',
+              maxWidth: '600px',
+              margin: '30px auto'
+            }}>
+              <div style={{ fontSize: '20px', marginBottom: '15px', color: '#1e40af', fontWeight: 'bold' }}>
+                ✨ Mode Démonstration
+              </div>
+              <p style={{ fontSize: '15px', color: '#666', marginBottom: '20px' }}>
+                Pour voir l'interface en action sans faire de vraies ventes, vous pouvez charger des données de test.
+              </p>
+              <button
+                onClick={loadTestData}
+                style={{
+                  padding: '15px 30px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '16px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
+                }}
+              >
+                <Sparkles size={20} />
+                Charger 5 RAZ de démonstration
+              </button>
+              <p style={{ fontSize: '13px', color: '#999', marginTop: '15px' }}>
+                (Ceci créera 5 feuilles de caisse fictives pour tester l'impression et la consultation)
+              </p>
+            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
