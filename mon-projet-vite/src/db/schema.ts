@@ -17,6 +17,37 @@ import type {
     VendorDB
 } from '../types';
 
+// Interface pour l'historique des RAZ
+export interface RAZHistoryEntry {
+  id: string;
+  date: number;  // timestamp
+  sessionName: string;
+  sessionStart?: number;
+  sessionEnd?: number;
+  
+  // Données financières
+  totalSales: number;
+  totalCash: number;
+  totalCard: number;
+  totalChecks: number;
+  vendorStats: Array<{
+    name: string;
+    dailySales: number;
+    totalSales: number;
+  }>;
+  salesCount: number;
+  
+  // Résumé email
+  emailContent?: string;
+  
+  // Données complètes pour réaffichage
+  fullData: {
+    sales: any[];
+    invoices: any[];
+    vendorStats: any[];
+  };
+}
+
 /**
  * Base de données MyConfort
  * - Index adaptés aux requêtes fréquentes
@@ -45,6 +76,11 @@ export class MyConfortDB extends Dexie {
   settings!: Table<SystemSettings>;
   cache!: Table<CacheEntry>;
   sessions!: Table<SessionDB>;
+  
+  // ============================================================================
+  // 📚 HISTORIQUE RAZ
+  // ============================================================================
+  razHistory!: Table<RAZHistoryEntry>;
 
   constructor() {
     super('MyConfortCaisseV2');
@@ -78,6 +114,13 @@ export class MyConfortDB extends Dexie {
     // ------------------------------------------------------------------------
     this.version(2).stores({
       sessions: 'id, status, openedAt, closedAt, openedBy'
+    });
+
+    // ------------------------------------------------------------------------
+    // v3 : historique RAZ
+    // ------------------------------------------------------------------------
+    this.version(3).stores({
+      razHistory: 'id, date, sessionName, totalSales'
     });
 
     // ========================================================================

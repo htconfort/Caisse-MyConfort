@@ -1,4 +1,5 @@
 import { pendingPaymentsService, type PendingPayment } from '@/services/pendingPaymentsService';
+import { RAZHistoryService } from '@/services/razHistoryService';
 import { closeCurrentSession as closeCurrentSessionHelper, computeTodayTotalsFromDB, ensureSession as ensureSessionHelper, getCurrentSession as getCurrentSessionHelper, updateCurrentSessionEvent as updateCurrentSessionEventHelper, updateSession as updateSessionHelper } from '@/services/sessionService';
 import type { Invoice } from '@/services/syncService';
 import type { SessionDB } from '@/types';
@@ -10,6 +11,7 @@ import type { Sale, Vendor } from '../types';
 import { printHtmlA4 } from '../utils/printA4';
 import { FeuilleCaissePrintable } from './FeuilleCaissePrintable';
 import { RAZGuardModal } from './RAZGuardModal';
+import { RAZHistoryTab } from './raz/RAZHistoryTab';
 import WhatsAppIntegrated from './WhatsAppIntegrated';
 
 // Normalisation d'une ligne de chèque pour tables UI + impression
@@ -165,6 +167,9 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
   // ===== SESSION (uniquement dans l'onglet RAZ) =====
   const [session, setSession] = useState<SessionDB | undefined>();
   const [sessLoading, setSessLoading] = useState(true);
+  
+  // ===== ONGLET HISTORIQUE RAZ =====
+  const [showHistoryTab, setShowHistoryTab] = useState(false);
   
   // (Détail des chèques retiré de l'UI pour éviter les doublons)
   const [openingSession, setOpeningSession] = useState(false);
@@ -804,6 +809,18 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       console.log('🛡️ Sauvegarde automatique avant RAZ Journée...');
       await exportDataBeforeReset();
       
+      // 1b. 📚 SAUVEGARDE DANS L'HISTORIQUE RAZ
+      console.log('📚 Sauvegarde du RAZ dans l\'historique...');
+      await RAZHistoryService.saveRAZToHistory(
+        sales,
+        invoices,
+        vendorStats,
+        session?.eventName || `Journée du ${new Date().toLocaleDateString('fr-FR')}`,
+        session?.eventStart,
+        session?.eventEnd,
+        undefined // emailContent sera ajouté plus tard si nécessaire
+      );
+      
       // 2. Attendre 1.5 secondes pour que l'utilisateur voie la sauvegarde
       await new Promise(resolve => setTimeout(resolve, 1500));
       
@@ -817,7 +834,7 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       setIsEmailSent(false);
       setModeApercu(false);
       
-      alert('✅ RAZ Journée terminée avec succès !');
+      alert('✅ RAZ Journée terminée avec succès !\n📚 Feuille de caisse sauvegardée dans l\'historique');
       executeRAZ();
     } catch (error) {
       console.error('❌ Erreur RAZ Journée:', error);
@@ -840,6 +857,18 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
       // 1. SAUVEGARDE AUTOMATIQUE FORCÉE
       console.log('🛡️ Sauvegarde automatique avant RAZ Fin Session...');
       await exportDataBeforeReset();
+      
+      // 1b. 📚 SAUVEGARDE DANS L'HISTORIQUE RAZ
+      console.log('📚 Sauvegarde du RAZ Fin Session dans l\'historique...');
+      await RAZHistoryService.saveRAZToHistory(
+        sales,
+        invoices,
+        vendorStats,
+        session?.eventName || `Fin Session du ${new Date().toLocaleDateString('fr-FR')}`,
+        session?.eventStart,
+        session?.eventEnd,
+        undefined
+      );
       
       // 2. Attendre 1.5 secondes pour que l'utilisateur voie la sauvegarde
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -911,69 +940,123 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
             </p>
           </div>
 
-          {/* Session - Header compact coloré (format feuille de caisse) */}
-          <div style={{
-            background: session 
-              ? 'linear-gradient(135deg, #065F46 0%, #047857 50%, #059669 100%)' 
-              : 'linear-gradient(135deg, #7C2D12 0%, #DC2626 50%, #EF4444 100%)',
-            color: 'white',
-            padding: 16,
-            borderRadius: 10,
-            marginBottom: 20,
-            boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
-          }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
-              <div>
-                <div style={{ margin: 0, fontSize: 20, fontWeight: 800, display:'flex', alignItems:'center', gap:8 }}>
-                  📍 {session?.eventName || 'Aucune session active'}
-                </div>
-                <div style={{ marginTop: 6, opacity: 0.95, fontWeight: 600 }}>
-                  {session 
-                    ? `Session ${session.status ?? 'ouverte'} • ${session.eventStart ? new Date(session.eventStart).toLocaleDateString('fr-FR') : '—'} - ${session.eventEnd ? new Date(session.eventEnd).toLocaleDateString('fr-FR') : '—'}`
-                    : `Créez une session pour démarrer l'enregistrement des ventes`
-                  }
-                </div>
-              </div>
-              <div style={{ display:'flex', gap:10 }}>
-                {!session && (
-                  <button
-                    onClick={openSession}
-                    disabled={openingSession}
-                    style={{
-                      background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
-                      padding:'10px 16px', borderRadius:8, fontWeight:800, cursor: openingSession ? 'not-allowed':'pointer'
-                    }}
-                  >
-                    Ouvrir une session
-                  </button>
-                )}
-                {session && (
-                  <button
-                    onClick={() => {
-                      const name = prompt('Nom de la foire', eventName || session.eventName || '');
-                      if (!name) return;
-                      const start = prompt('Date de début (yyyy-mm-dd)', toInputDate(session.eventStart));
-                      const end = prompt('Date de fin (yyyy-mm-dd)', toInputDate(session.eventEnd));
-                      const patch: Partial<SessionDB> = {
-                        eventName: name.trim(),
-                        eventStart: start ? new Date(start).getTime() : session.eventStart,
-                        eventEnd: end ? new Date(end).getTime() : session.eventEnd,
-                      };
-                      updateSessionHelper(session.id, patch).then(() => refreshSession());
-                    }}
-                    style={{
-                      background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
-                      padding:'10px 16px', borderRadius:8, fontWeight:800, cursor:'pointer'
-                    }}
-                  >
-                    Modifier
-                  </button>
-                )}
-              </div>
+          {/* Onglets: Session courante / Historique RAZ */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{
+              display: 'flex',
+              gap: '10px',
+              borderBottom: '2px solid #e5e7eb',
+              marginBottom: '20px'
+            }}>
+              <button
+                onClick={() => setShowHistoryTab(false)}
+                style={{
+                  padding: '15px 25px',
+                  background: !showHistoryTab ? '#477A0C' : 'transparent',
+                  color: !showHistoryTab ? 'white' : '#666',
+                  border: 'none',
+                  borderBottom: !showHistoryTab ? '3px solid #477A0C' : '3px solid transparent',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                📍 Session Courante
+              </button>
+              <button
+                onClick={() => setShowHistoryTab(true)}
+                style={{
+                  padding: '15px 25px',
+                  background: showHistoryTab ? '#1e40af' : 'transparent',
+                  color: showHistoryTab ? 'white' : '#666',
+                  border: 'none',
+                  borderBottom: showHistoryTab ? '3px solid #1e40af' : '3px solid transparent',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  borderTopLeftRadius: '8px',
+                  borderTopRightRadius: '8px',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                📚 Historique des RAZ
+              </button>
             </div>
+
+            {/* Contenu de l'onglet sélectionné */}
+            {!showHistoryTab ? (
+              // Session courante
+              <div style={{
+                background: session 
+                  ? 'linear-gradient(135deg, #065F46 0%, #047857 50%, #059669 100%)' 
+                  : 'linear-gradient(135deg, #7C2D12 0%, #DC2626 50%, #EF4444 100%)',
+                color: 'white',
+                padding: 16,
+                borderRadius: 10,
+                marginBottom: 20,
+                boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
+              }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                  <div>
+                    <div style={{ margin: 0, fontSize: 20, fontWeight: 800, display:'flex', alignItems:'center', gap:8 }}>
+                      📍 {session?.eventName || 'Aucune session active'}
+                    </div>
+                    <div style={{ marginTop: 6, opacity: 0.95, fontWeight: 600 }}>
+                      {session 
+                        ? `Session ${session.status ?? 'ouverte'} • ${session.eventStart ? new Date(session.eventStart).toLocaleDateString('fr-FR') : '—'} - ${session.eventEnd ? new Date(session.eventEnd).toLocaleDateString('fr-FR') : '—'}`
+                        : `Créez une session pour démarrer l'enregistrement des ventes`
+                      }
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:10 }}>
+                    {!session && (
+                      <button
+                        onClick={openSession}
+                        disabled={openingSession}
+                        style={{
+                          background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
+                          padding:'10px 16px', borderRadius:8, fontWeight:800, cursor: openingSession ? 'not-allowed':'pointer'
+                        }}
+                      >
+                        Ouvrir une session
+                      </button>
+                    )}
+                    {session && (
+                      <button
+                        onClick={() => {
+                          const name = prompt('Nom de la foire', eventName || session.eventName || '');
+                          if (!name) return;
+                          const start = prompt('Date de début (yyyy-mm-dd)', toInputDate(session.eventStart));
+                          const end = prompt('Date de fin (yyyy-mm-dd)', toInputDate(session.eventEnd));
+                          const patch: Partial<SessionDB> = {
+                            eventName: name.trim(),
+                            eventStart: start ? new Date(start).getTime() : session.eventStart,
+                            eventEnd: end ? new Date(end).getTime() : session.eventEnd,
+                          };
+                          updateSessionHelper(session.id, patch).then(() => refreshSession());
+                        }}
+                        style={{
+                          background:'rgba(255,255,255,0.2)', border:'1px solid rgba(255,255,255,0.35)', color:'#fff',
+                          padding:'10px 16px', borderRadius:8, fontWeight:800, cursor:'pointer'
+                        }}
+                      >
+                        Modifier
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              // Historique des RAZ
+              <RAZHistoryTab />
+            )}
           </div>
 
-          {/* Boutons - Interface Améliorée */}
+          {/* Boutons - Interface Améliorée (seulement pour session courante) */}
+          {!showHistoryTab && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 15, marginBottom: 30 }}>
             {/* 🖤 Bouton Noir : Voir feuille de caisse */}
             <button 
@@ -1045,11 +1128,12 @@ function FeuilleDeRAZPro({ sales, invoices, vendorStats, exportDataBeforeReset, 
               RAZ Fin Session
             </button>
           </div>
+          )}
 
           {/* Détail des chèques retiré (éviter doublons) */}
 
-          {/* Aperçu */}
-          {modeApercu && (
+          {/* Aperçu (seulement pour session courante) */}
+          {!showHistoryTab && modeApercu && (
             <div style={{ background: '#fff', padding: 20, borderRadius: 10, boxShadow: '0 4px 20px rgba(0,0,0,0.1)', border: '2px dashed #477A0C' }}>
               <h2 style={{ textAlign: 'center', color: '#477A0C', marginBottom: 16 }}>📄 APERÇU DE LA FEUILLE DE CAISSE</h2>
               <div id="zone-impression">
