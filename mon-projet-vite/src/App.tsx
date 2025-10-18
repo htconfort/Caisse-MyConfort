@@ -19,14 +19,14 @@ import type {
 
 // Type pour les options de RAZ
 type ResetOptionKey =
-  | 'dailySales'
-  | 'cart'
-  | 'invoices'
-  | 'selectedVendor'
-  | 'vendorStats'
-  | 'keepSalesHistory'    // ✅ NOUVEAU: Conserver l'historique des ventes
-  | 'keepPendingChecks'   // ✅ NOUVEAU: Conserver les chèques à venir
-  | 'allData';
+  | 'dailySales'           // Remet à zéro les stats du jour (CA du jour)
+  | 'cart'                 // Vide le panier
+  | 'invoices'             // Supprime les factures N8N en cache
+  | 'selectedVendor'       // Change la vendeuse sélectionnée
+  | 'vendorStats'          // Remet à zéro les stats totales des vendeuses
+  | 'deleteSalesHistory'   // ✅ Si TRUE: Supprime l'historique | FALSE (défaut): Conserve
+  | 'deletePendingChecks'  // ✅ Si TRUE: Supprime les chèques | FALSE (défaut): Conserve
+  | 'allData';             // RAZ complète (supprime tout)
 
 import { getDB } from '@/db/index';
 import { sessionService } from '@/services';
@@ -178,14 +178,14 @@ export default function CaisseMyConfortApp() {
   // États pour le système RAZ avancé
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetOptions, setResetOptions] = useState<Record<ResetOptionKey, boolean>>({
-    dailySales: true,
-    cart: true,
-    invoices: true,
-    selectedVendor: false,
-    vendorStats: false,
-    keepSalesHistory: false,     // ✅ NOUVEAU: Par défaut, conserver l'historique (décoché = conserver)
-    keepPendingChecks: false,    // ✅ NOUVEAU: Par défaut, conserver les chèques (décoché = conserver)
-    allData: false
+    dailySales: true,              // ✅ Remet à zéro le CA du jour (compteur)
+    cart: true,                    // ✅ Vide le panier
+    invoices: true,                // ✅ Supprime les factures N8N en cache
+    selectedVendor: false,         // ⚠️ Ne change pas la vendeuse sélectionnée
+    vendorStats: false,            // ⚠️ Ne touche pas aux stats totales
+    deleteSalesHistory: false,     // ✅ PAR DÉFAUT: CONSERVER l'historique (false = garder)
+    deletePendingChecks: false,    // ✅ PAR DÉFAUT: CONSERVER les chèques (false = garder)
+    allData: false                 // ⚠️ Pas de RAZ complète
   });
   const [resetStep, setResetStep] = useState<'options' | 'confirmation' | 'executing' | 'completed'>('options');
   const [showResetSuccess, setShowResetSuccess] = useState(false);
@@ -656,8 +656,8 @@ export default function CaisseMyConfortApp() {
   const handleResetOption = useCallback((option: ResetOptionKey, value: boolean) => {
     if (option === 'allData') {
       setResetOptions(value
-        ? { dailySales: true, cart: true, invoices: true, selectedVendor: true, vendorStats: true, keepSalesHistory: true, keepPendingChecks: true, allData: true }
-        : { dailySales: false, cart: false, invoices: false, selectedVendor: false, vendorStats: false, keepSalesHistory: false, keepPendingChecks: false, allData: false }
+        ? { dailySales: true, cart: true, invoices: true, selectedVendor: true, vendorStats: true, deleteSalesHistory: true, deletePendingChecks: true, allData: true }
+        : { dailySales: false, cart: false, invoices: false, selectedVendor: false, vendorStats: false, deleteSalesHistory: false, deletePendingChecks: false, allData: false }
       );
       return;
     }
@@ -666,8 +666,8 @@ export default function CaisseMyConfortApp() {
       if (!value) next.allData = false;
       // ✅ CORRECTION: RAZ complète active automatiquement la suppression
       if (next.allData) {
-        next.keepSalesHistory = true;  // Coché = supprimer
-        next.keepPendingChecks = true; // Coché = supprimer
+        next.deleteSalesHistory = true;  // Coché = supprimer
+        next.deletePendingChecks = true; // Coché = supprimer
       }
       return next;
     });
@@ -796,37 +796,30 @@ ${JSON.stringify(dataToExport, null, 2)}
     setTimeout(() => {
       (async () => {
         try {
-          // RAZ des ventes du jour
+          // ✅ RAZ des STATS du jour SEULEMENT (SANS supprimer les ventes)
           if (resetOptions.dailySales) {
             const resetVendors = vendorStats.map(vendor => ({
               ...vendor,
-              dailySales: 0
+              dailySales: 0  // ✅ Remet à zéro SEULEMENT le compteur du jour
             }));
             setVendorStats(resetVendors);
             
-            // 🔧 CORRECTION CUMUL CRITIQUE : Supprimer AUSSI les ventes du jour
-            const today = new Date();
-            const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-            const todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1;
-            
-            // Filtrer les ventes pour garder seulement celles qui ne sont PAS d'aujourd'hui
-            const salesNotToday = sales.filter(sale => {
-              const saleDate = new Date(sale.date).getTime();
-              return saleDate < todayStart || saleDate > todayEnd;
-            });
-            
-            setSales(salesNotToday);
-            
-            // Vider aussi IndexedDB des ventes du jour
+            // ✅ Mettre à jour les vendeurs dans IndexedDB (dailySales à 0)
             try {
               const db = await getDB();
-              await db.sales.where('date').between(todayStart, todayEnd).delete();
-              console.log('✅ Ventes du jour supprimées d\'IndexedDB');
+              for (const vendor of resetVendors) {
+                await db.vendors.update(vendor.id, {
+                  dailySales: 0,
+                  lastUpdate: Date.now()
+                });
+              }
+              console.log('✅ Stats du jour remises à zéro (dailySales = 0€)');
             } catch (error) {
-              console.error('❌ Erreur suppression ventes du jour IndexedDB:', error);
+              console.error('❌ Erreur mise à jour vendeurs IndexedDB:', error);
             }
             
-            console.log('✅ RAZ ventes du jour effectuée (React + IndexedDB)');
+            // ✅ IMPORTANT : Les ventes restent dans la base (historique conservé)
+            console.log('📚 Historique des ventes conservé, seules les stats du jour sont remises à zéro');
           }
 
           // RAZ du panier
@@ -904,34 +897,34 @@ ${JSON.stringify(dataToExport, null, 2)}
           } else {
             // ✅ GESTION DES OPTIONS DE CONSERVATION (seulement si pas RAZ complète)
             
-            // Conservation de l'historique des ventes (LOGIQUE CORRIGÉE)
-            if (!resetOptions.keepSalesHistory && !resetOptions.allData) {
-              // Si on ne veut PAS conserver l'historique, on le supprime
+            // ✅ NOUVEAU : Conservation de l'historique des ventes PAR DÉFAUT
+            // L'historique est TOUJOURS conservé sauf si explicitement demandé de le supprimer
+            if (resetOptions.deleteSalesHistory) {
+              // ❌ Suppression explicite de l'historique (RAZ complète événement)
               setSales([]);
               
-              // 🔧 CORRECTION CUMUL DÉFINITIVE : Vider AUSSI IndexedDB
               try {
                 const db = await getDB();
                 await db.sales.clear();
-                console.log('✅ IndexedDB sales vidée');
+                console.log('🗑️ Historique des ventes supprimé (RAZ complète événement)');
               } catch (error) {
                 console.error('❌ Erreur vidage IndexedDB sales:', error);
               }
               
-              // Vider localStorage
               localStorage.removeItem('myconfort-sales');
-              console.log('✅ Historique des ventes supprimé (IndexedDB + localStorage)');
             } else {
-              console.log('📚 Historique des ventes conservé');
+              // ✅ Conservation par défaut (RAZ quotidien normal)
+              console.log('📚 Historique des ventes CONSERVÉ (accessible dans onglet Ventes)');
             }
 
-            // Conservation des chèques à venir (LOGIQUE CORRIGÉE)
-            if (!resetOptions.keepPendingChecks && !resetOptions.allData) {
-              // Si on ne veut PAS conserver les chèques, on les supprime
+            // ✅ NOUVEAU : Conservation des chèques à venir PAR DÉFAUT
+            if (resetOptions.deletePendingChecks) {
+              // ❌ Suppression explicite des chèques
               localStorage.removeItem('pendingPayments');
-              console.log('✅ Chèques à venir supprimés');
+              console.log('🗑️ Chèques à venir supprimés');
             } else {
-              console.log('💳 Chèques à venir conservés');
+              // ✅ Conservation par défaut
+              console.log('💳 Chèques à venir CONSERVÉS');
             }
           }
 
@@ -941,14 +934,14 @@ ${JSON.stringify(dataToExport, null, 2)}
           // Reset des états
           setShowResetModal(false);
           setResetOptions({
-            dailySales: true,
-            cart: true,
-            invoices: true,
-            selectedVendor: false,
-            vendorStats: false,
-            keepSalesHistory: false,     // ✅ NOUVEAU: Par défaut, conserver l'historique (décoché = conserver)
-            keepPendingChecks: false,    // ✅ NOUVEAU: Par défaut, conserver les chèques (décoché = conserver)
-            allData: false
+            dailySales: true,              // ✅ Remet à zéro le CA du jour (compteur)
+            cart: true,                    // ✅ Vide le panier
+            invoices: true,                // ✅ Supprime les factures N8N en cache
+            selectedVendor: false,         // ⚠️ Ne change pas la vendeuse sélectionnée
+            vendorStats: false,            // ⚠️ Ne touche pas aux stats totales
+            deleteSalesHistory: false,     // ✅ PAR DÉFAUT: CONSERVER l'historique (false = garder)
+            deletePendingChecks: false,    // ✅ PAR DÉFAUT: CONSERVER les chèques (false = garder)
+            allData: false                 // ⚠️ Pas de RAZ complète
           });
           setResetStep('options');
           setShowResetSuccess(true);
@@ -974,6 +967,8 @@ ${JSON.stringify(dataToExport, null, 2)}
       invoices: true,
       selectedVendor: false,
       vendorStats: false,
+      deleteSalesHistory: false,
+      deletePendingChecks: false,
       allData: false
     });
     setResetStep('options');
@@ -1423,33 +1418,37 @@ ${JSON.stringify(dataToExport, null, 2)}
                           </div>
                         </label>
 
-                        {/* ✅ NOUVEAU: Conserver l'historique des ventes */}
+                        {/* ✅ OPTION: Supprimer l'historique des ventes (DÉCOCHÉ PAR DÉFAUT = CONSERVER) */}
                         <label style={{
                           display: 'flex',
                           alignItems: 'center',
                           padding: '12px',
-                          border: '2px solid #28a745',
+                          border: '2px solid #ffc107',
                           borderRadius: '8px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          background: resetOptions.keepSalesHistory ? '#d4edda' : '#f8f9fa'
+                          background: resetOptions.deleteSalesHistory ? '#fff3cd' : '#f8f9fa'
                         }}>
                           <input
                             type="checkbox"
-                            checked={resetOptions.keepSalesHistory}
-                            onChange={(e) => handleResetOption('keepSalesHistory', e.target.checked)}
+                            checked={resetOptions.deleteSalesHistory}
+                            onChange={(e) => handleResetOption('deleteSalesHistory', e.target.checked)}
                             style={{ marginRight: '10px', transform: 'scale(1.2)' }}
                           />
                           <div>
-                            <strong style={{ color: '#155724' }}>📚 Supprimer l'historique des ventes</strong>
+                            <strong style={{ color: resetOptions.deleteSalesHistory ? '#dc3545' : '#28a745' }}>
+                              {resetOptions.deleteSalesHistory ? '🗑️ Supprimer' : '📚 Conserver'} l'historique des ventes
+                            </strong>
                             <br />
                             <small style={{ color: '#6c757d' }}>
-                              ⚠️ Efface toutes les ventes passées (décoché = conserver)
+                              {resetOptions.deleteSalesHistory 
+                                ? '⚠️ Efface toutes les ventes passées (RAZ événement)' 
+                                : '✅ Garde l\'historique accessible (RAZ quotidien)'}
                             </small>
                           </div>
                         </label>
 
-                        {/* ✅ NOUVEAU: Conserver les chèques à venir */}
+                        {/* ✅ OPTION: Supprimer les chèques à venir (DÉCOCHÉ PAR DÉFAUT = CONSERVER) */}
                         <label style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -1458,19 +1457,23 @@ ${JSON.stringify(dataToExport, null, 2)}
                           borderRadius: '8px',
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
-                          background: resetOptions.keepPendingChecks ? '#d1ecf1' : '#f8f9fa'
+                          background: resetOptions.deletePendingChecks ? '#d1ecf1' : '#f8f9fa'
                         }}>
                           <input
                             type="checkbox"
-                            checked={resetOptions.keepPendingChecks}
-                            onChange={(e) => handleResetOption('keepPendingChecks', e.target.checked)}
+                            checked={resetOptions.deletePendingChecks}
+                            onChange={(e) => handleResetOption('deletePendingChecks', e.target.checked)}
                             style={{ marginRight: '10px', transform: 'scale(1.2)' }}
                           />
                           <div>
-                            <strong style={{ color: '#0c5460' }}>💳 Supprimer les chèques à venir</strong>
+                            <strong style={{ color: resetOptions.deletePendingChecks ? '#dc3545' : '#17a2b8' }}>
+                              {resetOptions.deletePendingChecks ? '🗑️ Supprimer' : '💳 Conserver'} les chèques à venir
+                            </strong>
                             <br />
                             <small style={{ color: '#6c757d' }}>
-                              ⚠️ Efface tous les chèques non encaissés (décoché = conserver)
+                              {resetOptions.deletePendingChecks 
+                                ? '⚠️ Efface tous les chèques non encaissés' 
+                                : '✅ Garde les chèques à encaisser'}
                             </small>
                           </div>
                         </label>
@@ -1503,7 +1506,7 @@ ${JSON.stringify(dataToExport, null, 2)}
                       </div>
 
                       {/* Aperçu des actions */}
-                      {(resetOptions.dailySales || resetOptions.cart || resetOptions.invoices || resetOptions.selectedVendor || resetOptions.vendorStats || resetOptions.keepSalesHistory || resetOptions.keepPendingChecks || resetOptions.allData) && (
+                      {(resetOptions.dailySales || resetOptions.cart || resetOptions.invoices || resetOptions.selectedVendor || resetOptions.vendorStats || resetOptions.deleteSalesHistory || resetOptions.deletePendingChecks || resetOptions.allData) && (
                         <div style={{
                           background: '#fff3cd',
                           border: '1px solid #ffeaa7',
@@ -1515,15 +1518,15 @@ ${JSON.stringify(dataToExport, null, 2)}
                             📋 Aperçu des actions à effectuer :
                           </h4>
                           <ul style={{ margin: 0, paddingLeft: '20px', color: '#856404' }}>
-                            {resetOptions.dailySales && <li>Remise à zéro des ventes du jour</li>}
-                            {resetOptions.cart && <li>Vidage du panier ({cart.length} articles)</li>}
+                            {resetOptions.dailySales && <li>📊 Remise à zéro du CA du jour (compteur dailySales = 0€)</li>}
+                            {resetOptions.cart && <li>🛒 Vidage du panier ({cart.length} articles)</li>}
                             {resetOptions.invoices && <li>📋 Effacement des factures N8N ({invoices.length} factures)</li>}
-                            {resetOptions.selectedVendor && <li>Désélection de la vendeuse active</li>}
-                            {resetOptions.vendorStats && <li>Remise à zéro des statistiques vendeuses</li>}
-                            {resetOptions.keepSalesHistory && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>📚 Suppression de l'historique des ventes</li>}
-                            {resetOptions.keepPendingChecks && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>💳 Suppression des chèques à venir</li>}
-                            {!resetOptions.keepSalesHistory && <li style={{ color: '#28a745', fontWeight: 'bold' }}>📚 Conservation de l'historique des ventes</li>}
-                            {!resetOptions.keepPendingChecks && <li style={{ color: '#17a2b8', fontWeight: 'bold' }}>💳 Conservation des chèques à venir</li>}
+                            {resetOptions.selectedVendor && <li>👤 Désélection de la vendeuse active</li>}
+                            {resetOptions.vendorStats && <li>📈 Remise à zéro des statistiques totales vendeuses</li>}
+                            {resetOptions.deleteSalesHistory && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>🗑️ Suppression de l'historique des ventes (RAZ complète événement)</li>}
+                            {resetOptions.deletePendingChecks && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>🗑️ Suppression des chèques à venir</li>}
+                            {!resetOptions.deleteSalesHistory && <li style={{ color: '#28a745', fontWeight: 'bold' }}>✅ Conservation de l'historique des ventes (accessible dans l'onglet Ventes)</li>}
+                            {!resetOptions.deletePendingChecks && <li style={{ color: '#17a2b8', fontWeight: 'bold' }}>✅ Conservation des chèques à venir</li>}
                             {resetOptions.allData && <li style={{ color: '#dc3545', fontWeight: 'bold' }}>🚨 SUPPRESSION COMPLÈTE DE TOUTES LES DONNÉES</li>}
                           </ul>
                         </div>
