@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Download, Eye, Mail, Printer, Trash2 } from 'lucide-react';
 import { getDB, type RAZHistoryEntry } from '@/db/index';
+import { printHtmlA4 } from '@/utils/printA4';
 
 export const RAZHistoryTab: React.FC = () => {
   const [history, setHistory] = useState<RAZHistoryEntry[]>([]);
@@ -53,6 +54,11 @@ export const RAZHistoryTab: React.FC = () => {
     setShowDetailModal(true);
   };
 
+  const printCashSheet = (entry: RAZHistoryEntry) => {
+    const html = generateCashSheetHTML(entry);
+    printHtmlA4(html);
+  };
+
   const downloadAsPDF = (entry: RAZHistoryEntry) => {
     // TODO: Générer un PDF de la feuille de caisse
     alert('Export PDF en cours de développement');
@@ -63,6 +69,228 @@ export const RAZHistoryTab: React.FC = () => {
       style: 'currency',
       currency: 'EUR'
     }).format(amount);
+  };
+
+  const generateCashSheetHTML = (entry: RAZHistoryEntry): string => {
+    const formatDate = (timestamp: number) => {
+      return new Date(timestamp).toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    };
+
+    const formatDateTime = (timestamp: number) => {
+      return new Date(timestamp).toLocaleString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    return `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <style>
+          @page { margin: 2cm; }
+          body {
+            font-family: 'Arial', sans-serif;
+            color: #333;
+            line-height: 1.6;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #477A0C;
+          }
+          .header h1 {
+            color: #477A0C;
+            font-size: 28px;
+            margin: 0 0 10px 0;
+          }
+          .section {
+            margin: 25px 0;
+            page-break-inside: avoid;
+          }
+          .section-title {
+            background: #477A0C;
+            color: white;
+            padding: 10px 15px;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+          }
+          .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+          }
+          .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #477A0C;
+          }
+          .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+          }
+          .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #477A0C;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+          }
+          th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+          }
+          th {
+            background-color: #477A0C;
+            color: white;
+            font-weight: bold;
+          }
+          tr:nth-child(even) {
+            background-color: #f8f9fa;
+          }
+          .total-row {
+            background-color: #e8f5e9;
+            font-weight: bold;
+          }
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #ddd;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📋 FEUILLE DE CAISSE MYCONFORT</h1>
+          <p><strong>${entry.sessionName}</strong></p>
+          <p>RAZ effectué le ${formatDateTime(entry.date)}</p>
+          ${entry.sessionStart && entry.sessionEnd ? 
+            `<p>Période: ${formatDate(entry.sessionStart)} - ${formatDate(entry.sessionEnd)}</p>` 
+            : ''}
+        </div>
+
+        <div class="section">
+          <div class="section-title">💰 RÉSUMÉ FINANCIER</div>
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-label">CA Total</div>
+              <div class="stat-value">${formatCurrency(entry.totalSales)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Nombre de ventes</div>
+              <div class="stat-value">${entry.salesCount}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Ticket moyen</div>
+              <div class="stat-value">${formatCurrency(entry.salesCount > 0 ? entry.totalSales / entry.salesCount : 0)}</div>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-label">💵 Espèces</div>
+              <div class="stat-value">${formatCurrency(entry.totalCash)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">💳 Carte Bancaire</div>
+              <div class="stat-value">${formatCurrency(entry.totalCard)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">📄 Chèques</div>
+              <div class="stat-value">${formatCurrency(entry.totalChecks)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">👥 DÉTAIL PAR VENDEUSE</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Rang</th>
+                <th>Vendeuse</th>
+                <th>CA du jour</th>
+                <th>CA total</th>
+                <th>% du CA</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${entry.vendorStats
+                .sort((a, b) => b.dailySales - a.dailySales)
+                .map((vendor, idx) => `
+                  <tr>
+                    <td>${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1)}</td>
+                    <td><strong>${vendor.name}</strong></td>
+                    <td>${formatCurrency(vendor.dailySales)}</td>
+                    <td>${formatCurrency(vendor.totalSales)}</td>
+                    <td>${entry.totalSales > 0 ? ((vendor.dailySales / entry.totalSales) * 100).toFixed(1) : '0.0'}%</td>
+                  </tr>
+                `).join('')}
+              <tr class="total-row">
+                <td colspan="2">TOTAL</td>
+                <td>${formatCurrency(entry.vendorStats.reduce((sum, v) => sum + v.dailySales, 0))}</td>
+                <td>${formatCurrency(entry.vendorStats.reduce((sum, v) => sum + v.totalSales, 0))}</td>
+                <td>100%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section">
+          <div class="section-title">📊 RÉCAPITULATIF</div>
+          <table>
+            <tr>
+              <th>Indicateur</th>
+              <th>Valeur</th>
+            </tr>
+            <tr>
+              <td>Nombre de vendeuses actives</td>
+              <td>${entry.vendorStats.length}</td>
+            </tr>
+            <tr>
+              <td>Nombre total de ventes</td>
+              <td>${entry.salesCount}</td>
+            </tr>
+            <tr>
+              <td>Chiffre d'affaires total</td>
+              <td><strong>${formatCurrency(entry.totalSales)}</strong></td>
+            </tr>
+            <tr>
+              <td>Panier moyen</td>
+              <td>${formatCurrency(entry.salesCount > 0 ? entry.totalSales / entry.salesCount : 0)}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div class="footer">
+          <p>📋 Feuille de caisse archivée - Caisse MyConfort</p>
+          <p>Document généré le ${formatDateTime(entry.date)}</p>
+          <p>Session: ${entry.sessionName}</p>
+        </div>
+      </body>
+      </html>
+    `;
   };
 
   if (loading) {
@@ -224,7 +452,7 @@ export const RAZHistoryTab: React.FC = () => {
                     </div>
 
                     {/* Boutons d'action */}
-                    <div style={{ display: 'flex', gap: '10px' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <button
                         onClick={() => viewDetails(entry)}
                         style={{
@@ -243,6 +471,25 @@ export const RAZHistoryTab: React.FC = () => {
                       >
                         <Eye size={16} />
                         Voir
+                      </button>
+                      <button
+                        onClick={() => printCashSheet(entry)}
+                        style={{
+                          padding: '10px 16px',
+                          background: '#477A0C',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontWeight: '600',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                        title="Imprimer la feuille de caisse"
+                      >
+                        <Printer size={16} />
+                        Imprimer
                       </button>
                       <button
                         onClick={() => downloadAsPDF(entry)}
@@ -500,13 +747,39 @@ export const RAZHistoryTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Bouton fermer */}
-              <div style={{ textAlign: 'center' }}>
+              {/* Boutons d'action modal */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '15px', 
+                justifyContent: 'center',
+                flexWrap: 'wrap'
+              }}>
+                <button
+                  onClick={() => {
+                    printCashSheet(selectedEntry);
+                  }}
+                  style={{
+                    padding: '12px 32px',
+                    background: '#477A0C',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}
+                >
+                  <Printer size={20} />
+                  Imprimer la feuille
+                </button>
                 <button
                   onClick={() => setShowDetailModal(false)}
                   style={{
                     padding: '12px 32px',
-                    background: '#1e40af',
+                    background: '#6b7280',
                     color: 'white',
                     border: 'none',
                     borderRadius: '8px',
