@@ -1,6 +1,9 @@
 [build]
   publish = "mon-projet-vite/dist"
-  command = "cd mon-projet-vite && npm install && npm run build:netlify"
+  command = "npm install && npm run build:netlify"
+  
+[build.environment]
+  NODE_VERSION = "20.19.0"
 
 [functions]
   directory = "netlify/functions"

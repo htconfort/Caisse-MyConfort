@@ -1,4 +1,13 @@
 {
+  "name": "caisse-myconfort-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install": "cd mon-projet-vite && npm install",
+    "build": "cd mon-projet-vite && npm run build",
+    "build:netlify": "cd mon-projet-vite && npm run build:netlify",
+    "dev": "cd mon-projet-vite && npm run dev"
+  },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.44.0",
     "@typescript-eslint/parser": "^8.44.0",
