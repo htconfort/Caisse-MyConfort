@@ -229,15 +229,10 @@ export const RAZPasswordProtection: React.FC<RAZPasswordProtectionProps> = ({ on
             fontSize: '13px',
             color: '#666'
           }}>
-            <li>Mot de passe par défaut : <code style={{
-              background: '#e5e7eb',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontFamily: 'monospace'
-            }}>2025</code></li>
-            <li>Accès valide pour cette session</li>
-            <li>5 tentatives maximum (reset après 1 min)</li>
+            <li>Accès valide pour cette session uniquement</li>
+            <li>5 tentatives maximum (reset après 1 minute)</li>
             <li>Pour changer le mot de passe : Paramètres → Sécurité</li>
+            <li>Contactez l'administrateur si vous avez oublié le mot de passe</li>
           </ul>
         </div>
       </div>
