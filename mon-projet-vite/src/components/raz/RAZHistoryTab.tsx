@@ -3,19 +3,37 @@ import { Calendar, Download, Eye, Mail, Printer, Trash2, Sparkles } from 'lucide
 import { getDB, type RAZHistoryEntry } from '@/db/index';
 import { printHtmlA4 } from '@/utils/printA4';
 import { populateRAZHistoryWithTestData, clearRAZHistory } from '@/utils/populateRAZHistory';
+import { RAZPasswordProtection } from './RAZPasswordProtection';
 
 export const RAZHistoryTab: React.FC = () => {
   const [history, setHistory] = useState<RAZHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<RAZHistoryEntry | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(false);
 
-  // Charger l'historique depuis IndexedDB
+  // Vérifier si déjà déverrouillé dans cette session
   useEffect(() => {
-    loadHistory();
+    const unlocked = sessionStorage.getItem('raz_history_unlocked');
+    if (unlocked === 'true') {
+      setIsUnlocked(true);
+    }
   }, []);
 
+  // Charger l'historique depuis IndexedDB (quand déverrouillé)
+  useEffect(() => {
+    if (isUnlocked) {
+      loadHistory();
+    }
+  }, [isUnlocked]);
+
   const loadHistory = async () => {
+    // Ne charger que si déverrouillé
+    if (!isUnlocked) {
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const db = await getDB();
@@ -326,6 +344,13 @@ export const RAZHistoryTab: React.FC = () => {
       </html>
     `;
   };
+
+  // Afficher le formulaire de mot de passe si pas déverrouillé
+  if (!isUnlocked) {
+    return <RAZPasswordProtection onUnlock={() => {
+      setIsUnlocked(true);
+    }} />;
+  }
 
   if (loading) {
     return (
